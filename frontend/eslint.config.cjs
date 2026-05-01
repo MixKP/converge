@@ -2,16 +2,24 @@ const js = require("@eslint/js");
 const ts = require("typescript-eslint");
 const vue = require("eslint-plugin-vue");
 const vueParser = require("vue-eslint-parser");
+const prettier = require("eslint-config-prettier");
+const prettierPlugin = require("eslint-plugin-prettier");
 
 module.exports = [
   js.configs.recommended,
   ...ts.configs.recommended,
   ...vue.configs["flat/recommended"],
+  prettier,
+
   {
     files: ["**/*.vue", "**/*.ts", "**/*.tsx"],
+    plugins: {
+      prettier: prettierPlugin,
+    },
     languageOptions: {
       parser: vueParser,
       parserOptions: {
+        parser: ts.parser,
         projectService: true,
         tsconfigRootDir: __dirname,
         extraFileExtensions: [".vue"],
@@ -20,17 +28,15 @@ module.exports = [
       },
     },
     rules: {
+      "prettier/prettier": "error",
+
       "vue/multi-word-component-names": "off",
       "vue/no-unused-vars": "error",
       "vue/component-api-style": ["error", ["script-setup", "composition"]],
-      "vue/define-macros-order": ["error", {
-        order: ["defineProps", "defineEmits", "defineExpose"],
-      }],
 
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/consistent-type-imports": ["error", { prefer: "type-imports" }],
-      "@typescript-eslint/explicit-function-return-type": "off",
 
       "no-console": ["warn", { allow: ["warn", "error"] }],
       "prefer-const": "error",
@@ -38,12 +44,6 @@ module.exports = [
   },
 
   {
-    ignores: [
-      "dist/**",
-      "node_modules/**",
-      "*.config.js",
-      "*.config.ts",
-      "*.config.cjs",
-    ],
+    ignores: ["dist/**", "node_modules/**", "*.config.js", "*.config.ts", "*.config.cjs"],
   },
 ];
