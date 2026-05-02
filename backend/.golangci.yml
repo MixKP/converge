@@ -1,0 +1,41 @@
+version: "2"
+
+run:
+  tests: true
+
+formatters:
+  enable:
+    - goimports
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - bodyclose
+    - goconst
+    - gocritic
+    - gocyclo
+    - gosec
+    - nilerr
+    - revive
+  settings:
+    govet:
+      enable-all: true
+    gocyclo:
+      min-complexity: 15
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - performance
+        - style
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
