@@ -11,7 +11,8 @@
   "dependencies": {
     "@tailwindcss/vite": "^4.2.4",
     "tailwindcss": "^4.2.4",
-    "vue": "^3.5.32"
+    "vue": "^3.5.32",
+    "vue-cal": "^5.0.1-rc.41"
   },
   "devDependencies": {
     "@types/node": "^24.12.2",
