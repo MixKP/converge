@@ -1,7 +1,7 @@
 <script setup lang="ts">
-  import HelloWorld from './components/HelloWorld.vue'
+  import SubmitForm from './components/SubmitAvailability.vue'
 </script>
 
 <template>
-  <HelloWorld />
+  <SubmitForm />
 </template>
