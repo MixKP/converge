@@ -5,8 +5,8 @@ export interface CalendarEvent {
 }
 
 export interface CleanedEvent {
-  Teacher: string
-  Date: string
+  teacher: string
+  date: string
   start: string
   end: string
 }
@@ -16,5 +16,9 @@ export interface Booking {
   teacher: string
   startTime: Date
   endTime: Date
-  date: Date
+}
+
+export interface EventCreateParams {
+  event: CalendarEvent
+  resolve: (e?: CalendarEvent) => void
 }

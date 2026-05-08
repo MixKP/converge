@@ -3,46 +3,102 @@
   import { VueCal, addDatePrototypes } from 'vue-cal'
   import 'vue-cal/style.css'
   import { useTeacherStore } from '../stores/teacherStore'
-  import type { CalendarEvent, CleanedEvent } from '../types/calendar'
+  import type { CalendarEvent, EventCreateParams } from '../types/calendar'
 
   addDatePrototypes()
 
   const teacherStore = useTeacherStore()
-  const selectedTeacherName = ref<string>()
+
+  const selectedTeacherName = computed({
+    get: () => teacherStore.selectedTeacher,
+    set: (val) => teacherStore.setSelectedTeacher(val ?? ''),
+  })
+
   const events = ref<CalendarEvent[]>([])
+  const notification = ref<{ type: 'success' | 'error'; message: string } | null>(null)
 
-  const canSubmit = computed(() => selectedTeacherName.value && events.value.length > 0)
+  const canSubmit = computed(() => !!selectedTeacherName.value && events.value.length > 0)
 
-  const createEvent = (params: { event: CalendarEvent; resolve: (e?: CalendarEvent) => void }) => {
-    const { event, resolve } = params
-    const exists = events.value.some(
-      (e) => e.start.getTime() === event.start.getTime() && e.end.getTime() === event.end.getTime()
-    )
-    if (!exists) events.value.push(event)
-    resolve()
+  const formatDate = (date: Date) => {
+    const d = new Date(date)
+    const day = String(d.getDate()).padStart(2, '0')
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const year = String(d.getFullYear()).slice(-2)
+    return `${day}/${month}/${year}`
+  }
+
+  const generatePayload = (eventsList: CalendarEvent[], teacher: string) => {
+    return eventsList.map((event) => ({
+      teacher,
+      date: formatDate(event.start),
+      start: event.start.toTimeString().slice(0, 5),
+      end: event.end.toTimeString().slice(0, 5),
+    }))
+  }
+
+  const saveEventsToStore = (eventsList: CalendarEvent[], teacher: string) => {
+    for (const event of eventsList) {
+      const result = teacherStore.addBooking({
+        teacher,
+        startTime: event.start,
+        endTime: event.end,
+      })
+
+      if (!result.success) {
+        return { success: false, message: result.message }
+      }
+    }
+
+    return { success: true }
+  }
+
+  const resetForm = () => {
+    events.value = []
+    teacherStore.setSelectedTeacher('')
+  }
+
+  const isTimeOverlap = (newEvent: CalendarEvent, existingEvents: CalendarEvent[]) => {
+    return existingEvents.some((existing) => {
+      return (
+        newEvent.start.getTime() < existing.end.getTime() &&
+        newEvent.end.getTime() > existing.start.getTime()
+      )
+    })
+  }
+
+  const createEvent = ({ event, resolve }: EventCreateParams) => {
+    const hasConflict = isTimeOverlap(event, events.value)
+
+    if (hasConflict) {
+      notification.value = {
+        type: 'error',
+        message: 'Time slot overlaps with an existing booking. Please choose a different time.',
+      }
+      return
+    }
+
+    notification.value = null
+    resolve(event)
   }
 
   const handleSubmit = () => {
-    if (!selectedTeacherName.value) return
+    const teacher = selectedTeacherName.value
+    if (!teacher) return
 
-    const cleanedEvents: CleanedEvent[] = events.value.map((event) => ({
-      Teacher: selectedTeacherName.value!,
-      Date: event.start.toISOString().split('T')[0],
-      start: event.start.toLocaleTimeString('en-US', {
-        hour12: false,
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-      end: event.end.toLocaleTimeString('en-US', {
-        hour12: false,
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-    }))
+    const payload = generatePayload(events.value, teacher)
+    console.log('Submit payload:', JSON.stringify(payload, null, 2))
 
-    events.value = []
-    selectedTeacherName.value = undefined
-    console.log(JSON.stringify(cleanedEvents, null, 2))
+    const result = saveEventsToStore(events.value, teacher)
+
+    if (result.success) {
+      resetForm()
+      notification.value = { type: 'success', message: 'Availability submitted successfully!' }
+    } else {
+      notification.value = {
+        type: 'error',
+        message: result.message || 'An error occurred while saving.',
+      }
+    }
   }
 </script>
 
@@ -50,6 +106,18 @@
   <div class="bg-slate-50 flex items-center justify-center p-4 font-sans min-h-screen">
     <div class="w-full max-w-5xl bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
       <h2 class="text-xl font-bold mb-4 text-slate-800">Submit Availability</h2>
+
+      <div
+        v-if="notification"
+        :class="[
+          'mb-4 border px-4 py-3 rounded-lg text-sm',
+          notification.type === 'success'
+            ? 'bg-green-50 border-green-200 text-green-700'
+            : 'bg-red-50 border-red-200 text-red-700',
+        ]"
+      >
+        {{ notification.message }}
+      </div>
 
       <form class="flex flex-col gap-4" @submit.prevent="handleSubmit">
         <div>
@@ -75,9 +143,9 @@
               :time-step="30"
               :today-button="false"
               :views-bar="false"
-              :editable-events="
-                !!selectedTeacherName && { drag: false, resize: false, delete: false }
-              "
+              :snap-to-interval="15"
+              :event-create-min-drag="15"
+              :editable-events="!!selectedTeacherName && { drag: true, resize: true, delete: true }"
               :disable-views="['years', 'year', 'month']"
               @event-create="createEvent"
             />
