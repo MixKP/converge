@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"time"
 
@@ -22,7 +23,7 @@ func InitDB() error {
 	password := getEnv("POSTGRES_PASSWORD", "")
 	dbname := getEnv("POSTGRES_DB", "postgres")
 
-	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", user, password, host, port, dbname)
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", url.QueryEscape(user), url.QueryEscape(password), host, port, dbname)
 	var err error
 	db, err = sql.Open("pgx", dsn)
 	if err != nil {
@@ -43,7 +44,7 @@ func AutoMigrate() error {
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)`,
-		`CREATE TABLE IF NOT EXISTS teacher_weekly_availability (
+		`CREATE TABLE IF NOT EXISTS teacher_availability (
 			id SERIAL PRIMARY KEY,
 			teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
 			day_of_week INTEGER CHECK (day_of_week BETWEEN 0 AND 6),
@@ -53,8 +54,8 @@ func AutoMigrate() error {
 			UNIQUE(teacher_id, day_of_week, start_time, end_time),
 			CHECK (start_time < end_time)
 		)`,
-		`CREATE INDEX IF NOT EXISTS idx_weekly_availability_teacher ON teacher_weekly_availability(teacher_id)`,
-		`CREATE TABLE IF NOT EXISTS availability_form_submissions (
+		`CREATE INDEX IF NOT EXISTS idx_teacher_availability_teacher ON teacher_availability(teacher_id)`,
+		`CREATE TABLE IF NOT EXISTS form_submission (
 			id SERIAL PRIMARY KEY,
 			teacher_id INTEGER REFERENCES teachers(id) ON DELETE SET NULL,
 			raw_payload JSONB NOT NULL,

@@ -13,10 +13,14 @@ func main() {
 	if err := db.InitDB(); err != nil {
 		log.Fatalf("Database init failed: %v", err)
 	}
-	defer db.CloseDB()
+	defer func() {
+		if err := db.CloseDB(); err != nil {
+			log.Printf("Error closing database: %v", err)
+		}
+	}()
 
 	if err := db.AutoMigrate(); err != nil {
-		log.Fatalf("Migration failed: %v", err)
+		log.Printf("Migration failed: %v", err)
 	}
 
 	repo := &db.PostgresRepo{}
@@ -25,13 +29,12 @@ func main() {
 
 	r := gin.Default()
 	api := r.Group("/api")
-	{
-		api.GET("/teachers", handler.GetTeachers)
-		api.POST("/availability", handler.SubmitWeeklyAvailability)
-	}
+	api.GET("/teachers", handler.GetTeachers)
+	api.POST("/availability", handler.SubmitWeeklyAvailability)
 
 	log.Println("Server starting on :8080")
 	if err := r.Run(":8080"); err != nil {
-		log.Fatal(err)
+		log.Printf("Server failed: %v", err)
+		return
 	}
 }

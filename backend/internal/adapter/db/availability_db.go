@@ -34,13 +34,13 @@ func (p *PostgresRepo) ReplaceWeeklyAvailability(ctx context.Context, teacherID 
 	}
 	defer tx.Rollback()
 
-	if _, err := tx.ExecContext(ctx, `DELETE FROM teacher_weekly_availability WHERE teacher_id = $1`, teacherID); err != nil {
+	if _, err := tx.ExecContext(ctx, `DELETE FROM teacher_availability WHERE teacher_id = $1`, teacherID); err != nil {
 		return err
 	}
 
 	for _, s := range slots {
 		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO teacher_weekly_availability (teacher_id, day_of_week, start_time, end_time)
+			INSERT INTO teacher_availability (teacher_id, day_of_week, start_time, end_time)
 			VALUES ($1, $2, $3, $4)`,
 			teacherID, s.DayOfWeek, s.Start, s.End); err != nil {
 			return err
@@ -51,7 +51,7 @@ func (p *PostgresRepo) ReplaceWeeklyAvailability(ctx context.Context, teacherID 
 
 func (p *PostgresRepo) SaveRawSubmission(ctx context.Context, teacherID int, rawPayload []byte) error {
 	_, err := db.ExecContext(ctx, `
-		INSERT INTO availability_form_submissions (teacher_id, raw_payload)
+		INSERT INTO form_submission (teacher_id, raw_payload)
 		VALUES ($1, $2)`, teacherID, json.RawMessage(rawPayload))
 	return err
 }

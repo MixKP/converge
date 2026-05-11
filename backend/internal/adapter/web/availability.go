@@ -2,8 +2,10 @@ package web
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"sort"
+	"strconv"
 
 	"github.com/RinZ5/converge/backend/internal/core/models"
 	"github.com/RinZ5/converge/backend/internal/core/ports"
@@ -22,7 +24,9 @@ func NewAvailabilityHandler(repo ports.AvailabilityRepository) *AvailabilityHand
 func (h *AvailabilityHandler) GetTeachers(c *gin.Context) {
 	teachers, err := h.repo.GetActiveTeachers(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		log.Printf("GetTeachers error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve teachers"})
+
 		return
 	}
 	c.JSON(http.StatusOK, teachers)
@@ -48,7 +52,9 @@ func (h *AvailabilityHandler) SubmitWeeklyAvailability(c *gin.Context) {
 		return
 	}
 
-	_ = h.repo.SaveRawSubmission(ctx, payload.TeacherID, rawJSON)
+	if err := h.repo.SaveRawSubmission(ctx, payload.TeacherID, rawJSON); err != nil {
+		log.Printf("Warning: failed to save submission audit log: %v", err)
+	}
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Availability saved successfully"})
 }
@@ -75,5 +81,5 @@ type overlapError struct {
 }
 
 func (e *overlapError) Error() string {
-	return "overlapping slots on day " + string(rune(e.day)) + ": " + e.a.Start + "-" + e.a.End + " and " + e.b.Start + "-" + e.b.End
+	return "overlapping slots on day " + strconv.Itoa(e.day) + ": " + e.a.Start + "-" + e.a.End + " and " + e.b.Start + "-" + e.b.End
 }
