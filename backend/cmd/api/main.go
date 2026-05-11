@@ -21,6 +21,7 @@ func main() {
 
 	if err := db.AutoMigrate(); err != nil {
 		log.Printf("Migration failed: %v", err)
+		return
 	}
 
 	repo := &db.PostgresRepo{}
