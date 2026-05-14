@@ -6,6 +6,7 @@ import (
 	"github.com/RinZ5/converge/backend/internal/adapter/db"
 	"github.com/RinZ5/converge/backend/internal/adapter/web"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -29,6 +30,7 @@ func main() {
 	handler := web.NewAvailabilityHandler(repo)
 
 	r := gin.Default()
+	r.Use(cors.Default())
 	api := r.Group("/api")
 	api.GET("/teachers", handler.GetTeachers)
 	api.POST("/availability", handler.SubmitWeeklyAvailability)

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { ref, computed } from 'vue'
+  import { ref, computed, onMounted } from 'vue'
   import { VueCal, addDatePrototypes } from 'vue-cal'
   import 'vue-cal/style.css'
   import { useTeacherStore } from '../stores/teacherStore'
@@ -8,6 +8,10 @@
   addDatePrototypes()
 
   const teacherStore = useTeacherStore()
+
+  onMounted(() => {
+    teacherStore.fetchTeachers()
+  })
 
   const selectedTeacherName = computed({
     get: () => teacherStore.selectedTeacher,
@@ -146,8 +150,7 @@
             v-model="selectedTeacherName"
             class="w-full md:w-1/2 border border-slate-300 rounded-lg px-3 py-2 text-sm"
           >
-            <option :value="undefined" disabled>-- Choose Your Name --</option>
-            <option v-for="name in teacherStore.teachers" :key="name" :value="name">
+            <option v-for="name in teacherStore.teacherNames" :key="name" :value="name">
               {{ name }}
             </option>
           </select>

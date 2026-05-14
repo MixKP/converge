@@ -1,11 +1,15 @@
 import { defineStore } from 'pinia'
 import type { Booking } from '../types/calendar'
+import type { Teacher } from '../types/teacher'
+import { teacherApi } from '../services/teacherApi'
 
 export const useTeacherStore = defineStore('teacher', {
   state: () => ({
     selectedTeacher: '' as string,
     bookings: [] as Booking[],
-    teachers: ['Teacher A', 'Teacher B', 'Teacher C', 'Teacher D'] as string[],
+    teachers: [] as Teacher[],
+    loading: false as boolean,
+    error: null as string | null,
   }),
 
   getters: {
@@ -13,9 +17,14 @@ export const useTeacherStore = defineStore('teacher', {
       if (!state.selectedTeacher) return []
       return state.bookings.filter((b) => b.teacher === state.selectedTeacher)
     },
+    teacherNames: (state) => state.teachers.map((t) => t.name),
   },
 
   actions: {
+    async fetchTeachers() {
+      this.teachers = await teacherApi.getAll()
+    },
+
     setSelectedTeacher(teacher: string) {
       this.selectedTeacher = teacher
     },
