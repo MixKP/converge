@@ -19,21 +19,41 @@
 
   const canSubmit = computed(() => !!selectedTeacherName.value && events.value.length > 0)
 
-  const formatDate = (date: Date) => {
-    const d = new Date(date)
-    const day = String(d.getDate()).padStart(2, '0')
-    const month = String(d.getMonth() + 1).padStart(2, '0')
-    const year = String(d.getFullYear()).slice(-2)
-    return `${day}/${month}/${year}`
-  }
+  // const formatDate = (date: Date) => {
+  //   const d = new Date(date)
+  //   const day = String(d.getDate()).padStart(2, '0')
+  //   const month = String(d.getMonth() + 1).padStart(2, '0')
+  //   const year = String(d.getFullYear()).slice(-2)
+  //   return `${day}/${month}/${year}`
+  // }
+
+  // const generatePayload = (eventsList: CalendarEvent[], teacher: string) => {
+  //   return eventsList.map((event) => ({
+  //     teacher,
+  //     date: formatDate(event.start),
+  //     start: event.start.toTimeString().slice(0, 5),
+  //     end: event.end.toTimeString().slice(0, 5),
+  //   }))
+  // }
 
   const generatePayload = (eventsList: CalendarEvent[], teacher: string) => {
-    return eventsList.map((event) => ({
-      teacher,
-      date: formatDate(event.start),
-      start: event.start.toTimeString().slice(0, 5),
-      end: event.end.toTimeString().slice(0, 5),
-    }))
+    const weeklyMap = new Map<string, { day_of_week: number; start: string; end: string }>()
+
+    for (const event of eventsList) {
+      const dayOfWeek = event.start.getDay()
+      const start = event.start.toTimeString().slice(0, 5)
+      const end = event.end.toTimeString().slice(0, 5)
+      const key = `${dayOfWeek}-${start}-${end}`
+
+      if (!weeklyMap.has(key)) {
+        weeklyMap.set(key, { day_of_week: dayOfWeek, start, end })
+      }
+    }
+
+    return {
+      teacher: teacher,
+      weekly: Array.from(weeklyMap.values()),
+    }
   }
 
   const saveEventsToStore = (eventsList: CalendarEvent[], teacher: string) => {
