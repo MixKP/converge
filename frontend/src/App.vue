@@ -1,7 +1,7 @@
 <script setup lang="ts">
-  import SubmitForm from './components/SubmitAvailability.vue'
+  import SubmitAvailability from './views/SubmitAvailability.vue'
 </script>
 
 <template>
-  <SubmitForm />
+  <SubmitAvailability />
 </template>

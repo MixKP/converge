@@ -4,21 +4,13 @@ export interface CalendarEvent {
   title: string
 }
 
-export interface CleanedEvent {
-  teacher: string
-  date: string
+export interface WeeklySlot {
+  day_of_week: number
   start: string
   end: string
 }
 
-export interface Booking {
-  id: string
-  teacher: string
-  startTime: Date
-  endTime: Date
-}
-
-export interface EventCreateParams {
-  event: CalendarEvent
-  resolve: (e?: CalendarEvent) => void
+export interface AvailabilityPayload {
+  teacher_id: number
+  weekly: WeeklySlot[]
 }
