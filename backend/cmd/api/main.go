@@ -2,6 +2,8 @@ package main
 
 import (
 	"log"
+	"os"
+	"strings"
 
 	"github.com/RinZ5/converge/backend/internal/adapter/db"
 	"github.com/RinZ5/converge/backend/internal/adapter/web"
@@ -9,6 +11,20 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
+
+func corsConfig() cors.Config {
+	allowedOriginsStr := os.Getenv("ALLOWED_ORIGINS")
+	allowedOrigins := []string{"http://localhost:5173"}
+	if allowedOriginsStr != "" {
+		allowedOrigins = strings.Split(allowedOriginsStr, ",")
+	}
+	return cors.Config{
+		AllowOrigins:     allowedOrigins,
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept"},
+		AllowCredentials: false,
+	}
+}
 
 func main() {
 	if err := db.InitDB(); err != nil {
@@ -30,7 +46,7 @@ func main() {
 	handler := web.NewAvailabilityHandler(repo)
 
 	r := gin.Default()
-	r.Use(cors.Default())
+	r.Use(cors.New(corsConfig()))
 	api := r.Group("/api")
 	api.GET("/teachers", handler.GetTeachers)
 	api.POST("/availability", handler.SubmitWeeklyAvailability)

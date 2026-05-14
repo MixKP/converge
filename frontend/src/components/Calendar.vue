@@ -1,11 +1,9 @@
 <script setup lang="ts">
   import { ref } from 'vue'
-  import { VueCal, addDatePrototypes } from 'vue-cal'
+  import { VueCal } from 'vue-cal'
   import 'vue-cal/style.css'
   import type { CalendarEvent } from '../types/calendar'
   import type { VueCalCellEvents } from 'vue-cal'
-
-  addDatePrototypes()
 
   defineProps<{ editable: boolean }>()
 

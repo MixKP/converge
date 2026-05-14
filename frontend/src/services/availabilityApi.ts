@@ -1,6 +1,5 @@
 import type { AvailabilityPayload } from '../types/calendar'
-
-const API_BASE = 'http://localhost:8080/api'
+import { API_BASE } from '../config/api'
 
 export const availabilityApi = {
   async submitAvailability(payload: AvailabilityPayload): Promise<void> {
@@ -10,8 +9,15 @@ export const availabilityApi = {
       body: JSON.stringify(payload),
     })
     if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error || 'Failed to submit availability')
+      let message = 'Failed to submit availability'
+      try {
+        const err = await response.json()
+        message = err.error || err.message || message
+      } catch {
+        const text = await response.text()
+        if (text.trim()) message = text
+      }
+      throw new Error(`${message} (${response.status} ${response.statusText})`)
     }
   },
 }

@@ -1,6 +1,5 @@
 import type { Teacher } from '../types/teacher'
-
-const API_BASE = 'http://localhost:8080/api'
+import { API_BASE } from '../config/api'
 
 export const teacherApi = {
   async getAll(): Promise<Teacher[]> {
