@@ -13,9 +13,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-var db *sql.DB
-
-func InitDB() error {
+func InitDB() (*sql.DB, error) {
 	_ = godotenv.Load()
 	host := getEnv("DB_HOST", "localhost")
 	port := getEnv("DB_PORT", "5432")
@@ -24,17 +22,19 @@ func InitDB() error {
 	dbname := getEnv("POSTGRES_DB", "postgres")
 
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", url.QueryEscape(user), url.QueryEscape(password), host, port, dbname)
-	var err error
-	db, err = sql.Open("pgx", dsn)
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	return db.PingContext(ctx)
+	if err := db.PingContext(ctx); err != nil {
+		return nil, err
+	}
+	return db, nil
 }
 
-func AutoMigrate() error {
+func AutoMigrate(database *sql.DB) error {
 	queries := []string{
 		`CREATE TABLE IF NOT EXISTS teachers (
 			id SERIAL PRIMARY KEY,
@@ -95,7 +95,7 @@ func AutoMigrate() error {
 		)`,
 	}
 	for _, q := range queries {
-		if _, err := db.Exec(q); err != nil {
+		if _, err := database.Exec(q); err != nil {
 			return fmt.Errorf("migration failed: %w\n%s", err, q)
 		}
 	}
@@ -103,9 +103,9 @@ func AutoMigrate() error {
 	return nil
 }
 
-func CloseDB() error {
-	if db != nil {
-		return db.Close()
+func CloseDB(database *sql.DB) error {
+	if database != nil {
+		return database.Close()
 	}
 	return nil
 }

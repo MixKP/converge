@@ -7,6 +7,7 @@ import (
 
 	"github.com/RinZ5/converge/backend/internal/adapter/db"
 	"github.com/RinZ5/converge/backend/internal/adapter/web"
+	"github.com/RinZ5/converge/backend/internal/core/service"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -27,23 +28,25 @@ func corsConfig() cors.Config {
 }
 
 func main() {
-	if err := db.InitDB(); err != nil {
+	database, err := db.InitDB()
+	if err != nil {
 		log.Fatalf("Database init failed: %v", err)
 	}
 	defer func() {
-		if err := db.CloseDB(); err != nil {
+		if err := db.CloseDB(database); err != nil {
 			log.Printf("Error closing database: %v", err)
 		}
 	}()
 
-	if err := db.AutoMigrate(); err != nil {
+	if err := db.AutoMigrate(database); err != nil {
 		log.Printf("Migration failed: %v", err)
 		return
 	}
 
-	repo := &db.PostgresRepo{}
+	repo := db.NewPostgresRepo(database)
+	svc := service.NewAvailabilityService(repo)
 
-	handler := web.NewAvailabilityHandler(repo)
+	handler := web.NewAvailabilityHandler(svc)
 
 	r := gin.Default()
 	r.Use(cors.New(corsConfig()))
