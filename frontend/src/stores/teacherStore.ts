@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import type { Teacher } from '../types/teacher'
+import type { Teacher } from '../types'
 import { teacherApi } from '../services/teacherApi'
 
 export const useTeacherStore = defineStore('teacher', {
@@ -7,13 +7,6 @@ export const useTeacherStore = defineStore('teacher', {
     selectedTeacherId: null as number | null,
     teachers: [] as Teacher[],
   }),
-
-  getters: {
-    selectedTeacherName: (state) => {
-      const teacher = state.teachers.find((t) => t.id === state.selectedTeacherId)
-      return teacher?.name || ''
-    },
-  },
 
   actions: {
     async fetchTeachers() {

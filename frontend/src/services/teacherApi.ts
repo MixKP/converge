@@ -1,12 +1,7 @@
-import type { Teacher } from '../types/teacher'
+import type { Teacher } from '../types'
 import { API_BASE } from '../config/api'
+import { fetchApi } from '../utils/api'
 
 export const teacherApi = {
-  async getAll(): Promise<Teacher[]> {
-    const response = await fetch(`${API_BASE}/teachers`)
-    if (!response.ok) {
-      throw new Error(`Failed to fetch teachers: ${response.statusText}`)
-    }
-    return response.json()
-  },
+  getAll: () => fetchApi<Teacher[]>(`${API_BASE}/teachers`),
 }

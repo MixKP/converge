@@ -1,1 +1,122 @@
 @import "tailwindcss";
+
+.fc {
+  font-family: inherit;
+  --fc-border-color: #f1f5f9;
+  --fc-page-bg-color: #ffffff;
+  --fc-today-bg-color: rgba(239, 246, 255, 0.4);
+  --fc-highlight-color: rgba(59, 130, 246, 0.15);
+}
+
+.fc-scroller::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.fc-scroller::-webkit-scrollbar-track {
+  background: #f8fafc;
+}
+.fc-scroller::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 6px;
+}
+.fc-scroller::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.fc-col-header-cell {
+  padding: 12px 0;
+  background-color: #f8fafc;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+.fc-col-header-cell-cushion {
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-decoration: none !important;
+  padding: 6px 10px !important;
+  transition: all 0.2s;
+}
+
+.fc-day-today .fc-col-header-cell-cushion {
+  color: #2563eb;
+  background-color: #dbeafe;
+  border-radius: 6px;
+}
+
+.fc-event {
+  cursor: pointer;
+  background-color: #eff6ff;
+  border: none;
+  border-left: 4px solid #3b82f6;
+  border-radius: 6px;
+  padding: 2px 4px;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.fc-event:hover {
+  background-color: #dbeafe;
+  border-left-color: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  z-index: 10 !important;
+}
+
+.fc-v-event .fc-event-main {
+  color: #1e3a8a;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.fc-non-business {
+  background-color: #f8fafc;
+  background-image: repeating-linear-gradient(
+    135deg,
+    #f8fafc,
+    #f8fafc 8px,
+    #f1f5f9 8px,
+    #f1f5f9 16px
+  );
+  opacity: 0.8;
+}
+
+.fc-highlight {
+  border: 1.5px dashed rgba(59, 130, 246, 0.6) !important;
+  border-radius: 4px;
+}
+
+.fc-theme-standard td,
+.fc-theme-standard th {
+  border-color: #f1f5f9;
+}
+
+.fc-timegrid-slot-minor {
+  border-top-style: dashed !important;
+  border-top-color: #f8fafc !important;
+}
+
+.fc-timegrid-slot {
+  height: 36px;
+}
+
+.fc .fc-timegrid-axis-cushion,
+.fc .fc-timegrid-slot-label-cushion {
+  color: #94a3b8;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0 10px;
+}
+
+.fc-timegrid-now-indicator-line {
+  border-color: #ef4444 !important;
+  border-width: 2px !important;
+}
+
+.fc-timegrid-now-indicator-arrow {
+  border-color: #ef4444 !important;
+  border-width: 5px !important;
+  margin-top: -1px;
+}
