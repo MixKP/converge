@@ -9,11 +9,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fullcalendar/core": "^6.1.20",
+    "@fullcalendar/daygrid": "^6.1.20",
+    "@fullcalendar/interaction": "^6.1.20",
+    "@fullcalendar/timegrid": "^6.1.20",
+    "@fullcalendar/vue3": "^6.1.20",
     "@tailwindcss/vite": "^4.2.4",
     "pinia": "^3.0.4",
     "tailwindcss": "^4.2.4",
     "vue": "^3.5.32",
-    "vue-cal": "^5.0.1-rc.41",
+    "vue-cal": "^5.0.1-rc.46",
     "vue-router": "^5.0.7"
   },
   "devDependencies": {
