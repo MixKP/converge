@@ -1,6 +1,9 @@
 <script setup lang="ts">
-  import { ref, computed, watch } from 'vue'
-  import type { EventInput, BusinessHoursInput } from '@fullcalendar/core'
+  import { ref, computed, onMounted, watch } from 'vue'
+  import FullCalendar from '@fullcalendar/vue3'
+  import timeGridPlugin from '@fullcalendar/timegrid'
+  import interactionPlugin from '@fullcalendar/interaction'
+  import type { EventInput, EventSourceFunc } from '@fullcalendar/core'
   import { useTeacherStore } from '../stores/teacherStore'
   import { availabilityApi } from '../services/availabilityApi'
   import type { WeeklySlot } from '../types/calendar'
@@ -43,21 +46,85 @@
 
   const canSelectTeacher = computed(() => !!selectedSubjectId.value)
 
-  const MOCK_AVAILABILITY: WeeklySlot[] = [
-    { dayOfWeek: 1, start: '09:00', end: '12:00' },
-    { dayOfWeek: 1, start: '14:00', end: '17:00' },
-    { dayOfWeek: 3, start: '10:00', end: '12:00' },
-    { dayOfWeek: 5, start: '09:00', end: '12:00' },
-    { dayOfWeek: 0, start: '10:00', end: '12:00' },
-  ] as const
+  const timeToMinutes = (t: string) => {
+    const [h, m] = t.split(':')
+    return parseInt(h) * 60 + parseInt(m)
+  }
 
-  const updateBusinessHours = (availability: WeeklySlot[]) => {
-    businessHours.value = availability.map((avail) => ({
-      daysOfWeek: [avail.dayOfWeek],
-      startTime: avail.start,
-      endTime: avail.end,
-    }))
-    calendarRef.value?.setOption('businessHours', businessHours.value)
+  const dayMapping: Record<number, number> = {
+    1: 1, // Mon
+    2: 2, // Tue
+    3: 3, // Wed
+    4: 4, // Thu
+    5: 5, // Fri
+    6: 6, // Sat
+    7: 0, // Sun (JS: 0)
+  }
+
+  // Convert availability to FullCalendar businessHours format
+  const generateBusinessHours = (availabilityList: WeeklySlot[]) => {
+    const businessHoursMap: Record<number, any[]> = {}
+
+    for (const avail of availabilityList) {
+      const jsDay = dayMapping[avail.day_of_week]
+      if (!businessHoursMap[jsDay]) {
+        businessHoursMap[jsDay] = []
+      }
+      businessHoursMap[jsDay].push({
+        startTime: avail.start,
+        endTime: avail.end,
+      })
+    }
+
+    // Convert to array format for FullCalendar
+    const result: any[] = []
+    for (const [day, slots] of Object.entries(businessHoursMap)) {
+      for (const slot of slots) {
+        result.push({
+          daysOfWeek: [parseInt(day)],
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+        })
+      }
+    }
+    return result
+  }
+
+  const fetchAvailability = async (teacherId: number) => {
+    // TODO: replace with real API
+    const mockAvailability: WeeklySlot[] = [
+      { day_of_week: 1, start: '09:00', end: '12:00' },
+      { day_of_week: 1, start: '14:00', end: '17:00' },
+      { day_of_week: 3, start: '10:00', end: '12:00' },
+      { day_of_week: 5, start: '09:00', end: '12:00' },
+    ]
+
+    businessHours.value = generateBusinessHours(mockAvailability)
+    console.log('[FullCalendar] businessHours:', businessHours.value)
+  }
+
+  const handleDateSelect = (selectInfo: any) => {
+    if (!selectedTeacherId.value) return
+
+    const calendar = selectInfo.view.calendar
+    const title = ''
+    const start = selectInfo.start
+    const end = selectInfo.end
+
+    calendar.unselect()
+
+    events.value.push({
+      start,
+      end,
+      title,
+    })
+  }
+
+  const handleEventClick = (clickInfo: any) => {
+    if (confirm('Delete this event?')) {
+      const id = clickInfo.event.id
+      events.value = events.value.filter((e) => e.id !== id)
+    }
   }
 
   const calendarOptions = computed(() => ({
@@ -122,6 +189,10 @@
     }
   }
 
+  onMounted(() => {
+    teacherStore.fetchTeachers()
+  })
+
   watch(selectedSubjectId, () => {
     events.value = []
     teacherStore.setSelectedTeacherById(null)
@@ -130,7 +201,7 @@
   watch(selectedTeacherId, (newId) => {
     events.value = []
     if (newId) {
-      updateBusinessHours(MOCK_AVAILABILITY)
+      fetchAvailability(newId)
     } else {
       businessHours.value = {}
     }
@@ -148,94 +219,30 @@
 </script>
 
 <template>
-  <PageLayout title="Booking Course">
-    <form class="flex flex-col gap-3 sm:gap-4 flex-1 min-h-0" @submit.prevent="handleSubmit">
-      <div class="flex flex-col sm:flex-row gap-3 sm:gap-5 shrink-0 stagger-in">
-        <div
-          class="bg-(--paper-white) p-4 sm:p-5 rounded-sm border border-(--border-subtle) flex-1 shadow-card"
-        >
-          <label
-            class="font-semibold text-(--ink-primary) text-sm block mb-2 sm:mb-3 tracking-tight"
-          >
-            <span
-              class="font-mono text-xs border-2 border-(--ink-primary) bg-(--paper-cream) px-2.5 sm:px-3 py-1 rounded-sm tracking-widest mr-2 sm:mr-3 shadow-badge inline-block"
-              >01</span
-            >
-            Select Subject
-          </label>
-          <select
-            v-model="selectedSubjectId"
-            class="w-full bg-white border border-(--border-strong) rounded-sm px-3 sm:px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-(--accent-terracotta)/10 focus:border-(--accent-terracotta) outline-none transition-all text-(--ink-primary) cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:border-(--text-secondary)"
-          >
-            <option :value="null" disabled>-- Choose Subject --</option>
-            <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
-              {{ subject.name }}
-            </option>
-          </select>
-        </div>
-
-        <div
-          class="bg-(--paper-white) p-4 sm:p-5 rounded-sm border border-(--border-subtle) flex-1 shadow-card"
-        >
-          <label
-            class="font-semibold text-(--ink-primary) text-sm block mb-2 sm:mb-3 tracking-tight"
-          >
-            <span
-              class="font-mono text-xs border-2 border-(--ink-primary) bg-(--paper-cream) px-2.5 sm:px-3 py-1 rounded-sm tracking-widest mr-2 sm:mr-3 shadow-badge inline-block"
-              >02</span
-            >
-            Select Teacher
-          </label>
-          <select
-            v-model="selectedTeacherId"
-            :disabled="!canSelectTeacher"
-            class="w-full bg-white border border-(--border-strong) rounded-sm px-3 sm:px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-(--accent-terracotta)/10 focus:border-(--accent-terracotta) outline-none transition-all text-(--ink-primary) cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:border-(--text-secondary)"
-          >
-            <option :value="null" disabled>
-              {{ canSelectTeacher ? '-- Choose Teacher --' : '-- Select subject first --' }}
-            </option>
-            <option v-for="teacher in teacherStore.teachers" :key="teacher.id" :value="teacher.id">
-              {{ teacher.name }}
-            </option>
-          </select>
-        </div>
+  <div class="bg-slate-50 items-center justify-center p-3 font-sans h-screen flex overflow-hidden">
+    <div
+      class="w-full max-w-5xl bg-white rounded-xl shadow-lg border border-slate-100 p-4 transition-all h-full max-h-full flex flex-col"
+    >
+      <div class="mb-3 border-b border-slate-100 pb-2">
+        <h2 class="text-xl font-bold text-slate-800">Booking Course</h2>
       </div>
 
-      <div class="flex-1 flex flex-col min-h-0 stagger-in">
-        <div class="flex items-center justify-between mb-3 sm:mb-4 shrink-0">
-          <label class="font-semibold text-(--ink-primary) text-sm tracking-tight">
-            <span
-              class="font-mono text-xs border-2 border-(--ink-primary) bg-(--paper-cream) px-2.5 sm:px-3 py-1 rounded-sm tracking-widest mr-2 sm:mr-3 shadow-badge inline-block"
-              >03</span
+      <form class="flex flex-col gap-3 flex-1 min-h-0" @submit.prevent="handleSubmit">
+        <div class="flex gap-3 shrink-0">
+          <div class="bg-slate-50/50 p-3 rounded-lg border border-slate-100 flex-1">
+            <label class="font-semibold text-slate-700 text-sm block mb-1">
+              <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs mr-1">1</span>
+              Select Subject
+            </label>
+            <select
+              v-model="selectedSubjectId"
+              class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-slate-700 shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
-            Select Time Slots
-          </label>
-          <span
-            v-if="selectedTeacherId"
-            class="text-xs font-medium text-(--accent-terracotta) bg-(--accent-terracotta-soft) px-3 sm:px-4 py-1 sm:py-1.5 rounded-sm border border-(--accent-terracotta)/25 tracking-wide hidden sm:inline-block"
-          >
-            Click and drag to select
-          </span>
-        </div>
-
-        <div
-          class="relative border border-(--border-subtle) rounded-sm overflow-hidden shadow-card bg-(--paper-white) flex-1 min-h-0"
-        >
-          <div
-            :class="{
-              'opacity-45 grayscale-30 pointer-events-none transition-opacity duration-300':
-                !selectedTeacherId,
-            }"
-            class="h-full"
-          >
-            <Calendar
-              ref="calendarRef"
-              v-model="events"
-              :editable="!!selectedTeacherId"
-              :business-hours="businessHours"
-              constraint="businessHours"
-              class="h-full"
-            />
+              <option :value="null" disabled>-- Choose Subject --</option>
+              <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
+                {{ subject.name }}
+              </option>
+            </select>
           </div>
 
           <div class="bg-slate-50/50 p-3 rounded-lg border border-slate-100 flex-1">
@@ -262,18 +269,93 @@
           </div>
         </div>
 
-      <div
-        class="flex justify-end pt-4 sm:pt-5 border-t border-(--border-subtle) shrink-0 stagger-in"
-      >
-        <SubmitButton
-          :is-disabled="!canSubmit"
-          :is-loading="isLoading"
-          loading-text="Submitting..."
-          normal-text="Confirm Booking"
-        />
-      </div>
-    </form>
-  </PageLayout>
+        <div class="flex-1 flex flex-col min-h-0">
+          <div class="flex items-center justify-between mb-2 shrink-0">
+            <label class="font-semibold text-slate-700 text-sm">
+              <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs mr-1">3</span>
+              Select Time Slots
+            </label>
+            <span
+              class="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100"
+              v-if="selectedTeacherId"
+            >
+              Click and drag to select
+            </span>
+          </div>
+
+          <div
+            class="relative border border-slate-200 rounded-lg overflow-hidden shadow-sm bg-white flex-1 min-h-0"
+          >
+            <div
+              :class="{
+                'opacity-40 grayscale-[30%] pointer-events-none transition-opacity duration-300':
+                  !selectedTeacherId,
+              }"
+              class="h-full"
+            >
+              <FullCalendar :options="calendarOptions" class="h-full" />
+            </div>
+
+            <div
+              v-if="!selectedTeacherId"
+              class="absolute inset-0 z-10 flex items-center justify-center bg-slate-50/60 backdrop-blur-[2px]"
+            >
+              <div
+                class="bg-white px-4 py-2 rounded-full shadow border border-slate-200 text-sm font-medium text-slate-600 flex items-center gap-2"
+              >
+                <svg
+                  class="w-4 h-4 text-blue-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"
+                  ></path>
+                </svg>
+                {{
+                  !selectedSubjectId ? 'Select subject and teacher first' : 'Select a teacher first'
+                }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-end pt-2 border-t border-slate-100 shrink-0">
+          <button
+            type="submit"
+            :disabled="!canSubmit"
+            class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg text-sm transition-all duration-200 shadow-sm shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center gap-2"
+          >
+            <svg
+              v-if="isLoading"
+              class="animate-spin h-4 w-4 text-white"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                class="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                stroke-width="4"
+              ></circle>
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              ></path>
+            </svg>
+            {{ isLoading ? 'Submitting...' : 'Confirm Booking' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 </template>
 
 <style>
