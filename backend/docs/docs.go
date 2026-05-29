@@ -16,6 +16,33 @@ const docTemplate = `{
     "basePath": "{{.BasePath}}",
     "paths": {
         "/availability": {
+            "get": {
+                "description": "Returns all active teachers with their weekly availability slots, grouped by teacher",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "availability"
+                ],
+                "summary": "Get all teacher availability",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.TeacherAvailability"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    }
+                }
+            },
             "post": {
                 "description": "Replaces all existing availability for a teacher with the provided weekly schedule (full replace, not merge). Rejects overlapping slots within the same day.",
                 "consumes": [
@@ -61,9 +88,67 @@ const docTemplate = `{
                 }
             }
         },
+        "/branches": {
+            "get": {
+                "description": "Returns all branches ordered by id",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "branches"
+                ],
+                "summary": "List branches",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Branch"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/subjects": {
+            "get": {
+                "description": "Returns all subjects ordered by id",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "subjects"
+                ],
+                "summary": "List subjects",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Subject"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/teachers": {
             "get": {
-                "description": "Returns all teachers with active status, ordered by name",
+                "description": "Returns all teachers with active status, ordered by name. Optionally filter by subject_id.",
                 "produces": [
                     "application/json"
                 ],
@@ -71,6 +156,14 @@ const docTemplate = `{
                     "teachers"
                 ],
                 "summary": "List active teachers",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Filter by subject ID",
+                        "name": "subject_id",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -79,6 +172,12 @@ const docTemplate = `{
                             "items": {
                                 "$ref": "#/definitions/models.Teacher"
                             }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
                         }
                     },
                     "500": {
@@ -107,6 +206,17 @@ const docTemplate = `{
                 }
             }
         },
+        "models.Branch": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "models.ErrorResponse": {
             "type": "object",
             "properties": {
@@ -125,6 +235,17 @@ const docTemplate = `{
                 }
             }
         },
+        "models.Subject": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "models.Teacher": {
             "type": "object",
             "properties": {
@@ -139,6 +260,20 @@ const docTemplate = `{
                 "name": {
                     "type": "string",
                     "example": "Alice"
+                }
+            }
+        },
+        "models.TeacherAvailability": {
+            "type": "object",
+            "properties": {
+                "teacher": {
+                    "$ref": "#/definitions/models.Teacher"
+                },
+                "weekly": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.WeeklySlot"
+                    }
                 }
             }
         },

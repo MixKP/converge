@@ -31,6 +31,11 @@ type Teacher struct {
 	Email string `json:"email" example:"alice@example.com"`
 }
 
+type TeacherAvailability struct {
+	Teacher Teacher      `json:"teacher"`
+	Weekly  []WeeklySlot `json:"weekly"`
+}
+
 type WeeklySlot struct {
 	DayOfWeek int      `json:"day_of_week" example:"0"` // 0=Monday ... 6=Sunday
 	Start     TimeHHMM `json:"start"       example:"09:00"`

@@ -32,6 +32,22 @@ func (s *AvailabilityService) GetActiveTeachers(ctx context.Context) ([]models.T
 	return s.repo.GetActiveTeachers(ctx)
 }
 
+func (s *AvailabilityService) GetTeachersBySubject(ctx context.Context, subjectID int) ([]models.Teacher, error) {
+	return s.repo.GetTeachersBySubject(ctx, subjectID)
+}
+
+func (s *AvailabilityService) GetBranches(ctx context.Context) ([]models.Branch, error) {
+	return s.repo.GetBranches(ctx)
+}
+
+func (s *AvailabilityService) GetSubjects(ctx context.Context) ([]models.Subject, error) {
+	return s.repo.GetSubjects(ctx)
+}
+
+func (s *AvailabilityService) GetAllAvailability(ctx context.Context) ([]models.TeacherAvailability, error) {
+	return s.repo.GetAllAvailability(ctx)
+}
+
 func (s *AvailabilityService) SubmitWeeklyAvailability(ctx context.Context, payload models.AvailabilityPayload) error {
 	if err := validatePayload(payload); err != nil {
 		return err

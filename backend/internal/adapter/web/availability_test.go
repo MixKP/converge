@@ -16,14 +16,38 @@ import (
 )
 
 type mockService struct {
-	teachers     []models.Teacher
-	getErr       error
-	submitErr    error
-	submitCalled bool
+	teachers         []models.Teacher
+	getErr           error
+	teachersBySub    []models.Teacher
+	teachersBySubErr error
+	branches         []models.Branch
+	branchesErr      error
+	subjects         []models.Subject
+	subjectsErr      error
+	availability     []models.TeacherAvailability
+	availErr         error
+	submitErr        error
+	submitCalled     bool
 }
 
 func (m *mockService) GetActiveTeachers(ctx context.Context) ([]models.Teacher, error) {
 	return m.teachers, m.getErr
+}
+
+func (m *mockService) GetTeachersBySubject(ctx context.Context, subjectID int) ([]models.Teacher, error) {
+	return m.teachersBySub, m.teachersBySubErr
+}
+
+func (m *mockService) GetBranches(ctx context.Context) ([]models.Branch, error) {
+	return m.branches, m.branchesErr
+}
+
+func (m *mockService) GetSubjects(ctx context.Context) ([]models.Subject, error) {
+	return m.subjects, m.subjectsErr
+}
+
+func (m *mockService) GetAllAvailability(ctx context.Context) ([]models.TeacherAvailability, error) {
+	return m.availability, m.availErr
 }
 
 func (m *mockService) SubmitWeeklyAvailability(ctx context.Context, payload models.AvailabilityPayload) error {
@@ -199,4 +223,235 @@ func TestGetTeachersEmptyList(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &teachers)
 	require.NoError(t, err)
 	assert.Len(t, teachers, 0)
+}
+
+func TestGetAllAvailabilitySuccess(t *testing.T) {
+	mock := &mockService{
+		availability: []models.TeacherAvailability{
+			{
+				Teacher: models.Teacher{ID: 1, Name: "Alice", Email: "alice@test.com"},
+				Weekly: []models.WeeklySlot{
+					{DayOfWeek: 0, Start: models.TimeHHMM("09:00"), End: models.TimeHHMM("12:00")},
+					{DayOfWeek: 2, Start: models.TimeHHMM("09:00"), End: models.TimeHHMM("12:00")},
+				},
+			},
+			{
+				Teacher: models.Teacher{ID: 2, Name: "Bob", Email: "bob@test.com"},
+				Weekly: []models.WeeklySlot{
+					{DayOfWeek: 1, Start: models.TimeHHMM("10:00"), End: models.TimeHHMM("15:00")},
+				},
+			},
+		},
+	}
+	handler := NewAvailabilityHandler(mock)
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.GET("/api/availability", handler.GetAllAvailability)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/availability", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var availability []models.TeacherAvailability
+	err := json.Unmarshal(w.Body.Bytes(), &availability)
+	require.NoError(t, err)
+	assert.Len(t, availability, 2)
+	assert.Equal(t, "Alice", availability[0].Teacher.Name)
+	assert.Len(t, availability[0].Weekly, 2)
+	assert.Equal(t, "Bob", availability[1].Teacher.Name)
+	assert.Len(t, availability[1].Weekly, 1)
+}
+
+func TestGetAllAvailabilityError(t *testing.T) {
+	mock := &mockService{availErr: assert.AnError}
+	handler := NewAvailabilityHandler(mock)
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.GET("/api/availability", handler.GetAllAvailability)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/availability", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Contains(t, w.Body.String(), "failed to retrieve availability")
+}
+
+func TestGetAllAvailabilityEmpty(t *testing.T) {
+	mock := &mockService{
+		availability: []models.TeacherAvailability{},
+	}
+	handler := NewAvailabilityHandler(mock)
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.GET("/api/availability", handler.GetAllAvailability)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/availability", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var availability []models.TeacherAvailability
+	err := json.Unmarshal(w.Body.Bytes(), &availability)
+	require.NoError(t, err)
+	assert.Len(t, availability, 0)
+}
+
+func TestGetTeachersBySubjectSuccess(t *testing.T) {
+	mock := &mockService{
+		teachersBySub: []models.Teacher{
+			{ID: 1, Name: "Alice", Email: "alice@test.com"},
+			{ID: 3, Name: "Carol", Email: "carol@test.com"},
+		},
+	}
+	handler := NewAvailabilityHandler(mock)
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.GET("/api/teachers", handler.GetTeachers)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/teachers?subject_id=1", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var teachers []models.Teacher
+	err := json.Unmarshal(w.Body.Bytes(), &teachers)
+	require.NoError(t, err)
+	assert.Len(t, teachers, 2)
+	assert.Equal(t, "Alice", teachers[0].Name)
+}
+
+func TestGetTeachersBySubjectInvalidID(t *testing.T) {
+	mock := &mockService{}
+	handler := NewAvailabilityHandler(mock)
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.GET("/api/teachers", handler.GetTeachers)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/teachers?subject_id=invalid", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "invalid subject_id")
+}
+
+func TestGetTeachersBySubjectNegativeID(t *testing.T) {
+	mock := &mockService{}
+	handler := NewAvailabilityHandler(mock)
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.GET("/api/teachers", handler.GetTeachers)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/teachers?subject_id=-1", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "invalid subject_id")
+}
+
+func TestGetTeachersBySubjectError(t *testing.T) {
+	mock := &mockService{teachersBySubErr: assert.AnError}
+	handler := NewAvailabilityHandler(mock)
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.GET("/api/teachers", handler.GetTeachers)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/teachers?subject_id=1", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Contains(t, w.Body.String(), "failed to retrieve teachers")
+}
+
+func TestGetBranchesSuccess(t *testing.T) {
+	mock := &mockService{
+		branches: []models.Branch{
+			{ID: 1, Name: "Main Campus"},
+			{ID: 2, Name: "Downtown"},
+		},
+	}
+	handler := NewAvailabilityHandler(mock)
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.GET("/api/branches", handler.GetBranches)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/branches", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var branches []models.Branch
+	err := json.Unmarshal(w.Body.Bytes(), &branches)
+	require.NoError(t, err)
+	assert.Len(t, branches, 2)
+	assert.Equal(t, "Main Campus", branches[0].Name)
+}
+
+func TestGetBranchesError(t *testing.T) {
+	mock := &mockService{branchesErr: assert.AnError}
+	handler := NewAvailabilityHandler(mock)
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.GET("/api/branches", handler.GetBranches)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/branches", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Contains(t, w.Body.String(), "failed to retrieve branches")
+}
+
+func TestGetSubjectsSuccess(t *testing.T) {
+	mock := &mockService{
+		subjects: []models.Subject{
+			{ID: 1, Name: "Mathematics"},
+			{ID: 2, Name: "Physics"},
+		},
+	}
+	handler := NewAvailabilityHandler(mock)
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.GET("/api/subjects", handler.GetSubjects)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/subjects", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var subjects []models.Subject
+	err := json.Unmarshal(w.Body.Bytes(), &subjects)
+	require.NoError(t, err)
+	assert.Len(t, subjects, 2)
+	assert.Equal(t, "Mathematics", subjects[0].Name)
+}
+
+func TestGetSubjectsError(t *testing.T) {
+	mock := &mockService{subjectsErr: assert.AnError}
+	handler := NewAvailabilityHandler(mock)
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.GET("/api/subjects", handler.GetSubjects)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/subjects", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Contains(t, w.Body.String(), "failed to retrieve subjects")
 }

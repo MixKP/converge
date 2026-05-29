@@ -10,16 +10,40 @@ import (
 )
 
 type mockRepo struct {
-	teachers      []models.Teacher
-	getErr        error
-	replaceCalled bool
-	replaceErr    error
-	saveCalled    bool
-	saveErr       error
+	teachers         []models.Teacher
+	getErr           error
+	teachersBySub    []models.Teacher
+	teachersBySubErr error
+	branches         []models.Branch
+	branchesErr      error
+	subjects         []models.Subject
+	subjectsErr      error
+	availability     []models.TeacherAvailability
+	availErr         error
+	replaceCalled    bool
+	replaceErr       error
+	saveCalled       bool
+	saveErr          error
 }
 
 func (m *mockRepo) GetActiveTeachers(ctx context.Context) ([]models.Teacher, error) {
 	return m.teachers, m.getErr
+}
+
+func (m *mockRepo) GetTeachersBySubject(ctx context.Context, subjectID int) ([]models.Teacher, error) {
+	return m.teachersBySub, m.teachersBySubErr
+}
+
+func (m *mockRepo) GetBranches(ctx context.Context) ([]models.Branch, error) {
+	return m.branches, m.branchesErr
+}
+
+func (m *mockRepo) GetSubjects(ctx context.Context) ([]models.Subject, error) {
+	return m.subjects, m.subjectsErr
+}
+
+func (m *mockRepo) GetAllAvailability(ctx context.Context) ([]models.TeacherAvailability, error) {
+	return m.availability, m.availErr
 }
 
 func (m *mockRepo) ReplaceWeeklyAvailability(ctx context.Context, teacherID int, slots []models.WeeklySlot) error {
@@ -334,4 +358,135 @@ func TestSubmitAvailabilityOverlapMessageFormat(t *testing.T) {
 	require.ErrorAs(t, err, &valErr)
 	assert.Equal(t, "overlapping slots on day 0: 09:00-11:00 and 10:30-12:00", valErr.Error())
 	assert.False(t, mock.replaceCalled)
+}
+
+func TestGetAllAvailability_Success(t *testing.T) {
+	mock := &mockRepo{
+		availability: []models.TeacherAvailability{
+			{
+				Teacher: models.Teacher{ID: 1, Name: "Alice", Email: "alice@test.com"},
+				Weekly: []models.WeeklySlot{
+					{DayOfWeek: 0, Start: models.TimeHHMM("09:00"), End: models.TimeHHMM("12:00")},
+				},
+			},
+			{
+				Teacher: models.Teacher{ID: 2, Name: "Bob", Email: "bob@test.com"},
+				Weekly: []models.WeeklySlot{
+					{DayOfWeek: 1, Start: models.TimeHHMM("10:00"), End: models.TimeHHMM("15:00")},
+				},
+			},
+		},
+	}
+	svc := NewAvailabilityService(mock)
+
+	availability, err := svc.GetAllAvailability(context.Background())
+	assert.NoError(t, err)
+	assert.Len(t, availability, 2)
+	assert.Equal(t, "Alice", availability[0].Teacher.Name)
+	assert.Len(t, availability[0].Weekly, 1)
+	assert.Equal(t, "Bob", availability[1].Teacher.Name)
+}
+
+func TestGetAllAvailability_Empty(t *testing.T) {
+	mock := &mockRepo{
+		availability: []models.TeacherAvailability{},
+	}
+	svc := NewAvailabilityService(mock)
+
+	availability, err := svc.GetAllAvailability(context.Background())
+	assert.NoError(t, err)
+	assert.Len(t, availability, 0)
+}
+
+func TestGetAllAvailability_Error(t *testing.T) {
+	mock := &mockRepo{availErr: assert.AnError}
+	svc := NewAvailabilityService(mock)
+
+	availability, err := svc.GetAllAvailability(context.Background())
+	assert.ErrorIs(t, err, assert.AnError)
+	assert.Nil(t, availability)
+}
+
+func TestGetTeachersBySubject_Success(t *testing.T) {
+	mock := &mockRepo{
+		teachersBySub: []models.Teacher{
+			{ID: 1, Name: "Alice", Email: "alice@test.com"},
+			{ID: 3, Name: "Carol", Email: "carol@test.com"},
+		},
+	}
+	svc := NewAvailabilityService(mock)
+
+	teachers, err := svc.GetTeachersBySubject(context.Background(), 1)
+	assert.NoError(t, err)
+	assert.Len(t, teachers, 2)
+	assert.Equal(t, "Alice", teachers[0].Name)
+	assert.Equal(t, "Carol", teachers[1].Name)
+}
+
+func TestGetTeachersBySubject_Empty(t *testing.T) {
+	mock := &mockRepo{
+		teachersBySub: []models.Teacher{},
+	}
+	svc := NewAvailabilityService(mock)
+
+	teachers, err := svc.GetTeachersBySubject(context.Background(), 99)
+	assert.NoError(t, err)
+	assert.Len(t, teachers, 0)
+}
+
+func TestGetTeachersBySubject_Error(t *testing.T) {
+	mock := &mockRepo{teachersBySubErr: assert.AnError}
+	svc := NewAvailabilityService(mock)
+
+	teachers, err := svc.GetTeachersBySubject(context.Background(), 1)
+	assert.ErrorIs(t, err, assert.AnError)
+	assert.Nil(t, teachers)
+}
+
+func TestGetBranches_Success(t *testing.T) {
+	mock := &mockRepo{
+		branches: []models.Branch{
+			{ID: 1, Name: "Main Campus"},
+			{ID: 2, Name: "Downtown"},
+		},
+	}
+	svc := NewAvailabilityService(mock)
+
+	branches, err := svc.GetBranches(context.Background())
+	assert.NoError(t, err)
+	assert.Len(t, branches, 2)
+	assert.Equal(t, "Main Campus", branches[0].Name)
+}
+
+func TestGetBranches_Error(t *testing.T) {
+	mock := &mockRepo{branchesErr: assert.AnError}
+	svc := NewAvailabilityService(mock)
+
+	branches, err := svc.GetBranches(context.Background())
+	assert.ErrorIs(t, err, assert.AnError)
+	assert.Nil(t, branches)
+}
+
+func TestGetSubjects_Success(t *testing.T) {
+	mock := &mockRepo{
+		subjects: []models.Subject{
+			{ID: 1, Name: "Mathematics"},
+			{ID: 2, Name: "Physics"},
+		},
+	}
+	svc := NewAvailabilityService(mock)
+
+	subjects, err := svc.GetSubjects(context.Background())
+	assert.NoError(t, err)
+	assert.Len(t, subjects, 2)
+	assert.Equal(t, "Mathematics", subjects[0].Name)
+}
+
+func TestGetSubjects_Error(t *testing.T) {
+	mock := &mockRepo{subjectsErr: assert.AnError}
+	svc := NewAvailabilityService(mock)
+
+	subjects, err := svc.GetSubjects(context.Background())
+	assert.ErrorIs(t, err, assert.AnError)
+	assert.Nil(t, subjects)
 }

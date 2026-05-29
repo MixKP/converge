@@ -60,7 +60,10 @@ func main() {
 	r.Use(cors.New(corsConfig()))
 	api := r.Group("/api")
 	api.GET("/teachers", handler.GetTeachers)
+	api.GET("/availability", handler.GetAllAvailability)
 	api.POST("/availability", handler.SubmitWeeklyAvailability)
+	api.GET("/branches", handler.GetBranches)
+	api.GET("/subjects", handler.GetSubjects)
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 

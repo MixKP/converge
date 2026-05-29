@@ -10,6 +10,13 @@ definitions:
           $ref: '#/definitions/models.WeeklySlot'
         type: array
     type: object
+  models.Branch:
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
   models.ErrorResponse:
     properties:
       error:
@@ -20,6 +27,13 @@ definitions:
     properties:
       message:
         example: Availability saved successfully
+        type: string
+    type: object
+  models.Subject:
+    properties:
+      id:
+        type: integer
+      name:
         type: string
     type: object
   models.Teacher:
@@ -33,6 +47,15 @@ definitions:
       name:
         example: Alice
         type: string
+    type: object
+  models.TeacherAvailability:
+    properties:
+      teacher:
+        $ref: '#/definitions/models.Teacher'
+      weekly:
+        items:
+          $ref: '#/definitions/models.WeeklySlot'
+        type: array
     type: object
   models.WeeklySlot:
     properties:
@@ -54,6 +77,25 @@ info:
   version: "1.0"
 paths:
   /availability:
+    get:
+      description: Returns all active teachers with their weekly availability slots,
+        grouped by teacher
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.TeacherAvailability'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Get all teacher availability
+      tags:
+      - availability
     post:
       consumes:
       - application/json
@@ -85,9 +127,53 @@ paths:
       summary: Submit weekly availability
       tags:
       - availability
+  /branches:
+    get:
+      description: Returns all branches ordered by id
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Branch'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: List branches
+      tags:
+      - branches
+  /subjects:
+    get:
+      description: Returns all subjects ordered by id
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Subject'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: List subjects
+      tags:
+      - subjects
   /teachers:
     get:
-      description: Returns all teachers with active status, ordered by name
+      description: Returns all teachers with active status, ordered by name. Optionally
+        filter by subject_id.
+      parameters:
+      - description: Filter by subject ID
+        in: query
+        name: subject_id
+        type: integer
       produces:
       - application/json
       responses:
@@ -97,6 +183,10 @@ paths:
             items:
               $ref: '#/definitions/models.Teacher'
             type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
