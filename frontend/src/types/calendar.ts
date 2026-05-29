@@ -3,7 +3,6 @@ export interface WeeklySlot {
   start: string
   end: string
 }
-
 export interface AvailabilityPayload {
   teacherId: number
   weekly: WeeklySlot[]

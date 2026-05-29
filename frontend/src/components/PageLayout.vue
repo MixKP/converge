@@ -2,10 +2,8 @@
   interface Props {
     title: string
   }
-
   defineProps<Props>()
 </script>
-
 <template>
   <div
     class="bg-(--paper-cream) items-center justify-center p-3 sm:p-6 h-screen flex overflow-hidden"

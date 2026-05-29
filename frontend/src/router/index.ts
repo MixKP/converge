@@ -1,7 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import SubmitAvailability from '../views/SubmitAvailability.vue'
 import BookingView from '../views/BookingView.vue'
-
 const router = createRouter({
   history: createWebHistory(),
   routes: [
@@ -21,5 +20,4 @@ const router = createRouter({
     },
   ],
 })
-
 export default router

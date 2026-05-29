@@ -8,35 +8,27 @@
   import SubmitButton from '../components/SubmitButton.vue'
   import type { EventInput } from '@fullcalendar/core'
   import { generateAvailabilityPayload } from '../utils/calendarHelpers'
-
   const teacherStore = useTeacherStore()
-
   const isLoading = ref(false)
   const events = ref<EventInput[]>([])
-
   const selectedTeacherId = computed({
     get: () => teacherStore.selectedTeacherId,
     set: (val) => teacherStore.setSelectedTeacherById(val),
   })
-
   const canSubmit = computed(
     () => !!selectedTeacherId.value && !isLoading.value && events.value.length > 0
   )
-
   watch(selectedTeacherId, () => {
     events.value = []
   })
-
   const handleSubmit = async () => {
     if (!selectedTeacherId.value || !events.value || isLoading.value) return
     const payload = generateAvailabilityPayload(events.value, selectedTeacherId.value)
     await availabilityApi.submitAvailability(payload)
-
     events.value = []
     teacherStore.setSelectedTeacherById(null)
   }
 </script>
-
 <template>
   <PageLayout title="Submit Availability">
     <form class="flex flex-col gap-3 sm:gap-4 flex-1 min-h-0" @submit.prevent="handleSubmit">
@@ -60,7 +52,6 @@
           </option>
         </select>
       </div>
-
       <div class="flex-1 flex flex-col min-h-0 stagger-in">
         <div class="flex items-center justify-between mb-3 sm:mb-4 shrink-0">
           <label class="font-semibold text-(--ink-primary) text-sm tracking-tight">
@@ -77,7 +68,6 @@
             Click and drag to select
           </span>
         </div>
-
         <div
           class="relative border border-(--border-subtle) rounded-sm overflow-hidden shadow-card bg-(--paper-white) flex-1 min-h-0"
         >
@@ -90,11 +80,9 @@
           >
             <Calendar v-model="events" :editable="!!selectedTeacherId" class="h-full" />
           </div>
-
           <CalendarDisabledOverlay v-if="!selectedTeacherId" message="Select a teacher first" />
         </div>
       </div>
-
       <div
         class="flex justify-end pt-4 sm:pt-5 border-t border-(--border-subtle) shrink-0 stagger-in"
       >

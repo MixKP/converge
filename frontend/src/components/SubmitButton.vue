@@ -1,6 +1,5 @@
 <script setup lang="ts">
   import LoadingSpinner from './LoadingSpinner.vue'
-
   defineProps<{
     isDisabled: boolean
     isLoading: boolean
@@ -8,7 +7,6 @@
     normalText: string
   }>()
 </script>
-
 <template>
   <button
     type="submit"

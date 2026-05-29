@@ -1,3 +1,4 @@
+import { API_BASE } from '../config/api'
 export async function fetchApi<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, options)
   if (!response.ok) {
@@ -6,11 +7,13 @@ export async function fetchApi<T>(url: string, options?: RequestInit): Promise<T
   }
   return response.json()
 }
-
 export async function postApi<T>(url: string, payload: unknown): Promise<T> {
   return fetchApi<T>(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   })
+}
+export function createApiGetAll<T>(endpoint: string): () => Promise<T[]> {
+  return () => fetchApi<T[]>(`${API_BASE}/${endpoint}`)
 }

@@ -7,44 +7,37 @@
     EventInput,
     DateSelectArg,
     EventClickArg,
+    EventDropArg,
     BusinessHoursInput,
     CalendarOptions,
   } from '@fullcalendar/core'
-
   interface Props {
     editable?: boolean
     businessHours?: BusinessHoursInput
     constraint?: string | 'businessHours'
     modelValue?: EventInput[]
   }
-
   const props = withDefaults(defineProps<Props>(), {
     editable: false,
     businessHours: undefined,
     constraint: undefined,
     modelValue: () => [],
   })
-
   const emit = defineEmits<{
     'update:modelValue': [value: EventInput[]]
   }>()
-
   const calendarRef = ref<InstanceType<typeof FullCalendar> | null>(null)
   const screenWidth = ref(0)
-
   const updateScreenWidth = () => {
     screenWidth.value = globalThis.innerWidth
   }
-
   onMounted(() => {
     updateScreenWidth()
     globalThis.addEventListener('resize', updateScreenWidth)
   })
-
   onUnmounted(() => {
     globalThis.removeEventListener('resize', updateScreenWidth)
   })
-
   const dayHeaderFormat = computed(() => {
     if (screenWidth.value < 640) {
       return { weekday: 'narrow' as const }
@@ -53,36 +46,39 @@
     }
     return { weekday: 'long' as const }
   })
-
   const showDeleteDialog = ref(false)
   const eventToDelete = ref<string | null>(null)
-
   const generateEventId = (): string => {
     return `event-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
   }
-
+  const getCurrentEvents = (): EventInput[] => {
+    const api = calendarRef.value?.getApi()
+    if (!api) return []
+    return api
+      .getEvents()
+      .filter((e) => e.start != null && e.end != null)
+      .map((e) => ({
+        id: e.id,
+        start: e.start!,
+        end: e.end!,
+        title: e.title,
+      }))
+  }
   const handleDateSelect = (selectInfo: DateSelectArg) => {
     if (!props.editable) return
-
     const calendar = selectInfo.view.calendar
     const start = selectInfo.start
     const end = selectInfo.end
-
     calendar.unselect()
-
     const newEvent = { id: generateEventId(), start, end, title: '' }
-    const newEvents = [...(props.modelValue || []), newEvent]
-    emit('update:modelValue', newEvents)
+    emit('update:modelValue', [...(props.modelValue || []), newEvent])
   }
-
   const handleEventClick = (clickInfo: EventClickArg) => {
     const id = clickInfo.event.id
     if (!id) return
-
     eventToDelete.value = id
     showDeleteDialog.value = true
   }
-
   const confirmDelete = () => {
     if (eventToDelete.value) {
       const filteredEvents = (props.modelValue || []).filter((e) => e.id !== eventToDelete.value)
@@ -90,12 +86,19 @@
     }
     closeDeleteDialog()
   }
-
   const closeDeleteDialog = () => {
     showDeleteDialog.value = false
     eventToDelete.value = null
   }
-
+  const handleEventChange = () => {
+    emit('update:modelValue', getCurrentEvents())
+  }
+  const handleEventDrop = (_info: EventDropArg) => {
+    handleEventChange()
+  }
+  const handleEventResize = () => {
+    handleEventChange()
+  }
   const CALENDAR_DEFAULT_OPTIONS = {
     initialView: 'timeGridWeek',
     headerToolbar: false,
@@ -110,40 +113,31 @@
     slotDuration: '00:30:00',
     snapDuration: '01:00:00',
   } as const
-
   watch(
     () => props.modelValue,
     (newEvents, oldEvents) => {
       const api = calendarRef.value?.getApi()
       if (!api) return
-
       const oldIds = new Set(
         (oldEvents ?? []).map((e) => e.id).filter((id): id is string => id != null)
       )
       const newIds = new Set(
         (newEvents ?? []).map((e) => e.id).filter((id): id is string => id != null)
       )
-
-      // Diff-based sync: avoid full re-render which causes flicker
       for (const id of oldIds) {
         if (!newIds.has(id)) {
           api.getEventById(id)?.remove()
         }
       }
-
       for (const event of newEvents ?? []) {
         if (!event.id) continue
-
         const existing = api.getEventById(event.id)
-        if (existing) {
-          existing.setDates(event.start as Date, event.end as Date)
-        } else {
+        if (!existing) {
           api.addEvent(event)
         }
       }
     }
   )
-
   const calendarOptions = computed(() => ({
     plugins: [timeGridPlugin, interactionPlugin],
     ...CALENDAR_DEFAULT_OPTIONS,
@@ -154,32 +148,29 @@
     selectConstraint: props.constraint,
     select: handleDateSelect,
     eventClick: handleEventClick,
+    eventDrop: handleEventDrop,
+    eventResize: handleEventResize,
     dayHeaderFormat: dayHeaderFormat.value,
   }))
-
   watch(dayHeaderFormat, (newFormat) => {
     const api = calendarRef.value?.getApi()
     if (api) {
       api.setOption('dayHeaderFormat', newFormat)
     }
   })
-
   const setOption = <K extends keyof CalendarOptions>(key: K, value: CalendarOptions[K]) => {
     const api = calendarRef.value?.getApi()
     if (api) {
       api.setOption(key, value)
     }
   }
-
   defineExpose({ setOption })
 </script>
-
 <template>
   <div
     class="border border-(--border-subtle) rounded-sm overflow-hidden h-full bg-(--paper-white) shadow-sm"
   >
     <FullCalendar ref="calendarRef" :options="calendarOptions" />
-
     <Transition
       enter-active-class="transition-opacity duration-200"
       enter-from-class="opacity-0"
@@ -222,7 +213,6 @@
               </p>
             </div>
           </div>
-
           <div class="flex gap-3 justify-end">
             <button
               type="button"
