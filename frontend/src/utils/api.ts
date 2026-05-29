@@ -6,3 +6,11 @@ export async function fetchApi<T>(url: string, options?: RequestInit): Promise<T
   }
   return response.json()
 }
+
+export async function postApi<T>(url: string, payload: unknown): Promise<T> {
+  return fetchApi<T>(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}

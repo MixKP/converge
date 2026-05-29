@@ -1,10 +1,10 @@
 export interface WeeklySlot {
-  day_of_week: number
+  dayOfWeek: number
   start: string
   end: string
 }
 
 export interface AvailabilityPayload {
-  teacher_id: number
+  teacherId: number
   weekly: WeeklySlot[]
 }

@@ -6,11 +6,15 @@ export const useTeacherStore = defineStore('teacher', {
   state: () => ({
     selectedTeacherId: null as number | null,
     teachers: [] as Teacher[],
+    teachersLoaded: false,
   }),
 
   actions: {
     async fetchTeachers() {
-      this.teachers = await teacherApi.getAll()
+      if (!this.teachersLoaded) {
+        this.teachers = await teacherApi.getAll()
+        this.teachersLoaded = true
+      }
     },
 
     setSelectedTeacherById(id: number | null) {

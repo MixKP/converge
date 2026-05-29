@@ -5,23 +5,27 @@ export function generateAvailabilityPayload(
   events: EventInput[],
   teacherId: number
 ): AvailabilityPayload {
-  const weeklyMap = new Map<string, { day_of_week: number; start: string; end: string }>()
+  if (teacherId <= 0) {
+    throw new Error('teacherId must be positive')
+  }
+
+  const weeklyMap = new Map<string, { dayOfWeek: number; start: string; end: string }>()
 
   for (const event of events) {
     if (!event.start || !event.end) continue
 
-    const start = new Date(event.start as Date)
-    const dayOfWeek = start.getDay()
-    const startTime = start.toTimeString().slice(0, 5)
+    const startDate = event.start as Date
+    const endDate = event.end as Date
+    const dayOfWeek = startDate.getDay()
+    const startTime = startDate.toTimeString().slice(0, 5)
+    const endTime = endDate.toTimeString().slice(0, 5)
 
-    const end = new Date(event.end as Date)
-    const endTime = end.toTimeString().slice(0, 5)
-
-    const key = `${dayOfWeek}-${startTime}-${endTime}`
-    if (!weeklyMap.has(key)) {
-      weeklyMap.set(key, { day_of_week: dayOfWeek, start: startTime, end: endTime })
-    }
+    weeklyMap.set(`${dayOfWeek}-${startTime}-${endTime}`, {
+      dayOfWeek,
+      start: startTime,
+      end: endTime,
+    })
   }
 
-  return { teacher_id: teacherId, weekly: Array.from(weeklyMap.values()) }
+  return { teacherId, weekly: Array.from(weeklyMap.values()) }
 }

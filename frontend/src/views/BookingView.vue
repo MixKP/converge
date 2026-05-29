@@ -1,9 +1,6 @@
 <script setup lang="ts">
-  import { ref, computed, onMounted, watch } from 'vue'
-  import FullCalendar from '@fullcalendar/vue3'
-  import timeGridPlugin from '@fullcalendar/timegrid'
-  import interactionPlugin from '@fullcalendar/interaction'
-  import type { EventInput, EventSourceFunc } from '@fullcalendar/core'
+  import { ref, computed, watch } from 'vue'
+  import type { EventInput, BusinessHoursInput } from '@fullcalendar/core'
   import { useTeacherStore } from '../stores/teacherStore'
   import { availabilityApi } from '../services/availabilityApi'
   import type { WeeklySlot } from '../types/calendar'
@@ -46,85 +43,21 @@
 
   const canSelectTeacher = computed(() => !!selectedSubjectId.value)
 
-  const timeToMinutes = (t: string) => {
-    const [h, m] = t.split(':')
-    return parseInt(h) * 60 + parseInt(m)
-  }
+  const MOCK_AVAILABILITY: WeeklySlot[] = [
+    { dayOfWeek: 1, start: '09:00', end: '12:00' },
+    { dayOfWeek: 1, start: '14:00', end: '17:00' },
+    { dayOfWeek: 3, start: '10:00', end: '12:00' },
+    { dayOfWeek: 5, start: '09:00', end: '12:00' },
+    { dayOfWeek: 0, start: '10:00', end: '12:00' },
+  ] as const
 
-  const dayMapping: Record<number, number> = {
-    1: 1, // Mon
-    2: 2, // Tue
-    3: 3, // Wed
-    4: 4, // Thu
-    5: 5, // Fri
-    6: 6, // Sat
-    7: 0, // Sun (JS: 0)
-  }
-
-  // Convert availability to FullCalendar businessHours format
-  const generateBusinessHours = (availabilityList: WeeklySlot[]) => {
-    const businessHoursMap: Record<number, any[]> = {}
-
-    for (const avail of availabilityList) {
-      const jsDay = dayMapping[avail.day_of_week]
-      if (!businessHoursMap[jsDay]) {
-        businessHoursMap[jsDay] = []
-      }
-      businessHoursMap[jsDay].push({
-        startTime: avail.start,
-        endTime: avail.end,
-      })
-    }
-
-    // Convert to array format for FullCalendar
-    const result: any[] = []
-    for (const [day, slots] of Object.entries(businessHoursMap)) {
-      for (const slot of slots) {
-        result.push({
-          daysOfWeek: [parseInt(day)],
-          startTime: slot.startTime,
-          endTime: slot.endTime,
-        })
-      }
-    }
-    return result
-  }
-
-  const fetchAvailability = async (teacherId: number) => {
-    // TODO: replace with real API
-    const mockAvailability: WeeklySlot[] = [
-      { day_of_week: 1, start: '09:00', end: '12:00' },
-      { day_of_week: 1, start: '14:00', end: '17:00' },
-      { day_of_week: 3, start: '10:00', end: '12:00' },
-      { day_of_week: 5, start: '09:00', end: '12:00' },
-    ]
-
-    businessHours.value = generateBusinessHours(mockAvailability)
-    console.log('[FullCalendar] businessHours:', businessHours.value)
-  }
-
-  const handleDateSelect = (selectInfo: any) => {
-    if (!selectedTeacherId.value) return
-
-    const calendar = selectInfo.view.calendar
-    const title = ''
-    const start = selectInfo.start
-    const end = selectInfo.end
-
-    calendar.unselect()
-
-    events.value.push({
-      start,
-      end,
-      title,
-    })
-  }
-
-  const handleEventClick = (clickInfo: any) => {
-    if (confirm('Delete this event?')) {
-      const id = clickInfo.event.id
-      events.value = events.value.filter((e) => e.id !== id)
-    }
+  const updateBusinessHours = (availability: WeeklySlot[]) => {
+    businessHours.value = availability.map((avail) => ({
+      daysOfWeek: [avail.dayOfWeek],
+      startTime: avail.start,
+      endTime: avail.end,
+    }))
+    calendarRef.value?.setOption('businessHours', businessHours.value)
   }
 
   const calendarOptions = computed(() => ({
@@ -189,10 +122,6 @@
     }
   }
 
-  onMounted(() => {
-    teacherStore.fetchTeachers()
-  })
-
   watch(selectedSubjectId, () => {
     events.value = []
     teacherStore.setSelectedTeacherById(null)
@@ -201,7 +130,7 @@
   watch(selectedTeacherId, (newId) => {
     events.value = []
     if (newId) {
-      fetchAvailability(newId)
+      updateBusinessHours(MOCK_AVAILABILITY)
     } else {
       businessHours.value = {}
     }

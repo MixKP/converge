@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { ref, computed, onMounted } from 'vue'
+  import { ref, computed, watch } from 'vue'
   import { useTeacherStore } from '../stores/teacherStore'
   import { availabilityApi } from '../services/availabilityApi'
   import PageLayout from '../components/PageLayout.vue'
@@ -23,8 +23,8 @@
     () => !!selectedTeacherId.value && !isLoading.value && events.value.length > 0
   )
 
-  onMounted(() => {
-    teacherStore.fetchTeachers()
+  watch(selectedTeacherId, () => {
+    events.value = []
   })
 
   const handleSubmit = async () => {
