@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { ref, computed, watch } from 'vue'
+  import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
   import FullCalendar from '@fullcalendar/vue3'
   import timeGridPlugin from '@fullcalendar/timegrid'
   import interactionPlugin from '@fullcalendar/interaction'
@@ -30,6 +30,29 @@
   }>()
 
   const calendarRef = ref<InstanceType<typeof FullCalendar> | null>(null)
+  const screenWidth = ref(0)
+
+  const updateScreenWidth = () => {
+    screenWidth.value = globalThis.innerWidth
+  }
+
+  onMounted(() => {
+    updateScreenWidth()
+    globalThis.addEventListener('resize', updateScreenWidth)
+  })
+
+  onUnmounted(() => {
+    globalThis.removeEventListener('resize', updateScreenWidth)
+  })
+
+  const dayHeaderFormat = computed(() => {
+    if (screenWidth.value < 640) {
+      return { weekday: 'narrow' as const }
+    } else if (screenWidth.value < 768) {
+      return { weekday: 'short' as const }
+    }
+    return { weekday: 'long' as const }
+  })
 
   const showDeleteDialog = ref(false)
   const eventToDelete = ref<string | null>(null)
@@ -131,7 +154,15 @@
     selectConstraint: props.constraint,
     select: handleDateSelect,
     eventClick: handleEventClick,
+    dayHeaderFormat: dayHeaderFormat.value,
   }))
+
+  watch(dayHeaderFormat, (newFormat) => {
+    const api = calendarRef.value?.getApi()
+    if (api) {
+      api.setOption('dayHeaderFormat', newFormat)
+    }
+  })
 
   const setOption = <K extends keyof CalendarOptions>(key: K, value: CalendarOptions[K]) => {
     const api = calendarRef.value?.getApi()

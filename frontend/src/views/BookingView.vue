@@ -149,21 +149,23 @@
 
 <template>
   <PageLayout title="Booking Course">
-    <form class="flex flex-col gap-3 flex-1 min-h-0" @submit.prevent="handleSubmit">
-      <div class="flex gap-4 shrink-0 stagger-in">
+    <form class="flex flex-col gap-3 sm:gap-4 flex-1 min-h-0" @submit.prevent="handleSubmit">
+      <div class="flex flex-col sm:flex-row gap-3 sm:gap-5 shrink-0 stagger-in">
         <div
-          class="bg-(--paper-white) p-4 rounded-sm border border-(--border-subtle) flex-1 shadow-sm"
+          class="bg-(--paper-white) p-4 sm:p-5 rounded-sm border border-(--border-subtle) flex-1 shadow-card"
         >
-          <label class="font-semibold text-(--ink-primary) text-sm block mb-2 tracking-tight">
+          <label
+            class="font-semibold text-(--ink-primary) text-sm block mb-2 sm:mb-3 tracking-tight"
+          >
             <span
-              class="font-mono text-[10px] border border-(--ink-primary) px-2 py-0.5 rounded-sm tracking-widest mr-2"
+              class="font-mono text-xs border-2 border-(--ink-primary) bg-(--paper-cream) px-2.5 sm:px-3 py-1 rounded-sm tracking-widest mr-2 sm:mr-3 shadow-badge inline-block"
               >01</span
             >
             Select Subject
           </label>
           <select
             v-model="selectedSubjectId"
-            class="w-full bg-white border border-(--border-strong) rounded-sm px-4 py-2.5 text-sm focus:ring-2 focus:ring-(--accent-indigo)/10 focus:border-(--accent-indigo) outline-none transition-all text-(--ink-primary) cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            class="w-full bg-white border border-(--border-strong) rounded-sm px-3 sm:px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-(--accent-terracotta)/10 focus:border-(--accent-terracotta) outline-none transition-all text-(--ink-primary) cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:border-(--text-secondary)"
           >
             <option :value="null" disabled>-- Choose Subject --</option>
             <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
@@ -173,11 +175,13 @@
         </div>
 
         <div
-          class="bg-(--paper-white) p-4 rounded-sm border border-(--border-subtle) flex-1 shadow-sm"
+          class="bg-(--paper-white) p-4 sm:p-5 rounded-sm border border-(--border-subtle) flex-1 shadow-card"
         >
-          <label class="font-semibold text-(--ink-primary) text-sm block mb-2 tracking-tight">
+          <label
+            class="font-semibold text-(--ink-primary) text-sm block mb-2 sm:mb-3 tracking-tight"
+          >
             <span
-              class="font-mono text-[10px] border border-(--ink-primary) px-2 py-0.5 rounded-sm tracking-widest mr-2"
+              class="font-mono text-xs border-2 border-(--ink-primary) bg-(--paper-cream) px-2.5 sm:px-3 py-1 rounded-sm tracking-widest mr-2 sm:mr-3 shadow-badge inline-block"
               >02</span
             >
             Select Teacher
@@ -185,7 +189,7 @@
           <select
             v-model="selectedTeacherId"
             :disabled="!canSelectTeacher"
-            class="w-full bg-white border border-(--border-strong) rounded-sm px-4 py-2.5 text-sm focus:ring-2 focus:ring-(--accent-indigo)/10 focus:border-(--accent-indigo) outline-none transition-all text-(--ink-primary) cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            class="w-full bg-white border border-(--border-strong) rounded-sm px-3 sm:px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-(--accent-terracotta)/10 focus:border-(--accent-terracotta) outline-none transition-all text-(--ink-primary) cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:border-(--text-secondary)"
           >
             <option :value="null" disabled>
               {{ canSelectTeacher ? '-- Choose Teacher --' : '-- Select subject first --' }}
@@ -198,28 +202,28 @@
       </div>
 
       <div class="flex-1 flex flex-col min-h-0 stagger-in">
-        <div class="flex items-center justify-between mb-3 shrink-0">
+        <div class="flex items-center justify-between mb-3 sm:mb-4 shrink-0">
           <label class="font-semibold text-(--ink-primary) text-sm tracking-tight">
             <span
-              class="font-mono text-[10px] border border-(--ink-primary) px-2 py-0.5 rounded-sm tracking-widest mr-2"
+              class="font-mono text-xs border-2 border-(--ink-primary) bg-(--paper-cream) px-2.5 sm:px-3 py-1 rounded-sm tracking-widest mr-2 sm:mr-3 shadow-badge inline-block"
               >03</span
             >
             Select Time Slots
           </label>
           <span
             v-if="selectedTeacherId"
-            class="text-xs font-medium text-(--accent-indigo) bg-(--accent-indigo-soft) px-3 py-1 rounded-sm border border-(--accent-indigo)/20 tracking-wide"
+            class="text-xs font-medium text-(--accent-terracotta) bg-(--accent-terracotta-soft) px-3 sm:px-4 py-1 sm:py-1.5 rounded-sm border border-(--accent-terracotta)/25 tracking-wide hidden sm:inline-block"
           >
             Click and drag to select
           </span>
         </div>
 
         <div
-          class="relative border border-(--border-subtle) rounded-sm overflow-hidden shadow-sm bg-(--paper-white) flex-1 min-h-0"
+          class="relative border border-(--border-subtle) rounded-sm overflow-hidden shadow-card bg-(--paper-white) flex-1 min-h-0"
         >
           <div
             :class="{
-              'opacity-40 grayscale-30 pointer-events-none transition-opacity duration-300':
+              'opacity-45 grayscale-30 pointer-events-none transition-opacity duration-300':
                 !selectedTeacherId,
             }"
             class="h-full"
@@ -258,7 +262,9 @@
           </div>
         </div>
 
-      <div class="flex justify-end pt-3 border-t-2 border-(--border-subtle) shrink-0 stagger-in">
+      <div
+        class="flex justify-end pt-4 sm:pt-5 border-t border-(--border-subtle) shrink-0 stagger-in"
+      >
         <SubmitButton
           :is-disabled="!canSubmit"
           :is-loading="isLoading"
