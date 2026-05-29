@@ -1,6 +1,9 @@
-.PHONY: build test test-integration lint clean
+.PHONY: build test test-integration lint clean swag
 
-build:
+swag:
+	swag init -g cmd/api/main.go -o ./docs
+
+build: swag
 	go build -o bin/api ./cmd/api/
 
 test:

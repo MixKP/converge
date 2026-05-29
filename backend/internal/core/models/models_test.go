@@ -43,8 +43,8 @@ func TestAvailabilityPayloadJSON(t *testing.T) {
 	p := AvailabilityPayload{
 		TeacherID: 42,
 		Weekly: []WeeklySlot{
-			{DayOfWeek: 1, Start: "09:00", End: "10:00"},
-			{DayOfWeek: 3, Start: "14:00", End: "16:00"},
+			{DayOfWeek: 0, Start: "09:00", End: "10:00"},
+			{DayOfWeek: 2, Start: "14:00", End: "16:00"},
 		},
 	}
 	b, err := json.Marshal(p)

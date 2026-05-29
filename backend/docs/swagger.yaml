@@ -1,0 +1,105 @@
+basePath: /api
+definitions:
+  models.AvailabilityPayload:
+    properties:
+      teacher_id:
+        example: 42
+        type: integer
+      weekly:
+        items:
+          $ref: '#/definitions/models.WeeklySlot'
+        type: array
+    type: object
+  models.ErrorResponse:
+    properties:
+      error:
+        example: failed to retrieve teachers
+        type: string
+    type: object
+  models.MessageResponse:
+    properties:
+      message:
+        example: Availability saved successfully
+        type: string
+    type: object
+  models.Teacher:
+    properties:
+      id:
+        example: 1
+        type: integer
+      name:
+        example: Alice
+        type: string
+    type: object
+  models.WeeklySlot:
+    properties:
+      day_of_week:
+        description: 0=Monday ... 6=Sunday
+        example: 0
+        type: integer
+      end:
+        example: "10:00"
+        type: string
+      start:
+        example: "09:00"
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: API for teacher availability management and bookings
+  title: Converge API
+  version: "1.0"
+paths:
+  /api/availability:
+    post:
+      consumes:
+      - application/json
+      description: Replaces all existing availability for a teacher with the provided
+        weekly schedule (full replace, not merge). Rejects overlapping slots within
+        the same day.
+      parameters:
+      - description: 'Weekly availability payload. day_of_week: 0=Monday through 6=Sunday'
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.AvailabilityPayload'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Submit weekly availability
+      tags:
+      - availability
+  /api/teachers:
+    get:
+      description: Returns all teachers with active status, ordered by name
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Teacher'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: List active teachers
+      tags:
+      - teachers
+swagger: "2.0"

@@ -1,3 +1,9 @@
+// @title           Converge API
+// @version         1.0
+// @description     API for teacher availability management and bookings
+// @host            localhost:8080
+// @BasePath        /api
+
 package main
 
 import (
@@ -5,12 +11,15 @@ import (
 	"os"
 	"strings"
 
+	_ "github.com/RinZ5/converge/backend/docs"
 	"github.com/RinZ5/converge/backend/internal/adapter/db"
 	"github.com/RinZ5/converge/backend/internal/adapter/web"
 	"github.com/RinZ5/converge/backend/internal/core/service"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 func corsConfig() cors.Config {
@@ -54,7 +63,10 @@ func main() {
 	api.GET("/teachers", handler.GetTeachers)
 	api.POST("/availability", handler.SubmitWeeklyAvailability)
 
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
 	log.Println("Server starting on :8080")
+	log.Println("API Documentation available on /swagger")
 	if err := r.Run(":8080"); err != nil {
 		log.Printf("Server failed: %v", err)
 		return

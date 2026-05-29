@@ -46,8 +46,8 @@ func TestPostgresRepoReplaceWeeklyAvailability(t *testing.T) {
 	repo := setupTestDB(t)
 
 	slots := []models.WeeklySlot{
-		{DayOfWeek: 1, Start: "09:00", End: "10:00"},
-		{DayOfWeek: 1, Start: "11:00", End: "12:00"},
+		{DayOfWeek: 0, Start: "09:00", End: "10:00"},
+		{DayOfWeek: 0, Start: "11:00", End: "12:00"},
 	}
 	err := repo.ReplaceWeeklyAvailability(context.Background(), 1, slots)
 	require.NoError(t, err)
@@ -59,7 +59,7 @@ func TestPostgresRepoReplaceWeeklyAvailability(t *testing.T) {
 	assert.Equal(t, 2, count)
 
 	replaced := []models.WeeklySlot{
-		{DayOfWeek: 3, Start: "14:00", End: "16:00"},
+		{DayOfWeek: 2, Start: "14:00", End: "16:00"},
 	}
 	err = repo.ReplaceWeeklyAvailability(context.Background(), 1, replaced)
 	require.NoError(t, err)

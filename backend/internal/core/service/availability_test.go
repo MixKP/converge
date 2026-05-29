@@ -39,8 +39,8 @@ func TestSubmitAvailability_Success(t *testing.T) {
 	payload := models.AvailabilityPayload{
 		TeacherID: 42,
 		Weekly: []models.WeeklySlot{
-			{DayOfWeek: 1, Start: "09:00", End: "10:00"},
-			{DayOfWeek: 1, Start: "11:00", End: "12:00"},
+			{DayOfWeek: 0, Start: "09:00", End: "10:00"},
+			{DayOfWeek: 0, Start: "11:00", End: "12:00"},
 		},
 	}
 	err := svc.SubmitWeeklyAvailability(context.Background(), payload)
@@ -56,8 +56,8 @@ func TestSubmitAvailability_Overlap(t *testing.T) {
 	payload := models.AvailabilityPayload{
 		TeacherID: 1,
 		Weekly: []models.WeeklySlot{
-			{DayOfWeek: 1, Start: "09:00", End: "11:00"},
-			{DayOfWeek: 1, Start: "10:30", End: "12:00"},
+			{DayOfWeek: 0, Start: "09:00", End: "11:00"},
+			{DayOfWeek: 0, Start: "10:30", End: "12:00"},
 		},
 	}
 	err := svc.SubmitWeeklyAvailability(context.Background(), payload)
@@ -88,8 +88,8 @@ func TestSubmitAvailability_TouchingSlots(t *testing.T) {
 	payload := models.AvailabilityPayload{
 		TeacherID: 1,
 		Weekly: []models.WeeklySlot{
-			{DayOfWeek: 1, Start: "09:00", End: "10:00"},
-			{DayOfWeek: 1, Start: "10:00", End: "11:00"},
+			{DayOfWeek: 0, Start: "09:00", End: "10:00"},
+			{DayOfWeek: 0, Start: "10:00", End: "11:00"},
 		},
 	}
 	err := svc.SubmitWeeklyAvailability(context.Background(), payload)
@@ -103,7 +103,7 @@ func TestSubmitAvailability_SingleSlot(t *testing.T) {
 	payload := models.AvailabilityPayload{
 		TeacherID: 1,
 		Weekly: []models.WeeklySlot{
-			{DayOfWeek: 1, Start: "09:00", End: "10:00"},
+			{DayOfWeek: 0, Start: "09:00", End: "10:00"},
 		},
 	}
 	err := svc.SubmitWeeklyAvailability(context.Background(), payload)
@@ -117,8 +117,8 @@ func TestSubmitAvailability_UnsortedSlots(t *testing.T) {
 	payload := models.AvailabilityPayload{
 		TeacherID: 1,
 		Weekly: []models.WeeklySlot{
-			{DayOfWeek: 1, Start: "11:00", End: "12:00"},
-			{DayOfWeek: 1, Start: "09:00", End: "10:00"},
+			{DayOfWeek: 0, Start: "11:00", End: "12:00"},
+			{DayOfWeek: 0, Start: "09:00", End: "10:00"},
 		},
 	}
 	err := svc.SubmitWeeklyAvailability(context.Background(), payload)
@@ -132,7 +132,7 @@ func TestSubmitAvailability_ReplaceError(t *testing.T) {
 	payload := models.AvailabilityPayload{
 		TeacherID: 1,
 		Weekly: []models.WeeklySlot{
-			{DayOfWeek: 1, Start: "09:00", End: "10:00"},
+			{DayOfWeek: 0, Start: "09:00", End: "10:00"},
 		},
 	}
 	err := svc.SubmitWeeklyAvailability(context.Background(), payload)
@@ -146,7 +146,7 @@ func TestSubmitAvailability_SaveError(t *testing.T) {
 	payload := models.AvailabilityPayload{
 		TeacherID: 1,
 		Weekly: []models.WeeklySlot{
-			{DayOfWeek: 1, Start: "09:00", End: "10:00"},
+			{DayOfWeek: 0, Start: "09:00", End: "10:00"},
 		},
 	}
 	err := svc.SubmitWeeklyAvailability(context.Background(), payload)
@@ -181,8 +181,8 @@ func TestSubmitAvailabilityCrossDaySlots(t *testing.T) {
 	payload := models.AvailabilityPayload{
 		TeacherID: 1,
 		Weekly: []models.WeeklySlot{
-			{DayOfWeek: 1, Start: "09:00", End: "11:00"},
-			{DayOfWeek: 2, Start: "10:00", End: "12:00"},
+			{DayOfWeek: 0, Start: "09:00", End: "11:00"},
+			{DayOfWeek: 1, Start: "10:00", End: "12:00"},
 		},
 	}
 	err := svc.SubmitWeeklyAvailability(context.Background(), payload)
@@ -196,10 +196,10 @@ func TestSubmitAvailabilityMultipleDaysValid(t *testing.T) {
 	payload := models.AvailabilityPayload{
 		TeacherID: 1,
 		Weekly: []models.WeeklySlot{
-			{DayOfWeek: 1, Start: "09:00", End: "10:00"},
-			{DayOfWeek: 1, Start: "11:00", End: "12:00"},
-			{DayOfWeek: 2, Start: "09:00", End: "12:00"},
-			{DayOfWeek: 5, Start: "14:00", End: "16:00"},
+			{DayOfWeek: 0, Start: "09:00", End: "10:00"},
+			{DayOfWeek: 0, Start: "11:00", End: "12:00"},
+			{DayOfWeek: 1, Start: "09:00", End: "12:00"},
+			{DayOfWeek: 4, Start: "14:00", End: "16:00"},
 		},
 	}
 	err := svc.SubmitWeeklyAvailability(context.Background(), payload)
@@ -215,14 +215,14 @@ func TestSubmitAvailabilityOverlapMessageFormat(t *testing.T) {
 	payload := models.AvailabilityPayload{
 		TeacherID: 1,
 		Weekly: []models.WeeklySlot{
-			{DayOfWeek: 1, Start: "09:00", End: "11:00"},
-			{DayOfWeek: 1, Start: "10:30", End: "12:00"},
+			{DayOfWeek: 0, Start: "09:00", End: "11:00"},
+			{DayOfWeek: 0, Start: "10:30", End: "12:00"},
 		},
 	}
 	err := svc.SubmitWeeklyAvailability(context.Background(), payload)
 
 	var valErr *ValidationError
 	require.ErrorAs(t, err, &valErr)
-	assert.Equal(t, "overlapping slots on day 1: 09:00-11:00 and 10:30-12:00", valErr.Error())
+	assert.Equal(t, "overlapping slots on day 0: 09:00-11:00 and 10:30-12:00", valErr.Error())
 	assert.False(t, mock.replaceCalled)
 }

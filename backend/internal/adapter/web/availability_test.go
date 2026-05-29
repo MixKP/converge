@@ -71,8 +71,8 @@ func TestSubmitWeeklyAvailabilitySuccess(t *testing.T) {
 	payload := models.AvailabilityPayload{
 		TeacherID: 42,
 		Weekly: []models.WeeklySlot{
-			{DayOfWeek: 1, Start: "09:00", End: "10:00"},
-			{DayOfWeek: 1, Start: "11:00", End: "12:00"},
+			{DayOfWeek: 0, Start: "09:00", End: "10:00"},
+			{DayOfWeek: 0, Start: "11:00", End: "12:00"},
 		},
 	}
 	body, _ := json.Marshal(payload)
@@ -92,7 +92,7 @@ func TestSubmitWeeklyAvailabilitySuccess(t *testing.T) {
 func TestSubmitWeeklyAvailabilityOverlap(t *testing.T) {
 	mock := &mockService{
 		submitErr: &service.ValidationError{
-			Msg: "overlapping slots on day 1: 09:00-11:00 and 10:30-12:00",
+			Msg: "overlapping slots on day 0: 09:00-11:00 and 10:30-12:00",
 		},
 	}
 	handler := NewAvailabilityHandler(mock)
@@ -100,8 +100,8 @@ func TestSubmitWeeklyAvailabilityOverlap(t *testing.T) {
 	payload := models.AvailabilityPayload{
 		TeacherID: 1,
 		Weekly: []models.WeeklySlot{
-			{DayOfWeek: 1, Start: "09:00", End: "11:00"},
-			{DayOfWeek: 1, Start: "10:30", End: "12:00"},
+			{DayOfWeek: 0, Start: "09:00", End: "11:00"},
+			{DayOfWeek: 0, Start: "10:30", End: "12:00"},
 		},
 	}
 	body, _ := json.Marshal(payload)
@@ -140,7 +140,7 @@ func TestSubmitWeeklyAvailabilityServiceError(t *testing.T) {
 	payload := models.AvailabilityPayload{
 		TeacherID: 1,
 		Weekly: []models.WeeklySlot{
-			{DayOfWeek: 1, Start: "09:00", End: "10:00"},
+			{DayOfWeek: 0, Start: "09:00", End: "10:00"},
 		},
 	}
 	body, _ := json.Marshal(payload)

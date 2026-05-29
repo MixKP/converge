@@ -5,18 +5,18 @@ import (
 )
 
 type Teacher struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
+	ID   int    `json:"id"   example:"1"`
+	Name string `json:"name" example:"Alice"`
 }
 
 type WeeklySlot struct {
-	DayOfWeek int    `json:"day_of_week"`
-	Start     string `json:"start"`
-	End       string `json:"end"`
+	DayOfWeek int    `json:"day_of_week" example:"0"` // 0=Monday ... 6=Sunday
+	Start     string `json:"start"       example:"09:00"`
+	End       string `json:"end"         example:"10:00"`
 }
 
 type AvailabilityPayload struct {
-	TeacherID int          `json:"teacher_id"`
+	TeacherID int          `json:"teacher_id" example:"42"`
 	Weekly    []WeeklySlot `json:"weekly"`
 }
 
@@ -46,4 +46,12 @@ type BookingRequest struct {
 	PreferredStart     time.Time `json:"preferred_start"`
 	DurationMinutes    int       `json:"duration_minutes"`
 	PreferredTeacherID *int      `json:"preferred_teacher_id,omitempty"`
+}
+
+type MessageResponse struct {
+	Message string `json:"message" example:"Availability saved successfully"`
+}
+
+type ErrorResponse struct {
+	Error string `json:"error" example:"failed to retrieve teachers"`
 }
