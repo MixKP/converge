@@ -15,7 +15,7 @@ interface BackendTeacherAvailability {
 export type { BackendTeacherAvailability }
 export function transformBackendSlot(slot: BackendWeeklySlot): WeeklySlot {
   return {
-    dayOfWeek: slot.day_of_week,
+    day_of_week: slot.day_of_week,
     start: slot.start,
     end: slot.end,
   }

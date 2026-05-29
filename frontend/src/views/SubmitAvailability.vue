@@ -13,7 +13,7 @@
   const events = ref<EventInput[]>([])
   const selectedTeacherId = computed({
     get: () => teacherStore.selectedTeacherId,
-    set: (val) => teacherStore.setSelectedTeacherById(val),
+    set: (val) => teacherStore.setSelectedTeacherById(val === null ? null : Number(val)),
   })
   const canSubmit = computed(
     () => !!selectedTeacherId.value && !isLoading.value && events.value.length > 0

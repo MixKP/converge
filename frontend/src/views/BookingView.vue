@@ -55,7 +55,7 @@
       return
     }
     businessHours.value = availability.map((avail) => ({
-      daysOfWeek: [avail.dayOfWeek + 1],
+      daysOfWeek: [avail.day_of_week + 1],
       startTime: avail.start,
       endTime: avail.end,
     }))
