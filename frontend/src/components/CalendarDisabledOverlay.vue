@@ -5,13 +5,16 @@
 </script>
 
 <template>
-  <div
-    class="absolute inset-0 z-10 flex items-center justify-center bg-slate-50/60 backdrop-blur-[2px]"
-  >
+  <div class="absolute inset-0 z-10 flex items-center justify-center bg-(--paper-white)/80">
     <div
-      class="bg-white px-4 py-2 rounded-full shadow border border-slate-200 text-sm font-medium text-slate-600 flex items-center gap-2 animate-bounce"
+      class="bg-(--paper-white) px-5 py-2.5 rounded-sm shadow-md border border-(--border-strong) text-sm font-medium text-(--ink-primary) flex items-center gap-2.5"
     >
-      <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg
+        class="w-4 h-4 text-(--accent-indigo)"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
         <path
           stroke-linecap="round"
           stroke-linejoin="round"

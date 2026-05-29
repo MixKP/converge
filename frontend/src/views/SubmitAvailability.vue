@@ -40,14 +40,19 @@
 <template>
   <PageLayout title="Submit Availability">
     <form class="flex flex-col gap-3 flex-1 min-h-0" @submit.prevent="handleSubmit">
-      <div class="bg-slate-50/50 p-3 rounded-lg border border-slate-100 shrink-0">
-        <label class="font-semibold text-slate-700 text-sm block mb-1">
-          <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs mr-1">1</span>
+      <div
+        class="bg-(--paper-white) p-4 rounded-sm border border-(--border-subtle) shadow-sm stagger-in"
+      >
+        <label class="font-semibold text-(--ink-primary) text-sm block mb-2 tracking-tight">
+          <span
+            class="font-mono text-[10px] border border-(--ink-primary) px-2 py-0.5 rounded-sm tracking-widest mr-2"
+            >01</span
+          >
           Teacher
         </label>
         <select
           v-model="selectedTeacherId"
-          class="w-full md:w-1/2 bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-slate-700 shadow-sm cursor-pointer"
+          class="w-full bg-white border border-(--border-strong) rounded-sm px-4 py-2.5 text-sm focus:ring-2 focus:ring-(--accent-indigo)/10 focus:border-(--accent-indigo) outline-none transition-all text-(--ink-primary) cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <option :value="null" disabled>-- Choose Your Name --</option>
           <option v-for="teacher in teacherStore.teachers" :key="teacher.id" :value="teacher.id">
@@ -56,26 +61,29 @@
         </select>
       </div>
 
-      <div class="flex-1 flex flex-col min-h-0">
-        <div class="flex items-center justify-between mb-2 shrink-0">
-          <label class="font-semibold text-slate-700 text-sm">
-            <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs mr-1">2</span>
+      <div class="flex-1 flex flex-col min-h-0 stagger-in">
+        <div class="flex items-center justify-between mb-3 shrink-0">
+          <label class="font-semibold text-(--ink-primary) text-sm tracking-tight">
+            <span
+              class="font-mono text-[10px] border border-(--ink-primary) px-2 py-0.5 rounded-sm tracking-widest mr-2"
+              >02</span
+            >
             Time Slots
           </label>
           <span
             v-if="selectedTeacherId"
-            class="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100"
+            class="text-xs font-medium text-(--accent-indigo) bg-(--accent-indigo-soft) px-3 py-1 rounded-sm border border-(--accent-indigo)/20 tracking-wide"
           >
             Click and drag to select
           </span>
         </div>
 
         <div
-          class="relative border border-slate-200 rounded-lg overflow-hidden shadow-sm bg-white flex-1 min-h-0"
+          class="relative border border-(--border-subtle) rounded-sm overflow-hidden shadow-sm bg-(--paper-white) flex-1 min-h-0"
         >
           <div
             :class="{
-              'opacity-40 grayscale-30% pointer-events-none transition-opacity duration-300':
+              'opacity-40 grayscale-30 pointer-events-none transition-opacity duration-300':
                 !selectedTeacherId,
             }"
             class="h-full"
@@ -87,7 +95,7 @@
         </div>
       </div>
 
-      <div class="flex justify-end pt-2 border-t border-slate-100 shrink-0">
+      <div class="flex justify-end pt-3 border-t-2 border-(--border-subtle) shrink-0 stagger-in">
         <SubmitButton
           :is-disabled="!canSubmit"
           :is-loading="isLoading"

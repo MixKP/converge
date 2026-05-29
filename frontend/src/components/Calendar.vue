@@ -144,7 +144,9 @@
 </script>
 
 <template>
-  <div class="border border-slate-200 rounded-xl overflow-hidden h-full bg-white shadow-sm">
+  <div
+    class="border border-(--border-subtle) rounded-sm overflow-hidden h-full bg-(--paper-white) shadow-sm"
+  >
     <FullCalendar ref="calendarRef" :options="calendarOptions" />
 
     <Transition
@@ -157,14 +159,14 @@
     >
       <div
         v-if="showDeleteDialog"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-(--ink-primary)/40 backdrop-blur-sm"
       >
         <div
-          class="transition-all duration-300 ease-out scale-in bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 w-full max-w-sm mx-4"
+          class="transition-all duration-300 ease-out scale-in bg-(--paper-white) rounded-sm shadow-2xl border border-(--border-strong) p-6 w-full max-w-sm mx-4"
         >
-          <div class="flex items-start gap-4 mb-4">
+          <div class="flex items-start gap-4 mb-5">
             <div
-              class="shrink-0 w-12 h-12 rounded-full bg-red-100 flex items-center justify-center"
+              class="shrink-0 w-12 h-12 rounded-sm bg-red-50 flex items-center justify-center border border-red-100"
             >
               <svg
                 class="w-6 h-6 text-red-600"
@@ -181,8 +183,10 @@
               </svg>
             </div>
             <div class="flex-1">
-              <h3 class="text-lg font-semibold text-slate-900 mb-1">Delete Time Slot</h3>
-              <p class="text-sm text-slate-600">
+              <h3 class="text-lg font-semibold text-(--ink-primary) mb-1.5 tracking-tight">
+                Delete Time Slot
+              </h3>
+              <p class="text-sm text-(--text-secondary) leading-relaxed">
                 Are you sure you want to delete this time slot? This action cannot be undone.
               </p>
             </div>
@@ -191,14 +195,14 @@
           <div class="flex gap-3 justify-end">
             <button
               type="button"
-              class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 focus:ring-4 focus:ring-slate-100 transition-all"
+              class="px-4 py-2 text-sm font-medium text-(--ink-primary) bg-white border border-(--border-strong) rounded-sm hover:bg-(--paper-cream) focus:ring-2 focus:ring-(--border-strong) transition-all"
               @click="closeDeleteDialog"
             >
               Cancel
             </button>
             <button
               type="button"
-              class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:ring-4 focus:ring-red-100 transition-all shadow-sm shadow-red-600/20"
+              class="px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-sm hover:bg-red-700 focus:ring-2 focus:ring-red-100 transition-all shadow-sm shadow-red-600/15 tracking-wide"
               @click="confirmDelete"
             >
               Delete

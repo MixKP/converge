@@ -13,7 +13,7 @@
   <button
     type="submit"
     :disabled="isDisabled"
-    class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg text-sm transition-all duration-200 shadow-sm shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center gap-2"
+    class="bg-(--ink-primary) hover:bg-(--ink-secondary) text-(--paper-white) font-semibold py-2.5 px-6 rounded-sm text-sm transition-all duration-250 shadow-md shadow-(--ink-primary)/12 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center gap-2 tracking-wide"
   >
     <LoadingSpinner v-if="isLoading" />
     {{ isLoading ? loadingText : normalText }}

@@ -11,4 +11,5 @@
 
 <template>
   <router-view />
+  <div class="paper-texture" aria-hidden="true" />
 </template>
