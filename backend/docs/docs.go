@@ -15,7 +15,7 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/api/availability": {
+        "/availability": {
             "post": {
                 "description": "Replaces all existing availability for a teacher with the provided weekly schedule (full replace, not merge). Rejects overlapping slots within the same day.",
                 "consumes": [
@@ -61,7 +61,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/teachers": {
+        "/teachers": {
             "get": {
                 "description": "Returns all teachers with active status, ordered by name",
                 "produces": [
@@ -162,7 +162,7 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             "localhost:8080",
+	Host:             "",
 	BasePath:         "/api",
 	Schemes:          []string{},
 	Title:            "Converge API",

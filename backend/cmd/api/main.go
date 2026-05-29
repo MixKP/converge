@@ -1,7 +1,6 @@
 // @title           Converge API
 // @version         1.0
 // @description     API for teacher availability management and bookings
-// @host            localhost:8080
 // @BasePath        /api
 
 package main

@@ -6,10 +6,9 @@
         "contact": {},
         "version": "1.0"
     },
-    "host": "localhost:8080",
     "basePath": "/api",
     "paths": {
-        "/api/availability": {
+        "/availability": {
             "post": {
                 "description": "Replaces all existing availability for a teacher with the provided weekly schedule (full replace, not merge). Rejects overlapping slots within the same day.",
                 "consumes": [
@@ -55,7 +54,7 @@
                 }
             }
         },
-        "/api/teachers": {
+        "/teachers": {
             "get": {
                 "description": "Returns all teachers with active status, ordered by name",
                 "produces": [

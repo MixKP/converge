@@ -44,14 +44,13 @@ definitions:
         example: "09:00"
         type: string
     type: object
-host: localhost:8080
 info:
   contact: {}
   description: API for teacher availability management and bookings
   title: Converge API
   version: "1.0"
 paths:
-  /api/availability:
+  /availability:
     post:
       consumes:
       - application/json
@@ -83,7 +82,7 @@ paths:
       summary: Submit weekly availability
       tags:
       - availability
-  /api/teachers:
+  /teachers:
     get:
       description: Returns all teachers with active status, ordered by name
       produces:

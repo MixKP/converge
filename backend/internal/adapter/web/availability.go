@@ -32,7 +32,7 @@ func NewAvailabilityHandler(svc availabilityService) *AvailabilityHandler {
 //	@Produce		json
 //	@Success		200	{array}		models.Teacher
 //	@Failure		500	{object}	models.ErrorResponse
-//	@Router			/api/teachers [get]
+//	@Router			/teachers [get]
 func (h *AvailabilityHandler) GetTeachers(c *gin.Context) {
 	teachers, err := h.svc.GetActiveTeachers(c.Request.Context())
 	if err != nil {
@@ -53,7 +53,7 @@ func (h *AvailabilityHandler) GetTeachers(c *gin.Context) {
 //	@Success		201		{object}	models.MessageResponse
 //	@Failure		400		{object}	models.ErrorResponse
 //	@Failure		500		{object}	models.ErrorResponse
-//	@Router			/api/availability [post]
+//	@Router			/availability [post]
 func (h *AvailabilityHandler) SubmitWeeklyAvailability(c *gin.Context) {
 	var payload models.AvailabilityPayload
 	if err := c.ShouldBindJSON(&payload); err != nil {

@@ -43,8 +43,8 @@ func TestAvailabilityPayloadJSON(t *testing.T) {
 	p := AvailabilityPayload{
 		TeacherID: 42,
 		Weekly: []WeeklySlot{
-			{DayOfWeek: 0, Start: "09:00", End: "10:00"},
-			{DayOfWeek: 2, Start: "14:00", End: "16:00"},
+			{DayOfWeek: 0, Start: TimeHHMM("09:00"), End: TimeHHMM("10:00")},
+			{DayOfWeek: 2, Start: TimeHHMM("14:00"), End: TimeHHMM("16:00")},
 		},
 	}
 	b, err := json.Marshal(p)
@@ -78,6 +78,28 @@ func TestBookingJSON(t *testing.T) {
 	assert.Equal(t, bk.SubjectID, decoded.SubjectID)
 	assert.True(t, bk.StartTime.Equal(decoded.StartTime))
 	assert.True(t, bk.EndTime.Equal(decoded.EndTime))
+	assert.True(t, bk.CreatedAt.Equal(decoded.CreatedAt))
+}
+
+func TestTimeHHMMNormalization(t *testing.T) {
+	raw := []byte(`{"day_of_week":1,"start":"9:00","end":"17:30"}`)
+	var slot WeeklySlot
+	require.NoError(t, json.Unmarshal(raw, &slot))
+	assert.Equal(t, TimeHHMM("09:00"), slot.Start)
+	assert.Equal(t, TimeHHMM("17:30"), slot.End)
+
+	marshaled, err := json.Marshal(slot)
+	require.NoError(t, err)
+	assert.Contains(t, string(marshaled), `"09:00"`)
+	assert.Contains(t, string(marshaled), `"17:30"`)
+}
+
+func TestTimeHHMMInvalidFormat(t *testing.T) {
+	raw := []byte(`{"day_of_week":1,"start":"not-time","end":"10:00"}`)
+	var slot WeeklySlot
+	err := json.Unmarshal(raw, &slot)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid time format")
 }
 
 func TestBookingRequestOmitEmpty(t *testing.T) {

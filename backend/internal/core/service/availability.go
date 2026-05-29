@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"sort"
 	"strconv"
@@ -32,7 +33,7 @@ func (s *AvailabilityService) GetActiveTeachers(ctx context.Context) ([]models.T
 }
 
 func (s *AvailabilityService) SubmitWeeklyAvailability(ctx context.Context, payload models.AvailabilityPayload) error {
-	if err := validateWeeklySlots(payload.Weekly); err != nil {
+	if err := validatePayload(payload); err != nil {
 		return err
 	}
 	rawJSON, _ := json.Marshal(payload)
@@ -43,6 +44,30 @@ func (s *AvailabilityService) SubmitWeeklyAvailability(ctx context.Context, payl
 		log.Printf("Warning: failed to save submission audit log: %v", err)
 	}
 	return nil
+}
+
+func validatePayload(payload models.AvailabilityPayload) error {
+	if payload.TeacherID <= 0 {
+		return &ValidationError{Msg: "teacher_id must be positive"}
+	}
+	if len(payload.Weekly) == 0 {
+		return &ValidationError{Msg: "weekly slots must not be empty"}
+	}
+	for _, slot := range payload.Weekly {
+		if slot.DayOfWeek < 0 || slot.DayOfWeek > 6 {
+			return &ValidationError{Msg: fmt.Sprintf("day_of_week must be between 0 and 6, got %d", slot.DayOfWeek)}
+		}
+		if slot.Start == "" {
+			return &ValidationError{Msg: "start time must not be empty"}
+		}
+		if slot.End == "" {
+			return &ValidationError{Msg: "end time must not be empty"}
+		}
+		if slot.Start >= slot.End {
+			return &ValidationError{Msg: fmt.Sprintf("start time %s must be before end time %s", string(slot.Start), string(slot.End))}
+		}
+	}
+	return validateWeeklySlots(payload.Weekly)
 }
 
 func validateWeeklySlots(slots []models.WeeklySlot) error {
@@ -56,8 +81,8 @@ func validateWeeklySlots(slots []models.WeeklySlot) error {
 			if daySlots[i].Start < daySlots[i-1].End {
 				return &ValidationError{
 					Msg: "overlapping slots on day " + strconv.Itoa(day) + ": " +
-						daySlots[i-1].Start + "-" + daySlots[i-1].End + " and " +
-						daySlots[i].Start + "-" + daySlots[i].End,
+						string(daySlots[i-1].Start) + "-" + string(daySlots[i-1].End) + " and " +
+						string(daySlots[i].Start) + "-" + string(daySlots[i].End),
 				}
 			}
 		}
