@@ -217,7 +217,7 @@ func seedFormSubmissions(database *sql.DB, teacherIDs []int) error {
 		{
 			teacherID: teacherIDs[0],
 			payload: map[string]interface{}{
-				"teacher_id": 1,
+				"teacher_id": teacherIDs[0],
 				"weekly": []map[string]interface{}{
 					{"day_of_week": 0, "start": "09:00", "end": "12:00"},
 					{"day_of_week": 2, "start": "09:00", "end": "12:00"},
@@ -229,7 +229,7 @@ func seedFormSubmissions(database *sql.DB, teacherIDs []int) error {
 		{
 			teacherID: teacherIDs[1],
 			payload: map[string]interface{}{
-				"teacher_id": 2,
+				"teacher_id": teacherIDs[1],
 				"weekly": []map[string]interface{}{
 					{"day_of_week": 1, "start": "10:00", "end": "15:00"},
 					{"day_of_week": 3, "start": "10:00", "end": "15:00"},

@@ -117,7 +117,7 @@ func (p *PostgresRepo) ReplaceWeeklyAvailability(ctx context.Context, teacherID 
 
 func (p *PostgresRepo) GetAllAvailability(ctx context.Context) ([]models.TeacherAvailability, error) {
 	rows, err := p.DB.QueryContext(ctx, `
-		SELECT t.id, t.name, t.email, ta.day_of_week, ta.start_time, ta.end_time
+		SELECT t.id, t.name, t.email, ta.day_of_week, to_char(ta.start_time, 'HH24:MI') AS start_time, to_char(ta.end_time, 'HH24:MI') AS end_time
 		FROM teachers t
 		JOIN teacher_availability ta ON t.id = ta.teacher_id
 		WHERE t.status = 'active'
