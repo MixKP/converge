@@ -17,7 +17,7 @@ func NewPostgresRepo(database *sql.DB) *PostgresRepo {
 }
 
 func (p *PostgresRepo) GetActiveTeachers(ctx context.Context) ([]models.Teacher, error) {
-	rows, err := p.DB.QueryContext(ctx, `SELECT id, name, contact_details FROM teachers WHERE status = 'active' ORDER BY name`)
+	rows, err := p.DB.QueryContext(ctx, `SELECT id, name, email FROM teachers WHERE status = 'active' ORDER BY name`)
 	if err != nil {
 		return nil, err
 	}

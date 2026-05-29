@@ -40,7 +40,7 @@ func AutoMigrate(database *sql.DB) error {
 		`CREATE TABLE IF NOT EXISTS teachers (
 			id SERIAL PRIMARY KEY,
 			name VARCHAR(100) NOT NULL,
-			contact_details VARCHAR(255),
+			email VARCHAR(255),
 			status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active','deactivated')),
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
