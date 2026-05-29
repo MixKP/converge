@@ -260,13 +260,18 @@ func TestSubmitAvailability_SaveError(t *testing.T) {
 
 func TestGetActiveTeachers_Success(t *testing.T) {
 	mock := &mockRepo{
-		teachers: []models.Teacher{{ID: 1, Name: "Alice"}, {ID: 2, Name: "Bob"}},
+		teachers: []models.Teacher{
+			{ID: 1, Name: "Alice", Email: "alice@test.com"},
+			{ID: 2, Name: "Bob", Email: "bob@test.com"},
+		},
 	}
 	svc := NewAvailabilityService(mock)
 
 	teachers, err := svc.GetActiveTeachers(context.Background())
 	assert.NoError(t, err)
 	assert.Len(t, teachers, 2)
+	assert.Equal(t, "alice@test.com", teachers[0].Email)
+	assert.Equal(t, "bob@test.com", teachers[1].Email)
 }
 
 func TestGetActiveTeachers_Error(t *testing.T) {

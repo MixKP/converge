@@ -24,7 +24,7 @@ func setupTestDB(t *testing.T) *PostgresRepo {
 	_, err = database.Exec(`TRUNCATE teacher_availability, form_submission, bookings, teacher_subjects, teachers RESTART IDENTITY CASCADE`)
 	require.NoError(t, err)
 
-	_, err = database.Exec(`INSERT INTO teachers (id, name, status) VALUES (1, 'Test Teacher', 'active')`)
+	_, err = database.Exec(`INSERT INTO teachers (id, name, contact_details, status) VALUES (1, 'Test Teacher', 'test@teacher.com', 'active')`)
 	require.NoError(t, err)
 	_, err = database.Exec(`INSERT INTO teachers (id, name, status) VALUES (2, 'Inactive Teacher', 'deactivated')`)
 	require.NoError(t, err)
@@ -39,6 +39,7 @@ func TestPostgresRepoGetActiveTeachers(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, teachers, 1)
 	assert.Equal(t, "Test Teacher", teachers[0].Name)
+	assert.Equal(t, "test@teacher.com", teachers[0].Email)
 }
 
 func TestPostgresRepoReplaceWeeklyAvailability(t *testing.T) {

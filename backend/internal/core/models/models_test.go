@@ -10,7 +10,7 @@ import (
 )
 
 func TestTeacherJSON(t *testing.T) {
-	tc := Teacher{ID: 1, Name: "Alice"}
+	tc := Teacher{ID: 1, Name: "Alice", Email: "alice@example.com"}
 	b, err := json.Marshal(tc)
 	require.NoError(t, err)
 

@@ -17,7 +17,7 @@ func NewPostgresRepo(database *sql.DB) *PostgresRepo {
 }
 
 func (p *PostgresRepo) GetActiveTeachers(ctx context.Context) ([]models.Teacher, error) {
-	rows, err := p.DB.QueryContext(ctx, `SELECT id, name FROM teachers WHERE status = 'active' ORDER BY name`)
+	rows, err := p.DB.QueryContext(ctx, `SELECT id, name, contact_details FROM teachers WHERE status = 'active' ORDER BY name`)
 	if err != nil {
 		return nil, err
 	}
@@ -26,7 +26,7 @@ func (p *PostgresRepo) GetActiveTeachers(ctx context.Context) ([]models.Teacher,
 	var teachers []models.Teacher
 	for rows.Next() {
 		var t models.Teacher
-		if err := rows.Scan(&t.ID, &t.Name); err != nil {
+		if err := rows.Scan(&t.ID, &t.Name, &t.Email); err != nil {
 			return nil, err
 		}
 		teachers = append(teachers, t)

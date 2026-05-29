@@ -128,6 +128,10 @@ const docTemplate = `{
         "models.Teacher": {
             "type": "object",
             "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "alice@example.com"
+                },
                 "id": {
                     "type": "integer",
                     "example": 1

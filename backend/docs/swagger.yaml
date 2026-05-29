@@ -24,6 +24,9 @@ definitions:
     type: object
   models.Teacher:
     properties:
+      email:
+        example: alice@example.com
+        type: string
       id:
         example: 1
         type: integer

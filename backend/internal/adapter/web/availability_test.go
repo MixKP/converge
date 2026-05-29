@@ -33,7 +33,10 @@ func (m *mockService) SubmitWeeklyAvailability(ctx context.Context, payload mode
 
 func TestGetTeachersSuccess(t *testing.T) {
 	mock := &mockService{
-		teachers: []models.Teacher{{ID: 1, Name: "Alice"}, {ID: 2, Name: "Bob"}},
+		teachers: []models.Teacher{
+			{ID: 1, Name: "Alice", Email: "alice@test.com"},
+			{ID: 2, Name: "Bob", Email: "bob@test.com"},
+		},
 	}
 	handler := NewAvailabilityHandler(mock)
 
@@ -50,6 +53,8 @@ func TestGetTeachersSuccess(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &teachers)
 	require.NoError(t, err)
 	assert.Len(t, teachers, 2)
+	assert.Equal(t, "alice@test.com", teachers[0].Email)
+	assert.Equal(t, "bob@test.com", teachers[1].Email)
 }
 
 func TestGetTeachersError(t *testing.T) {

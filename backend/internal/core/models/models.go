@@ -26,8 +26,9 @@ func (t TimeHHMM) MarshalJSON() ([]byte, error) {
 }
 
 type Teacher struct {
-	ID   int    `json:"id"   example:"1"`
-	Name string `json:"name" example:"Alice"`
+	ID    int    `json:"id"    example:"1"`
+	Name  string `json:"name"  example:"Alice"`
+	Email string `json:"email" example:"alice@example.com"`
 }
 
 type WeeklySlot struct {
