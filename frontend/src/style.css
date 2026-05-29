@@ -196,10 +196,10 @@ body {
 }
 
 .scale-in {
-  animation: scaleIn 0.3s ease-out;
+  animation: scale-in 0.3s ease-out;
 }
 
-@keyframes scaleIn {
+@keyframes scale-in {
   from {
     opacity: 0;
     transform: scale(0.95) translateY(1rem);
@@ -224,7 +224,7 @@ body {
 }
 
 /* Staggered fade-in for form sections */
-@keyframes fadeInUp {
+@keyframes fade-in-up {
   from {
     opacity: 0;
     transform: translateY(16px);
@@ -236,7 +236,7 @@ body {
 }
 
 .stagger-in {
-  animation: fadeInUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation: fade-in-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
 .stagger-in:nth-child(1) { animation-delay: 0ms; }

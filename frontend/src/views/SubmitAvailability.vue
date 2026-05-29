@@ -22,11 +22,16 @@
     events.value = []
   })
   const handleSubmit = async () => {
-    if (!selectedTeacherId.value || !events.value || isLoading.value) return
-    const payload = generateAvailabilityPayload(events.value, selectedTeacherId.value)
-    await availabilityApi.submitAvailability(payload)
-    events.value = []
-    teacherStore.setSelectedTeacherById(null)
+    if (!selectedTeacherId.value || events.value.length === 0 || isLoading.value) return
+    isLoading.value = true
+    try {
+      const payload = generateAvailabilityPayload(events.value, selectedTeacherId.value)
+      await availabilityApi.submitAvailability(payload)
+      events.value = []
+      teacherStore.setSelectedTeacherById(null)
+    } finally {
+      isLoading.value = false
+    }
   }
 </script>
 <template>

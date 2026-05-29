@@ -48,6 +48,11 @@
   })
   const showDeleteDialog = ref(false)
   const eventToDelete = ref<string | null>(null)
+  const cancelBtnRef = ref<HTMLButtonElement | null>(null)
+  const previouslyFocused = ref<HTMLElement | null>(null)
+  const handleEscapeKey = () => {
+    closeDeleteDialog()
+  }
   const generateEventId = (): string => {
     return `event-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
   }
@@ -136,7 +141,8 @@
           api.addEvent(event)
         }
       }
-    }
+    },
+    { immediate: true }
   )
   const calendarOptions = computed(() => ({
     plugins: [timeGridPlugin, interactionPlugin],
@@ -152,10 +158,13 @@
     eventResize: handleEventResize,
     dayHeaderFormat: dayHeaderFormat.value,
   }))
-  watch(dayHeaderFormat, (newFormat) => {
-    const api = calendarRef.value?.getApi()
-    if (api) {
-      api.setOption('dayHeaderFormat', newFormat)
+  watch(showDeleteDialog, (isOpen) => {
+    if (isOpen) {
+      previouslyFocused.value = document.activeElement as HTMLElement
+      cancelBtnRef.value?.focus()
+    } else {
+      previouslyFocused.value?.focus()
+      previouslyFocused.value = null
     }
   })
   const setOption = <K extends keyof CalendarOptions>(key: K, value: CalendarOptions[K]) => {
@@ -182,6 +191,10 @@
       <div
         v-if="showDeleteDialog"
         class="fixed inset-0 z-50 flex items-center justify-center bg-(--ink-primary)/40 backdrop-blur-sm"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="deleteDialogTitle"
+        @keydown.esc="handleEscapeKey"
       >
         <div
           class="transition-all duration-300 ease-out scale-in bg-(--paper-white) rounded-sm shadow-2xl border border-(--border-strong) p-6 w-full max-w-sm mx-4"
@@ -205,7 +218,10 @@
               </svg>
             </div>
             <div class="flex-1">
-              <h3 class="text-lg font-semibold text-(--ink-primary) mb-1.5 tracking-tight">
+              <h3
+                id="deleteDialogTitle"
+                class="text-lg font-semibold text-(--ink-primary) mb-1.5 tracking-tight"
+              >
                 Delete Time Slot
               </h3>
               <p class="text-sm text-(--text-secondary) leading-relaxed">
@@ -215,6 +231,7 @@
           </div>
           <div class="flex gap-3 justify-end">
             <button
+              ref="cancelBtnRef"
               type="button"
               class="px-4 py-2 text-sm font-medium text-(--ink-primary) bg-white border border-(--border-strong) rounded-sm hover:bg-(--paper-cream) focus:ring-2 focus:ring-(--border-strong) transition-all"
               @click="closeDeleteDialog"

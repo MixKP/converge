@@ -7,6 +7,8 @@
   import { useTeacherStore } from '../stores/teacherStore'
   import { availabilityApi } from '../services/availabilityApi'
   import { subjectApi } from '../services/subjectApi'
+  import { teacherApi } from '../services/teacherApi'
+  import type { Teacher } from '../types'
   import PageLayout from '../components/PageLayout.vue'
   import Calendar from '../components/Calendar.vue'
   import CalendarDisabledOverlay from '../components/CalendarDisabledOverlay.vue'
@@ -18,10 +20,12 @@
   const calendarRef = ref<InstanceType<typeof Calendar>>()
   const isLoading = ref(false)
   const isLoadingAvailability = ref(false)
+  const isLoadingTeachers = ref(false)
   const events = ref<EventInput[]>([])
   const businessHours = ref<BusinessHoursInput>({})
   const availabilityCache = ref<Map<number, WeeklySlot[]>>(new Map())
   const subjects = ref<Subject[]>([])
+  const filteredTeachers = ref<Teacher[]>([])
   const selectedSubjectId = ref<number | null>(null)
   const fetchAvailability = async () => {
     try {
@@ -36,6 +40,14 @@
     subjects.value = await subjectApi.getAll()
     fetchAvailability()
   })
+  const fetchTeachersBySubject = async (subjectId: number) => {
+    try {
+      isLoadingTeachers.value = true
+      filteredTeachers.value = await teacherApi.getBySubject(subjectId)
+    } finally {
+      isLoadingTeachers.value = false
+    }
+  }
   const selectedTeacherId = computed({
     get: () => teacherStore.selectedTeacherId,
     set: (val) => teacherStore.setSelectedTeacherById(val),
@@ -73,9 +85,14 @@
       isLoading.value = false
     }
   }
-  watch(selectedSubjectId, () => {
+  watch(selectedSubjectId, (newSubjectId) => {
     events.value = []
     teacherStore.setSelectedTeacherById(null)
+    if (newSubjectId) {
+      fetchTeachersBySubject(newSubjectId)
+    } else {
+      filteredTeachers.value = []
+    }
   })
   watch(selectedTeacherId, (newId) => {
     events.value = []
@@ -136,14 +153,26 @@
           </label>
           <select
             v-model="selectedTeacherId"
-            :disabled="!canSelectTeacher"
+            :disabled="!canSelectTeacher || isLoadingTeachers"
             class="w-full bg-white border border-(--border-strong) rounded-sm px-3 sm:px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-(--accent-terracotta)/10 focus:border-(--accent-terracotta) outline-none transition-all text-(--ink-primary) cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:border-(--text-secondary)"
           >
             <option :value="null" disabled>
-              {{ canSelectTeacher ? '-- Choose Teacher --' : '-- Select subject first --' }}
+              {{
+                isLoadingTeachers
+                  ? '-- Loading...'
+                  : canSelectTeacher
+                    ? '-- Choose Teacher --'
+                    : '-- Select subject first --'
+              }}
             </option>
-            <option v-for="teacher in teacherStore.teachers" :key="teacher.id" :value="teacher.id">
+            <option v-for="teacher in filteredTeachers" :key="teacher.id" :value="teacher.id">
               {{ teacher.name }}
+            </option>
+            <option
+              v-if="canSelectTeacher && !isLoadingTeachers && filteredTeachers.length === 0"
+              disabled
+            >
+              -- No teachers available for this subject --
             </option>
           </select>
         </div>

@@ -1,5 +1,6 @@
 import type { Teacher } from '../types'
-import { createApiGetAll } from '../utils/api'
+import { createApiGetAll, fetchApi } from '../utils/api'
 export const teacherApi = {
-  getAll: () => fetchApi<Teacher[]>(`${API_BASE}/teachers`),
+  getAll: createApiGetAll<Teacher>('teachers'),
+  getBySubject: (subjectId: number) => fetchApi<Teacher[]>(`teachers?subject_id=${subjectId}`),
 }
