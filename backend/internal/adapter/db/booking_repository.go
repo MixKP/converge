@@ -17,34 +17,44 @@ func NewBookingRepository(database *sql.DB) *BookingRepo {
 	return &BookingRepo{DB: database}
 }
 
-func (r *BookingRepo) FindExactMatch(ctx context.Context, req models.BookingRequest) (*ports.BookingMatch, error) {
-	preferredEnd := req.PreferredStart.Add(time.Duration(req.DurationMinutes) * time.Minute)
-	startTime := req.PreferredStart.Format("15:04")
-	endTime := preferredEnd.Format("15:04")
+func (r *BookingRepo) FindExactMatch(ctx context.Context, subjectID, branchID int, slot models.WeeklySlot, durationMinutes int, teacherIDVal interface{}) (*ports.BookingMatch, error) {
+	duration := time.Duration(durationMinutes) * time.Minute
 
-	var teacherIDVal interface{}
-	if req.PreferredTeacherID != nil && *req.PreferredTeacherID > 0 {
-		teacherIDVal = *req.PreferredTeacherID
+	windowEnd := slot.End
+	if duration > 0 {
+		parsedStart, _ := time.Parse("15:04", string(slot.Start))
+		windowEnd = models.TimeHHMM(parsedStart.Add(duration).Format("15:04"))
+	}
+
+	anchorDate := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	for int(anchorDate.Weekday()) != slot.DayOfWeek+1 {
+		anchorDate = anchorDate.Add(24 * time.Hour)
+	}
+	parsedStart, _ := time.Parse("15:04", string(slot.Start))
+	startTS := anchorDate.Add(time.Duration(parsedStart.Hour())*time.Hour + time.Duration(parsedStart.Minute())*time.Minute)
+	endTS := startTS
+	if duration > 0 {
+		endTS = endTS.Add(duration)
 	}
 
 	row := r.DB.QueryRowContext(ctx, `
-		SELECT 0, t.id, $2::int, $1::int, $4::timestamptz, $5::timestamptz, t.name
+		SELECT 0, t.id, $2::int, $1::int, $5::timestamptz, $6::timestamptz, t.name
 		FROM teachers t
 		JOIN teacher_subjects ts ON t.id = ts.teacher_id AND ts.subject_id = $1
 		JOIN teacher_availability ta ON t.id = ta.teacher_id
 		WHERE t.status = 'active'
-		  AND ta.day_of_week = (EXTRACT(DOW FROM $4::timestamptz)::int + 6) % 7
-		  AND ta.start_time <= $6::time
+		  AND ta.day_of_week = $3
+		  AND ta.start_time <= $4::time
 		  AND ta.end_time >= $7::time
-		  AND ($3::int IS NULL OR t.id = $3)
+		  AND ($8::int IS NULL OR t.id = $8)
 		  AND NOT EXISTS (
 		    SELECT 1 FROM bookings b
 		    WHERE b.teacher_id = t.id
-		      AND tstzrange(b.start_time, b.end_time) && tstzrange($4::timestamptz, $5::timestamptz)
+		      AND tstzrange(b.start_time, b.end_time) && tstzrange($5::timestamptz, $6::timestamptz)
 		  )
 		ORDER BY t.id
 		LIMIT 1`,
-		req.SubjectID, req.BranchID, teacherIDVal, req.PreferredStart, preferredEnd, startTime, endTime,
+		subjectID, branchID, slot.DayOfWeek, string(slot.Start), startTS, endTS, string(windowEnd), teacherIDVal,
 	)
 
 	var booking models.Booking

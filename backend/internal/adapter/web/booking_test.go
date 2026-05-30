@@ -25,20 +25,27 @@ func (m *mockBookingSvc) Evaluate(ctx context.Context, req models.BookingRequest
 	return m.result, m.evalErr
 }
 
+func slot(day int, start, end string) models.WeeklySlot {
+	return models.WeeklySlot{DayOfWeek: day, Start: models.TimeHHMM(start), End: models.TimeHHMM(end)}
+}
+
 func TestCreateBookingExactMatch(t *testing.T) {
 	mock := &mockBookingSvc{
 		result: &models.BookingResponse{
-			ExactMatch: &models.BookingAlternative{
-				TeacherID:   1,
-				TeacherName: "Alice",
-				BranchID:    2,
-				SubjectID:   3,
-				StartTime:   time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
-				EndTime:     time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
-				Score:       100,
-				Reasons:     []string{"Exact match"},
-			},
-			Message: "Exact match found",
+			Results: []models.SlotResult{{
+				Slot: slot(0, "09:00", "10:00"),
+				ExactMatch: &models.BookingAlternative{
+					TeacherID:   1,
+					TeacherName: "Alice",
+					BranchID:    2,
+					SubjectID:   3,
+					StartTime:   time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+					EndTime:     time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+					Score:       100,
+					Reasons:     []string{"Exact match"},
+				},
+				Message: "Exact match found",
+			}},
 		},
 	}
 	handler := NewBookingHandler(mock)
@@ -46,7 +53,7 @@ func TestCreateBookingExactMatch(t *testing.T) {
 	payload := models.BookingRequest{
 		SubjectID:       3,
 		BranchID:        2,
-		PreferredStart:  time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		PreferredSlots:  []models.WeeklySlot{slot(0, "09:00", "10:00")},
 		DurationMinutes: 60,
 	}
 	body, _ := json.Marshal(payload)
@@ -65,17 +72,19 @@ func TestCreateBookingExactMatch(t *testing.T) {
 	var response models.BookingResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	require.NoError(t, err)
-	assert.NotNil(t, response.ExactMatch)
-	assert.Equal(t, "Alice", response.ExactMatch.TeacherName)
-	assert.Equal(t, 100, response.ExactMatch.Score)
-	assert.Contains(t, response.Message, "Exact match found")
+	assert.Len(t, response.Results, 1)
+	assert.NotNil(t, response.Results[0].ExactMatch)
+	assert.Equal(t, "Alice", response.Results[0].ExactMatch.TeacherName)
+	assert.Equal(t, 100, response.Results[0].ExactMatch.Score)
+	assert.Contains(t, response.Results[0].Message, "Exact match found")
 }
 
 func TestCreateBookingAlternatives(t *testing.T) {
 	mock := &mockBookingSvc{
 		result: &models.BookingResponse{
-			Alternatives: []models.BookingAlternative{
-				{
+			Results: []models.SlotResult{{
+				Slot: slot(0, "09:00", "10:00"),
+				Alternatives: []models.BookingAlternative{{
 					TeacherID:   2,
 					TeacherName: "Bob",
 					BranchID:    2,
@@ -83,20 +92,10 @@ func TestCreateBookingAlternatives(t *testing.T) {
 					StartTime:   time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
 					EndTime:     time.Date(2026, 6, 1, 11, 0, 0, 0, time.UTC),
 					Score:       85,
-					Reasons:     []string{"Within 1hr – off by 60m"},
-				},
-				{
-					TeacherID:   3,
-					TeacherName: "Charlie",
-					BranchID:    2,
-					SubjectID:   3,
-					StartTime:   time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
-					EndTime:     time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
-					Score:       75,
-					Reasons:     []string{"Different teacher"},
-				},
-			},
-			Message: "No exact match found. 2 alternative(s) returned. Room availability not checked.",
+					Reasons:     []string{"Within 1hr of window"},
+				}},
+				Message: "No exact match found. 1 alternative(s) returned.",
+			}},
 		},
 	}
 	handler := NewBookingHandler(mock)
@@ -104,7 +103,7 @@ func TestCreateBookingAlternatives(t *testing.T) {
 	payload := models.BookingRequest{
 		SubjectID:       3,
 		BranchID:        2,
-		PreferredStart:  time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		PreferredSlots:  []models.WeeklySlot{slot(0, "09:00", "10:00")},
 		DurationMinutes: 60,
 	}
 	body, _ := json.Marshal(payload)
@@ -123,17 +122,18 @@ func TestCreateBookingAlternatives(t *testing.T) {
 	var response models.BookingResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	require.NoError(t, err)
-	assert.Nil(t, response.ExactMatch)
-	assert.Len(t, response.Alternatives, 2)
-	assert.Equal(t, "Bob", response.Alternatives[0].TeacherName)
-	assert.Equal(t, 85, response.Alternatives[0].Score)
-	assert.Contains(t, response.Message, "Room availability not checked")
+	assert.Len(t, response.Results, 1)
+	assert.Nil(t, response.Results[0].ExactMatch)
+	assert.Len(t, response.Results[0].Alternatives, 1)
 }
 
 func TestCreateBookingEmptyAlternatives(t *testing.T) {
 	mock := &mockBookingSvc{
 		result: &models.BookingResponse{
-			Message: "No exact match found. No alternatives available.",
+			Results: []models.SlotResult{{
+				Slot:    slot(0, "09:00", "10:00"),
+				Message: "No exact match found. No alternatives available.",
+			}},
 		},
 	}
 	handler := NewBookingHandler(mock)
@@ -141,7 +141,7 @@ func TestCreateBookingEmptyAlternatives(t *testing.T) {
 	payload := models.BookingRequest{
 		SubjectID:       3,
 		BranchID:        2,
-		PreferredStart:  time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		PreferredSlots:  []models.WeeklySlot{slot(0, "09:00", "10:00")},
 		DurationMinutes: 60,
 	}
 	body, _ := json.Marshal(payload)
@@ -161,15 +161,13 @@ func TestCreateBookingEmptyAlternatives(t *testing.T) {
 
 func TestCreateBookingValidationError(t *testing.T) {
 	mock := &mockBookingSvc{
-		evalErr: &service.ValidationError{Msg: "subject_id must be positive"},
+		evalErr: &service.ValidationError{Msg: "preferred_slots must not be empty"},
 	}
 	handler := NewBookingHandler(mock)
 
 	payload := models.BookingRequest{
-		SubjectID:       0,
-		BranchID:        2,
-		PreferredStart:  time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
-		DurationMinutes: 60,
+		SubjectID: 0,
+		BranchID:  2,
 	}
 	body, _ := json.Marshal(payload)
 	req := httptest.NewRequest(http.MethodPost, "/api/bookings", bytes.NewReader(body))
@@ -183,7 +181,7 @@ func TestCreateBookingValidationError(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "subject_id must be positive")
+	assert.Contains(t, w.Body.String(), "preferred_slots must not be empty")
 }
 
 func TestCreateBookingInvalidJSON(t *testing.T) {
@@ -209,7 +207,7 @@ func TestCreateBookingServiceError(t *testing.T) {
 	payload := models.BookingRequest{
 		SubjectID:       3,
 		BranchID:        2,
-		PreferredStart:  time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		PreferredSlots:  []models.WeeklySlot{slot(0, "09:00", "10:00")},
 		DurationMinutes: 60,
 	}
 	body, _ := json.Marshal(payload)
@@ -230,8 +228,9 @@ func TestCreateBookingServiceError(t *testing.T) {
 func TestCreateBookingOptionalPreferredTeacher(t *testing.T) {
 	mock := &mockBookingSvc{
 		result: &models.BookingResponse{
-			Alternatives: []models.BookingAlternative{
-				{
+			Results: []models.SlotResult{{
+				Slot: slot(0, "09:00", "10:00"),
+				Alternatives: []models.BookingAlternative{{
 					TeacherID:   1,
 					TeacherName: "Alice",
 					BranchID:    2,
@@ -240,9 +239,9 @@ func TestCreateBookingOptionalPreferredTeacher(t *testing.T) {
 					EndTime:     time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
 					Score:       80,
 					Reasons:     []string{"ok"},
-				},
-			},
-			Message: "No exact match found. 1 alternative(s) returned. Room availability not checked.",
+				}},
+				Message: "No exact match found. 1 alternative(s) returned.",
+			}},
 		},
 	}
 	handler := NewBookingHandler(mock)
@@ -251,7 +250,7 @@ func TestCreateBookingOptionalPreferredTeacher(t *testing.T) {
 	payload := models.BookingRequest{
 		SubjectID:          3,
 		BranchID:           2,
-		PreferredStart:     time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		PreferredSlots:     []models.WeeklySlot{slot(0, "09:00", "10:00")},
 		DurationMinutes:    60,
 		PreferredTeacherID: &preferredTeacher,
 	}
@@ -270,5 +269,5 @@ func TestCreateBookingOptionalPreferredTeacher(t *testing.T) {
 	var response models.BookingResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	require.NoError(t, err)
-	assert.Len(t, response.Alternatives, 1)
+	assert.Len(t, response.Results, 1)
 }

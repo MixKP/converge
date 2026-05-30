@@ -51,26 +51,33 @@ func (s *WeightedScorer) scoreTeacherPreference(candidate ports.ScorableCandidat
 }
 
 func (s *WeightedScorer) scoreTimeProximity(candidate ports.ScorableCandidate) (int, string) {
-	preferred := candidate.Request.PreferredStart
-	if preferred.IsZero() {
+	matched := candidate.MatchedSlot
+	if matched.Start == "" || matched.End == "" {
 		return 15, ""
 	}
 
-	delta := candidate.StartTime.Sub(preferred)
-	if delta < 0 {
-		delta = -delta
+	candStart := timeOfDay(candidate.StartTime)
+	candEnd := timeOfDay(candidate.EndTime)
+	winStart := parseTimeHHMM(matched.Start)
+	winEnd := parseTimeHHMM(matched.End)
+
+	if (candStart.Equal(winStart) || candStart.After(winStart)) && (candEnd.Equal(winEnd) || candEnd.Before(winEnd)) {
+		return s.TimeWeight, "Inside preferred window"
 	}
-	deltaMinutes := delta.Minutes()
+
+	distStart := math.Abs(candStart.Sub(winStart).Minutes())
+	distEnd := math.Abs(candEnd.Sub(winEnd).Minutes())
+	distanceMinutes := math.Min(distStart, distEnd)
 
 	switch {
-	case deltaMinutes <= 15:
-		return s.TimeWeight, "Exact time match"
-	case deltaMinutes <= 60:
-		return 25, formatTimeReason("Within 1hr", preferred, candidate.StartTime)
-	case deltaMinutes <= 120:
-		return 15, formatTimeReason("Within 2hrs", preferred, candidate.StartTime)
+	case distanceMinutes <= 15:
+		return 25, fmt.Sprintf("Near window — off by %dm", int(distanceMinutes))
+	case distanceMinutes <= 60:
+		return 15, fmt.Sprintf("Within 1hr of window — off by %dm", int(distanceMinutes))
+	case distanceMinutes <= 120:
+		return 5, fmt.Sprintf("Within 2hrs of window — off by %dm", int(distanceMinutes))
 	default:
-		return 5, formatTimeReason("Far from preferred", preferred, candidate.StartTime)
+		return 0, fmt.Sprintf("Far from window — off by %dm", int(distanceMinutes))
 	}
 }
 
@@ -116,14 +123,6 @@ func timeOfDay(t time.Time) time.Time {
 func parseTimeHHMM(t models.TimeHHMM) time.Time {
 	parsed, _ := time.Parse("15:04", string(t))
 	return time.Date(0, 1, 1, parsed.Hour(), parsed.Minute(), 0, 0, time.UTC)
-}
-
-func formatTimeReason(prefix string, preferred, actual time.Time) string {
-	delta := actual.Sub(preferred)
-	if delta < 0 {
-		delta = -delta
-	}
-	return fmt.Sprintf("%s — off by %dm", prefix, int(delta.Minutes()))
 }
 
 func appendReason(reasons []string, reason string) []string {

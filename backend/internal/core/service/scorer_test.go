@@ -14,30 +14,27 @@ import (
 func TestWeightedScorer_ExactTeacherMatch_ReturnsFullPoints(t *testing.T) {
 	scorer := NewWeightedScorer()
 	preferredID := 1
-	preferredStart := time.Date(2026, 6, 1, 13, 0, 0, 0, time.UTC)
 	teacher := models.Teacher{ID: 1, Name: "Alice"}
-	candidate := makeCandidate(teacher, preferredID, &preferredStart)
-	candidate.StartTime = time.Date(2026, 6, 1, 13, 0, 0, 0, time.UTC)
-	candidate.EndTime = time.Date(2026, 6, 1, 14, 0, 0, 0, time.UTC)
+	candidate := makeCandidate(teacher, preferredID, window(0, "13:00", "14:00"))
+	candidate.MatchedSlot = window(0, "13:00", "14:00")
 
 	result := scorer.Score(context.Background(), candidate)
 
 	assert.Equal(t, 100, result.Score)
 	assert.Contains(t, result.Reasons, "Preferred teacher")
-	assert.Contains(t, result.Reasons, "Exact time match")
+	assert.Contains(t, result.Reasons, "Inside preferred window")
 	assert.Contains(t, result.Reasons, "Plenty of buffer")
 }
 
 func TestWeightedScorer_NoTeacherPreference_ReturnsNeutralTeacherScore(t *testing.T) {
 	scorer := NewWeightedScorer()
 	teacher := models.Teacher{ID: 1, Name: "Alice"}
-	candidate := makeCandidate(teacher, 0, nil)
-	candidate.StartTime = time.Date(2026, 6, 1, 13, 0, 0, 0, time.UTC)
-	candidate.EndTime = time.Date(2026, 6, 1, 14, 0, 0, 0, time.UTC)
+	candidate := makeCandidate(teacher, 0, window(0, "13:00", "14:00"))
+	candidate.MatchedSlot = window(0, "13:00", "14:00")
 
 	result := scorer.Score(context.Background(), candidate)
 
-	assert.Equal(t, 65, result.Score)
+	assert.Equal(t, 80, result.Score)
 	assert.Equal(t, 20, scoreTeacherOnly(scorer, candidate))
 }
 
@@ -45,7 +42,7 @@ func TestWeightedScorer_WrongTeacher_ReturnsZeroTeacherScore(t *testing.T) {
 	scorer := NewWeightedScorer()
 	preferredID := 42
 	teacher := models.Teacher{ID: 1, Name: "Alice"}
-	candidate := makeCandidate(teacher, preferredID, nil)
+	candidate := makeCandidate(teacher, preferredID, window(0, "13:00", "14:00"))
 
 	result := scorer.Score(context.Background(), candidate)
 
@@ -53,59 +50,52 @@ func TestWeightedScorer_WrongTeacher_ReturnsZeroTeacherScore(t *testing.T) {
 	assert.Equal(t, 0, scoreTeacherOnly(scorer, candidate))
 }
 
-func TestWeightedScorer_ExactTimeMatch_ReturnsFullTimeScore(t *testing.T) {
+func TestWeightedScorer_InsidePreferredWindow_ReturnsFullTimeScore(t *testing.T) {
 	scorer := NewWeightedScorer()
 	preferredID := 1
-	preferredStart := time.Date(2026, 6, 1, 13, 0, 0, 0, time.UTC)
 	teacher := models.Teacher{ID: 1, Name: "Alice"}
-	candidate := makeCandidate(teacher, preferredID, &preferredStart)
-	candidate.StartTime = time.Date(2026, 6, 1, 13, 0, 0, 0, time.UTC)
-	candidate.EndTime = time.Date(2026, 6, 1, 14, 0, 0, 0, time.UTC)
+	candidate := makeCandidate(teacher, preferredID, window(0, "13:00", "14:00"))
+	candidate.MatchedSlot = window(0, "13:00", "14:00")
 
 	result := scorer.Score(context.Background(), candidate)
 
-	assert.Contains(t, result.Reasons, "Exact time match")
+	assert.Contains(t, result.Reasons, "Inside preferred window")
 	assert.Equal(t, 30, scoreTimeOnly(scorer, candidate))
 }
 
-func TestWeightedScorer_TimeOffBy30min_ReturnsPartialTimeScore(t *testing.T) {
+func TestWeightedScorer_NearWindow_ReturnsNearScore(t *testing.T) {
 	scorer := NewWeightedScorer()
 	preferredID := 1
-	preferredStart := time.Date(2026, 6, 1, 13, 0, 0, 0, time.UTC)
 	teacher := models.Teacher{ID: 1, Name: "Alice"}
-	candidate := makeCandidate(teacher, preferredID, &preferredStart)
-	candidate.StartTime = time.Date(2026, 6, 1, 13, 30, 0, 0, time.UTC)
-	candidate.EndTime = time.Date(2026, 6, 1, 14, 30, 0, 0, time.UTC)
+	candidate := makeCandidate(teacher, preferredID, window(0, "13:00", "14:00"))
+	candidate.MatchedSlot = window(0, "13:00", "14:00")
+	candidate.StartTime = candidate.StartTime.Add(10 * time.Minute)
+	candidate.EndTime = candidate.EndTime.Add(10 * time.Minute)
 
 	result := scorer.Score(context.Background(), candidate)
 
+	assert.Contains(t, result.Reasons, "Near window — off by 10m")
 	assert.Equal(t, 25, scoreTimeOnly(scorer, candidate))
-	assert.Contains(t, result.Reasons, "Within 1hr — off by 30m")
 }
 
-func TestWeightedScorer_TimeOffBy2hrs_ReturnsLowTimeScore(t *testing.T) {
+func TestWeightedScorer_FarFromWindow_ReturnsFarScore(t *testing.T) {
 	scorer := NewWeightedScorer()
 	preferredID := 1
-	preferredStart := time.Date(2026, 6, 1, 13, 0, 0, 0, time.UTC)
 	teacher := models.Teacher{ID: 1, Name: "Alice"}
-	candidate := makeCandidate(teacher, preferredID, &preferredStart)
-	candidate.StartTime = time.Date(2026, 6, 1, 15, 0, 0, 0, time.UTC)
-	candidate.EndTime = time.Date(2026, 6, 1, 16, 0, 0, 0, time.UTC)
+	candidate := makeCandidate(teacher, preferredID, window(0, "13:00", "14:00"))
+	candidate.MatchedSlot = window(0, "13:00", "14:00")
+	candidate.StartTime = candidate.StartTime.Add(5 * time.Hour)
+	candidate.EndTime = candidate.EndTime.Add(5 * time.Hour)
 
-	result := scorer.Score(context.Background(), candidate)
+	scorer.Score(context.Background(), candidate)
 
-	assert.Equal(t, 15, scoreTimeOnly(scorer, candidate))
-	assert.Contains(t, result.Reasons, "Within 2hrs — off by 120m")
+	assert.Equal(t, 0, scoreTimeOnly(scorer, candidate))
 }
 
-func TestWeightedScorer_NoPreferredTime_ReturnsNeutralTimeScore(t *testing.T) {
+func TestWeightedScorer_NoMatchedWindow_ReturnsNeutralTimeScore(t *testing.T) {
 	scorer := NewWeightedScorer()
 	teacher := models.Teacher{ID: 1, Name: "Alice"}
-	candidate := makeCandidate(teacher, 0, nil)
-	candidate.StartTime = time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
-	candidate.EndTime = time.Date(2026, 6, 1, 13, 0, 0, 0, time.UTC)
-
-	_ = scorer.Score(context.Background(), candidate)
+	candidate := makeCandidate(teacher, 0, window(0, "13:00", "14:00"))
 
 	assert.Equal(t, 15, scoreTimeOnly(scorer, candidate))
 }
@@ -113,9 +103,7 @@ func TestWeightedScorer_NoPreferredTime_ReturnsNeutralTimeScore(t *testing.T) {
 func TestWeightedScorer_WideAvailabilityFit_HighFitScore(t *testing.T) {
 	scorer := NewWeightedScorer()
 	teacher := models.Teacher{ID: 1, Name: "Alice"}
-	candidate := makeCandidate(teacher, 0, nil)
-	candidate.StartTime = time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
-	candidate.EndTime = time.Date(2026, 6, 1, 13, 0, 0, 0, time.UTC)
+	candidate := makeCandidate(teacher, 0, window(0, "12:00", "13:00"))
 
 	result := scorer.Score(context.Background(), candidate)
 
@@ -127,12 +115,12 @@ func TestWeightedScorer_TightAvailabilityFit_LowerFitScore(t *testing.T) {
 	scorer := NewWeightedScorer()
 	teacher := models.Teacher{ID: 1, Name: "Alice"}
 	preferredID := 1
-	candidate := makeCandidate(teacher, preferredID, nil)
+	candidate := makeCandidate(teacher, preferredID, window(1, "09:00", "10:00"))
 	candidate.AvailabilitySlots = []models.WeeklySlot{
 		{DayOfWeek: 1, Start: "09:00", End: "10:30"},
 	}
-	candidate.StartTime = time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC)
-	candidate.EndTime = time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)
+	candidate.StartTime = time.Date(2026, 6, 2, 9, 0, 0, 0, time.UTC)
+	candidate.EndTime = time.Date(2026, 6, 2, 10, 0, 0, 0, time.UTC)
 
 	result := scorer.Score(context.Background(), candidate)
 
@@ -143,11 +131,9 @@ func TestWeightedScorer_TightAvailabilityFit_LowerFitScore(t *testing.T) {
 func TestWeightedScorer_ConfigurableWeights(t *testing.T) {
 	scorer := &WeightedScorer{TeacherWeight: 50, TimeWeight: 50, FitWeight: 0}
 	preferredID := 1
-	preferredStart := time.Date(2026, 6, 1, 13, 0, 0, 0, time.UTC)
 	teacher := models.Teacher{ID: 1, Name: "Alice"}
-	candidate := makeCandidate(teacher, preferredID, &preferredStart)
-	candidate.StartTime = time.Date(2026, 6, 1, 13, 0, 0, 0, time.UTC)
-	candidate.EndTime = time.Date(2026, 6, 1, 14, 0, 0, 0, time.UTC)
+	candidate := makeCandidate(teacher, preferredID, window(0, "13:00", "14:00"))
+	candidate.MatchedSlot = window(0, "13:00", "14:00")
 
 	result := scorer.Score(context.Background(), candidate)
 
@@ -170,19 +156,33 @@ func scoreFitOnly(s *WeightedScorer, c ports.ScorableCandidate) int {
 	return score
 }
 
-func makeCandidate(teacher models.Teacher, preferredTeacherID int, preferredStart *time.Time) ports.ScorableCandidate {
+func window(day int, start, end string) models.WeeklySlot {
+	return models.WeeklySlot{DayOfWeek: day, Start: models.TimeHHMM(start), End: models.TimeHHMM(end)}
+}
+
+func makeCandidate(teacher models.Teacher, preferredTeacherID int, prefSlot models.WeeklySlot) ports.ScorableCandidate {
 	req := models.BookingRequest{
-		SubjectID: 1,
-		BranchID:  1,
+		SubjectID:      1,
+		BranchID:       1,
+		PreferredSlots: []models.WeeklySlot{prefSlot},
 	}
 	if preferredTeacherID > 0 {
 		req.PreferredTeacherID = &preferredTeacherID
 	}
-	if preferredStart != nil {
-		req.PreferredStart = *preferredStart
+
+	anchorDate := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	for int(anchorDate.Weekday()) != prefSlot.DayOfWeek+1 {
+		anchorDate = anchorDate.Add(24 * time.Hour)
 	}
+	parsedStart, _ := time.Parse("15:04", string(prefSlot.Start))
+	parsedEnd, _ := time.Parse("15:04", string(prefSlot.End))
+	startTime := anchorDate.Add(time.Duration(parsedStart.Hour())*time.Hour + time.Duration(parsedStart.Minute())*time.Minute)
+	endTime := anchorDate.Add(time.Duration(parsedEnd.Hour())*time.Hour + time.Duration(parsedEnd.Minute())*time.Minute)
+
 	return ports.ScorableCandidate{
 		Teacher:           teacher,
+		StartTime:         startTime,
+		EndTime:           endTime,
 		Request:           req,
 		AvailabilitySlots: []models.WeeklySlot{{DayOfWeek: 1, Start: "09:00", End: "17:00"}},
 	}

@@ -25,13 +25,13 @@ func NewCLPEngine(repo ports.BookingRepository, scorer ports.Scorer, rc ports.Re
 	}
 }
 
-func (e *CLPEngine) FindAlternatives(ctx context.Context, req models.BookingRequest) ([]models.BookingAlternative, error) {
+func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req models.BookingRequest, window models.WeeklySlot) ([]models.BookingAlternative, error) {
 	teachers, err := e.repo.FindTeachersBySubject(ctx, req.SubjectID)
 	if err != nil {
 		return nil, err
 	}
 
-	var alternatives []models.BookingAlternative
+	var windowCandidates []models.BookingAlternative
 
 	for _, teacher := range teachers {
 		availSlots, err := e.repo.FindTeacherAvailability(ctx, teacher.ID)
@@ -39,7 +39,7 @@ func (e *CLPEngine) FindAlternatives(ctx context.Context, req models.BookingRequ
 			return nil, err
 		}
 
-		candidateSlots := e.generateCandidateSlots(req, availSlots)
+		candidateSlots := e.generateCandidateSlots(req, availSlots, window)
 		for _, slot := range candidateSlots {
 			if e.hasConflict(ctx, teacher.ID, slot.startTime, slot.endTime) {
 				continue
@@ -51,6 +51,7 @@ func (e *CLPEngine) FindAlternatives(ctx context.Context, req models.BookingRequ
 				EndTime:           slot.endTime,
 				Request:           req,
 				AvailabilitySlots: availSlots,
+				MatchedSlot:       window,
 			})
 
 			alt := models.BookingAlternative{
@@ -64,21 +65,19 @@ func (e *CLPEngine) FindAlternatives(ctx context.Context, req models.BookingRequ
 				Reasons:     result.Reasons,
 			}
 
-			alternatives = append(alternatives, alt)
+			windowCandidates = append(windowCandidates, alt)
 		}
 	}
 
-	sort.Slice(alternatives, func(i, j int) bool {
-		return alternatives[i].Score > alternatives[j].Score
+	sort.Slice(windowCandidates, func(i, j int) bool {
+		return windowCandidates[i].Score > windowCandidates[j].Score
 	})
-
-	alternatives = deduplicateByTeacher(alternatives)
-
-	if len(alternatives) > 3 {
-		alternatives = alternatives[:3]
+	windowCandidates = deduplicateByTeacher(windowCandidates)
+	if len(windowCandidates) > 3 {
+		windowCandidates = windowCandidates[:3]
 	}
 
-	return alternatives, nil
+	return windowCandidates, nil
 }
 
 type candidateSlot struct {
@@ -86,65 +85,49 @@ type candidateSlot struct {
 	endTime   time.Time
 }
 
-func (e *CLPEngine) generateCandidateSlots(req models.BookingRequest, availSlots []models.WeeklySlot) []candidateSlot {
+func (e *CLPEngine) generateCandidateSlots(req models.BookingRequest, availSlots []models.WeeklySlot, window models.WeeklySlot) []candidateSlot {
 	duration := time.Duration(req.DurationMinutes) * time.Minute
+	if duration == 0 {
+		winStart := parseTimeHHMM(window.Start)
+		winEnd := parseTimeHHMM(window.End)
+		duration = winEnd.Sub(winStart)
+	}
 	var candidates []candidateSlot
 
-	for _, weekSlot := range availSlots {
-		availStart, availEnd := e.resolveTimes(req, weekSlot)
-		slotDuration := availEnd.Sub(availStart)
+	anchorDate := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	for int(anchorDate.Weekday()) != window.DayOfWeek+1 {
+		anchorDate = anchorDate.Add(24 * time.Hour)
+	}
 
-		if slotDuration < duration {
+	for _, weekSlot := range availSlots {
+		if weekSlot.DayOfWeek != window.DayOfWeek {
 			continue
 		}
 
-		if req.PreferredStart.IsZero() {
-			for t := availStart; t.Add(duration).Before(availEnd) || t.Add(duration).Equal(availEnd); t = t.Add(30 * time.Minute) {
-				candidates = append(candidates, candidateSlot{startTime: t, endTime: t.Add(duration)})
+		availStart := anchorDate.Add(time.Duration(parseTimeHHMM(weekSlot.Start).Hour())*time.Hour + time.Duration(parseTimeHHMM(weekSlot.Start).Minute())*time.Minute)
+		availEnd := anchorDate.Add(time.Duration(parseTimeHHMM(weekSlot.End).Hour())*time.Hour + time.Duration(parseTimeHHMM(weekSlot.End).Minute())*time.Minute)
+
+		if availEnd.Sub(availStart) < duration {
+			continue
+		}
+
+		windowStart := anchorDate.Add(time.Duration(parseTimeHHMM(window.Start).Hour())*time.Hour + time.Duration(parseTimeHHMM(window.Start).Minute())*time.Minute)
+
+		step := 30 * time.Minute
+		genStart := windowStart.Add(-2 * time.Hour)
+		genEnd := windowStart.Add(2 * time.Hour)
+		for t := genStart; t.Before(genEnd) || t.Equal(genEnd); t = t.Add(step) {
+			if t.Before(availStart) || t.After(availEnd) {
+				continue
 			}
-		} else {
-			step := 30 * time.Minute
-			windowStart := req.PreferredStart.Add(-2 * time.Hour)
-			windowEnd := req.PreferredStart.Add(2 * time.Hour)
-			for t := windowStart; t.Before(windowEnd) || t.Equal(windowEnd); t = t.Add(step) {
-				if t.Before(availStart) || t.After(availEnd) {
-					continue
-				}
-				if t.Add(duration).After(availEnd) {
-					continue
-				}
-				candidates = append(candidates, candidateSlot{startTime: t, endTime: t.Add(duration)})
+			if t.Add(duration).After(availEnd) {
+				continue
 			}
+			candidates = append(candidates, candidateSlot{startTime: t, endTime: t.Add(duration)})
 		}
 	}
 
 	return candidates
-}
-
-func (e *CLPEngine) resolveTimes(req models.BookingRequest, weekSlot models.WeeklySlot) (time.Time, time.Time) {
-	refTime := req.PreferredStart
-	if refTime.IsZero() {
-		refTime = time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
-	}
-
-	dayOfWeek := int(refTime.Weekday())
-	if dayOfWeek == 0 {
-		dayOfWeek = 7 // use 1-7 for matching
-	}
-	dayOfWeek-- // convert to 0=Monday
-
-	if weekSlot.DayOfWeek != dayOfWeek {
-		return time.Time{}, time.Time{}
-	}
-
-	parsedStart, _ := time.Parse("15:04", string(weekSlot.Start))
-	parsedEnd, _ := time.Parse("15:04", string(weekSlot.End))
-
-	date := refTime.Truncate(24 * time.Hour)
-	availStart := date.Add(time.Duration(parsedStart.Hour())*time.Hour + time.Duration(parsedStart.Minute())*time.Minute)
-	availEnd := date.Add(time.Duration(parsedEnd.Hour())*time.Hour + time.Duration(parsedEnd.Minute())*time.Minute)
-
-	return availStart, availEnd
 }
 
 func (e *CLPEngine) hasConflict(ctx context.Context, teacherID int, startTime, endTime time.Time) bool {

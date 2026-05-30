@@ -10,7 +10,7 @@ import (
 )
 
 type bookingEngine interface {
-	FindAlternatives(ctx context.Context, req models.BookingRequest) ([]models.BookingAlternative, error)
+	FindAlternativesForSlot(ctx context.Context, req models.BookingRequest, window models.WeeklySlot) ([]models.BookingAlternative, error)
 	HasResourceChecker() bool
 	HasCommuteCalc() bool
 }
@@ -31,44 +31,67 @@ func (s *BookingService) Evaluate(ctx context.Context, req models.BookingRequest
 	if req.BranchID <= 0 {
 		return nil, &ValidationError{Msg: "branch_id must be positive"}
 	}
-	if req.DurationMinutes <= 0 {
-		return nil, &ValidationError{Msg: "duration_minutes must be positive"}
+	if len(req.PreferredSlots) == 0 {
+		return nil, &ValidationError{Msg: "preferred_slots must not be empty"}
 	}
-
-	match, err := s.repo.FindExactMatch(ctx, req)
-	if err != nil {
-		log.Printf("BookingService.Evaluate: FindExactMatch error: %v", err)
-		return nil, err
-	}
-
-	if match != nil {
-		alt := models.BookingAlternative{
-			TeacherID:   match.Booking.TeacherID,
-			TeacherName: match.TeacherName,
-			BranchID:    match.Booking.BranchID,
-			SubjectID:   match.Booking.SubjectID,
-			StartTime:   match.Booking.StartTime,
-			EndTime:     match.Booking.EndTime,
-			Score:       100,
-			Reasons:     []string{"Exact match"},
+	for _, slot := range req.PreferredSlots {
+		if slot.DayOfWeek < 0 || slot.DayOfWeek > 6 {
+			return nil, &ValidationError{Msg: fmt.Sprintf("day_of_week must be between 0 and 6, got %d", slot.DayOfWeek)}
 		}
-		return &models.BookingResponse{
-			ExactMatch: &alt,
-			Message:    "Exact match found",
-		}, nil
+		if slot.Start == "" || slot.End == "" {
+			return nil, &ValidationError{Msg: "slot start and end must not be empty"}
+		}
+		if slot.Start >= slot.End {
+			return nil, &ValidationError{Msg: fmt.Sprintf("slot start %s must be before end %s", string(slot.Start), string(slot.End))}
+		}
 	}
 
-	alternatives, err := s.engine.FindAlternatives(ctx, req)
-	if err != nil {
-		log.Printf("BookingService.Evaluate: FindAlternatives error: %v", err)
-		return nil, err
+	var teacherIDVal interface{}
+	if req.PreferredTeacherID != nil && *req.PreferredTeacherID > 0 {
+		teacherIDVal = *req.PreferredTeacherID
 	}
 
-	msg := s.buildMessage(alternatives)
-	return &models.BookingResponse{
-		Alternatives: alternatives,
-		Message:      msg,
-	}, nil
+	var results []models.SlotResult
+
+	for _, slot := range req.PreferredSlots {
+		match, err := s.repo.FindExactMatch(ctx, req.SubjectID, req.BranchID, slot, req.DurationMinutes, teacherIDVal)
+		if err != nil {
+			log.Printf("BookingService.Evaluate: FindExactMatch error: %v", err)
+			return nil, err
+		}
+
+		if match != nil {
+			results = append(results, models.SlotResult{
+				Slot: slot,
+				ExactMatch: &models.BookingAlternative{
+					TeacherID:   match.Booking.TeacherID,
+					TeacherName: match.TeacherName,
+					BranchID:    match.Booking.BranchID,
+					SubjectID:   match.Booking.SubjectID,
+					StartTime:   match.Booking.StartTime,
+					EndTime:     match.Booking.EndTime,
+					Score:       100,
+					Reasons:     []string{"Exact match"},
+				},
+				Message: "Exact match found",
+			})
+			continue
+		}
+
+		alternatives, err := s.engine.FindAlternativesForSlot(ctx, req, slot)
+		if err != nil {
+			log.Printf("BookingService.Evaluate: FindAlternatives error: %v", err)
+			return nil, err
+		}
+
+		results = append(results, models.SlotResult{
+			Slot:         slot,
+			Alternatives: alternatives,
+			Message:      s.buildMessage(alternatives),
+		})
+	}
+
+	return &models.BookingResponse{Results: results}, nil
 }
 
 func (s *BookingService) buildMessage(alternatives []models.BookingAlternative) string {

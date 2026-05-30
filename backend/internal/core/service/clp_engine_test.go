@@ -16,8 +16,8 @@ type mockBookingRepo struct {
 	mock.Mock
 }
 
-func (m *mockBookingRepo) FindExactMatch(ctx context.Context, req models.BookingRequest) (*ports.BookingMatch, error) {
-	args := m.Called(ctx, req)
+func (m *mockBookingRepo) FindExactMatch(ctx context.Context, subjectID, branchID int, slot models.WeeklySlot, durationMinutes int, teacherIDVal interface{}) (*ports.BookingMatch, error) {
+	args := m.Called(ctx, subjectID, branchID, slot, durationMinutes, teacherIDVal)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -52,6 +52,10 @@ func newEngine(repo *mockBookingRepo, scorer *mockScorer) *CLPEngine {
 	return &CLPEngine{repo: repo, scorer: scorer}
 }
 
+func slot(day int, start, end string) models.WeeklySlot {
+	return models.WeeklySlot{DayOfWeek: day, Start: models.TimeHHMM(start), End: models.TimeHHMM(end)}
+}
+
 func TestCLPEngine_TeacherWithoutSubject_ReturnsEmpty(t *testing.T) {
 	repo := new(mockBookingRepo)
 	scorer := new(mockScorer)
@@ -59,9 +63,8 @@ func TestCLPEngine_TeacherWithoutSubject_ReturnsEmpty(t *testing.T) {
 
 	repo.On("FindTeachersBySubject", mock.Anything, 1).Return([]models.Teacher{}, nil)
 
-	req := bookingReq(1, 1, time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC), 60)
-
-	result, err := engine.FindAlternatives(context.Background(), req)
+	req := bookingReq(1, 1, slot(0, "09:00", "10:00"), 60)
+	result, err := engine.FindAlternativesForSlot(context.Background(), req, req.PreferredSlots[0])
 
 	assert.NoError(t, err)
 	assert.Empty(t, result)
@@ -75,15 +78,14 @@ func TestCLPEngine_TeacherWithConflict_Pruned(t *testing.T) {
 	teacher := models.Teacher{ID: 1, Name: "Alice"}
 	repo.On("FindTeachersBySubject", mock.Anything, 1).Return([]models.Teacher{teacher}, nil)
 	repo.On("FindTeacherAvailability", mock.Anything, 1).Return([]models.WeeklySlot{
-		{DayOfWeek: 0, Start: "09:00", End: "17:00"},
+		slot(0, "09:00", "17:00"),
 	}, nil)
 	conflict := []models.Booking{{ID: 42}}
 	repo.On("FindConflictingBookings", mock.Anything, 1,
 		mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).Return(conflict, nil)
 
-	req := bookingReq(1, 1, time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC), 60)
-
-	result, err := engine.FindAlternatives(context.Background(), req)
+	req := bookingReq(1, 1, slot(0, "09:00", "10:00"), 60)
+	result, err := engine.FindAlternativesForSlot(context.Background(), req, req.PreferredSlots[0])
 
 	assert.NoError(t, err)
 	assert.Empty(t, result)
@@ -98,14 +100,13 @@ func TestCLPEngine_TeacherOutsideAvailability_Pruned(t *testing.T) {
 	teacher := models.Teacher{ID: 1, Name: "Alice"}
 	repo.On("FindTeachersBySubject", mock.Anything, 1).Return([]models.Teacher{teacher}, nil)
 	repo.On("FindTeacherAvailability", mock.Anything, 1).Return([]models.WeeklySlot{
-		{DayOfWeek: 0, Start: "14:00", End: "16:00"},
+		slot(0, "14:00", "16:00"),
 	}, nil)
 	repo.On("FindConflictingBookings", mock.Anything, 1,
 		mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).Return([]models.Booking{}, nil)
 
-	req := bookingReq(1, 1, time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC), 60)
-
-	result, err := engine.FindAlternatives(context.Background(), req)
+	req := bookingReq(1, 1, slot(0, "09:00", "10:00"), 60)
+	result, err := engine.FindAlternativesForSlot(context.Background(), req, req.PreferredSlots[0])
 
 	assert.NoError(t, err)
 	assert.Empty(t, result)
@@ -119,16 +120,15 @@ func TestCLPEngine_NoConflict_CandidateScored(t *testing.T) {
 	teacher := models.Teacher{ID: 1, Name: "Alice"}
 	repo.On("FindTeachersBySubject", mock.Anything, 1).Return([]models.Teacher{teacher}, nil)
 	repo.On("FindTeacherAvailability", mock.Anything, 1).Return([]models.WeeklySlot{
-		{DayOfWeek: 0, Start: "09:00", End: "17:00"},
+		slot(0, "09:00", "17:00"),
 	}, nil)
 	repo.On("FindConflictingBookings", mock.Anything, 1,
 		mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).Return([]models.Booking{}, nil)
 	scorer.On("Score", mock.Anything, mock.AnythingOfType("ports.ScorableCandidate")).
 		Return(ports.ScoreResult{Score: 85, Reasons: []string{"Good match"}})
 
-	req := bookingReq(1, 1, time.Date(2026, 6, 1, 13, 0, 0, 0, time.UTC), 60)
-
-	result, err := engine.FindAlternatives(context.Background(), req)
+	req := bookingReq(1, 1, slot(0, "13:00", "14:00"), 60)
+	result, err := engine.FindAlternativesForSlot(context.Background(), req, req.PreferredSlots[0])
 
 	assert.NoError(t, err)
 	assert.GreaterOrEqual(t, len(result), 1)
@@ -152,7 +152,7 @@ func TestCLPEngine_ReturnsTop3_ByScore(t *testing.T) {
 	repo.On("FindTeachersBySubject", mock.Anything, 1).Return(teachers, nil)
 	for _, tc := range teachers {
 		repo.On("FindTeacherAvailability", mock.Anything, tc.ID).Return([]models.WeeklySlot{
-			{DayOfWeek: 0, Start: "09:00", End: "17:00"},
+			slot(0, "09:00", "17:00"),
 		}, nil)
 		repo.On("FindConflictingBookings", mock.Anything, tc.ID,
 			mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).Return([]models.Booking{}, nil)
@@ -167,9 +167,8 @@ func TestCLPEngine_ReturnsTop3_ByScore(t *testing.T) {
 	scorer.On("Score", mock.Anything, mock.MatchedBy(func(c ports.ScorableCandidate) bool { return c.Teacher.ID == 4 })).
 		Return(ports.ScoreResult{Score: 70, Reasons: []string{"ok"}})
 
-	req := bookingReq(1, 1, time.Date(2026, 6, 1, 13, 0, 0, 0, time.UTC), 60)
-
-	result, err := engine.FindAlternatives(context.Background(), req)
+	req := bookingReq(1, 1, slot(0, "13:00", "14:00"), 60)
+	result, err := engine.FindAlternativesForSlot(context.Background(), req, req.PreferredSlots[0])
 
 	assert.NoError(t, err)
 	assert.Len(t, result, 3)
@@ -186,15 +185,14 @@ func TestCLPEngine_RoomCommuteSkipped_WhenNil(t *testing.T) {
 	teacher := models.Teacher{ID: 1, Name: "Alice"}
 	repo.On("FindTeachersBySubject", mock.Anything, 1).Return([]models.Teacher{teacher}, nil)
 	repo.On("FindTeacherAvailability", mock.Anything, 1).Return([]models.WeeklySlot{
-		{DayOfWeek: 0, Start: "09:00", End: "17:00"},
+		slot(0, "09:00", "17:00"),
 	}, nil)
 	repo.On("FindConflictingBookings", mock.Anything, 1,
 		mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).Return([]models.Booking{}, nil)
 	scorer.On("Score", mock.Anything, mock.Anything).Return(ports.ScoreResult{Score: 85, Reasons: []string{"ok"}})
 
-	req := bookingReq(1, 1, time.Date(2026, 6, 1, 13, 0, 0, 0, time.UTC), 60)
-
-	result, err := engine.FindAlternatives(context.Background(), req)
+	req := bookingReq(1, 1, slot(0, "13:00", "14:00"), 60)
+	result, err := engine.FindAlternativesForSlot(context.Background(), req, req.PreferredSlots[0])
 
 	assert.NoError(t, err)
 	for _, r := range result {
@@ -203,7 +201,7 @@ func TestCLPEngine_RoomCommuteSkipped_WhenNil(t *testing.T) {
 	}
 }
 
-func TestCLPEngine_NoPreferredTime_GeneratesAllSlots(t *testing.T) {
+func TestCLPEngine_ZeroDuration_UsesWindowLength(t *testing.T) {
 	repo := new(mockBookingRepo)
 	scorer := new(mockScorer)
 	engine := newEngine(repo, scorer)
@@ -211,22 +209,20 @@ func TestCLPEngine_NoPreferredTime_GeneratesAllSlots(t *testing.T) {
 	teacher := models.Teacher{ID: 1, Name: "Alice"}
 	repo.On("FindTeachersBySubject", mock.Anything, 1).Return([]models.Teacher{teacher}, nil)
 	repo.On("FindTeacherAvailability", mock.Anything, 1).Return([]models.WeeklySlot{
-		{DayOfWeek: 0, Start: "09:00", End: "11:00"},
+		slot(0, "09:00", "17:00"),
 	}, nil)
 	repo.On("FindConflictingBookings", mock.Anything, 1,
 		mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).Return([]models.Booking{}, nil)
 	scorer.On("Score", mock.Anything, mock.Anything).Return(ports.ScoreResult{Score: 50, Reasons: []string{"ok"}})
 
-	req := bookingReq(1, 1, time.Time{}, 60)
-
-	result, err := engine.FindAlternatives(context.Background(), req)
+	req := bookingReq(1, 1, slot(0, "13:00", "14:00"), 0)
+	result, err := engine.FindAlternativesForSlot(context.Background(), req, req.PreferredSlots[0])
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, result)
-	assert.True(t, len(result) >= 1)
 }
 
-func TestCLPEngine_SlotDuration_Respected(t *testing.T) {
+func TestCLPEngine_ReturnsEmpty_WhenAllPruned(t *testing.T) {
 	repo := new(mockBookingRepo)
 	scorer := new(mockScorer)
 	engine := newEngine(repo, scorer)
@@ -234,84 +230,21 @@ func TestCLPEngine_SlotDuration_Respected(t *testing.T) {
 	teacher := models.Teacher{ID: 1, Name: "Alice"}
 	repo.On("FindTeachersBySubject", mock.Anything, 1).Return([]models.Teacher{teacher}, nil)
 	repo.On("FindTeacherAvailability", mock.Anything, 1).Return([]models.WeeklySlot{
-		{DayOfWeek: 0, Start: "09:00", End: "10:00"},
+		slot(0, "09:00", "09:30"),
 	}, nil)
-	repo.On("FindConflictingBookings", mock.Anything, 1,
-		mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).Return([]models.Booking{}, nil)
 
-	req := bookingReq(1, 1, time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC), 90)
-	result, err := engine.FindAlternatives(context.Background(), req)
+	req := bookingReq(1, 1, slot(0, "09:00", "10:00"), 60)
+	result, err := engine.FindAlternativesForSlot(context.Background(), req, req.PreferredSlots[0])
 
 	assert.NoError(t, err)
 	assert.Empty(t, result)
 }
 
-func TestCLPEngine_ConflictQuery_CalledForEachCandidateSlot(t *testing.T) {
-	repo := new(mockBookingRepo)
-	scorer := new(mockScorer)
-	engine := newEngine(repo, scorer)
-
-	teacher := models.Teacher{ID: 1, Name: "Alice"}
-	repo.On("FindTeachersBySubject", mock.Anything, 1).Return([]models.Teacher{teacher}, nil)
-	repo.On("FindTeacherAvailability", mock.Anything, 1).Return([]models.WeeklySlot{
-		{DayOfWeek: 0, Start: "12:00", End: "14:00"},
-	}, nil)
-	repo.On("FindConflictingBookings", mock.Anything, 1,
-		mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).Return([]models.Booking{}, nil)
-	scorer.On("Score", mock.Anything, mock.Anything).Return(ports.ScoreResult{Score: 50, Reasons: []string{"ok"}})
-
-	req := bookingReq(1, 1, time.Date(2026, 6, 1, 13, 0, 0, 0, time.UTC), 60)
-	result, err := engine.FindAlternatives(context.Background(), req)
-
-	assert.NoError(t, err)
-	assert.NotEmpty(t, result)
-	repo.AssertNumberOfCalls(t, "FindConflictingBookings", 3)
-}
-
-func TestCLPEngine_MultipleConflicts_DayFiltered(t *testing.T) {
-	repo := new(mockBookingRepo)
-	scorer := new(mockScorer)
-	engine := newEngine(repo, scorer)
-
-	teacher := models.Teacher{ID: 1, Name: "Alice"}
-	repo.On("FindTeachersBySubject", mock.Anything, 1).Return([]models.Teacher{teacher}, nil)
-	repo.On("FindTeacherAvailability", mock.Anything, 1).Return([]models.WeeklySlot{
-		{DayOfWeek: 0, Start: "09:00", End: "09:30"},
-		{DayOfWeek: 2, Start: "09:00", End: "17:00"},
-	}, nil)
-
-	req := bookingReq(1, 1, time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC), 60)
-	result, err := engine.FindAlternatives(context.Background(), req)
-
-	assert.NoError(t, err)
-	assert.Empty(t, result)
-}
-
-func TestCLPEngine_NoPreferredTime_ScoresOnDefaultDate(t *testing.T) {
-	repo := new(mockBookingRepo)
-	scorer := new(mockScorer)
-	engine := newEngine(repo, scorer)
-
-	teacher := models.Teacher{ID: 1, Name: "Alice"}
-	repo.On("FindTeachersBySubject", mock.Anything, 1).Return([]models.Teacher{teacher}, nil)
-	repo.On("FindTeacherAvailability", mock.Anything, 1).Return([]models.WeeklySlot{
-		{DayOfWeek: 1, Start: "09:00", End: "17:00"}, // Tuesday (June 1 is Monday, skip)
-	}, nil)
-	repo.On("FindConflictingBookings", mock.Anything, 1,
-		mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).Return([]models.Booking{}, nil)
-
-	req := bookingReq(1, 1, time.Time{}, 60)
-	result, err := engine.FindAlternatives(context.Background(), req)
-
-	assert.NoError(t, err)
-	assert.Empty(t, result) // default date June 1 is Monday, slot is Tuesday
-}
-
-func bookingReq(subjectID, branchID int, preferredStart time.Time, durationMinutes int) models.BookingRequest {
+func bookingReq(subjectID, branchID int, s models.WeeklySlot, dur int) models.BookingRequest {
 	return models.BookingRequest{
 		SubjectID:       subjectID,
 		BranchID:        branchID,
-		PreferredStart:  preferredStart,
-		DurationMinutes: durationMinutes,
+		PreferredSlots:  []models.WeeklySlot{s},
+		DurationMinutes: dur,
 	}
 }

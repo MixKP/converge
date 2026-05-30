@@ -106,7 +106,7 @@ func TestBookingRequestOmitEmpty(t *testing.T) {
 	withoutTeacher := BookingRequest{
 		SubjectID:       10,
 		BranchID:        5,
-		PreferredStart:  time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC),
+		PreferredSlots:  []WeeklySlot{{DayOfWeek: 0, Start: "10:00", End: "11:30"}},
 		DurationMinutes: 90,
 	}
 	b, err := json.Marshal(withoutTeacher)
@@ -117,7 +117,7 @@ func TestBookingRequestOmitEmpty(t *testing.T) {
 	withTeacher := BookingRequest{
 		SubjectID:          10,
 		BranchID:           5,
-		PreferredStart:     time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC),
+		PreferredSlots:     []WeeklySlot{{DayOfWeek: 0, Start: "10:00", End: "11:30"}},
 		DurationMinutes:    90,
 		PreferredTeacherID: &id,
 	}

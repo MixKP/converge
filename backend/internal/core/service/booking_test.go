@@ -16,8 +16,8 @@ type mockEngineRepo struct {
 	mock.Mock
 }
 
-func (m *mockEngineRepo) FindExactMatch(ctx context.Context, req models.BookingRequest) (*ports.BookingMatch, error) {
-	args := m.Called(ctx, req)
+func (m *mockEngineRepo) FindExactMatch(ctx context.Context, subjectID, branchID int, slot models.WeeklySlot, durationMinutes int, teacherIDVal interface{}) (*ports.BookingMatch, error) {
+	args := m.Called(ctx, subjectID, branchID, slot, durationMinutes, teacherIDVal)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -43,8 +43,8 @@ type mockBookingEngine struct {
 	mock.Mock
 }
 
-func (m *mockBookingEngine) FindAlternatives(ctx context.Context, req models.BookingRequest) ([]models.BookingAlternative, error) {
-	args := m.Called(ctx, req)
+func (m *mockBookingEngine) FindAlternativesForSlot(ctx context.Context, req models.BookingRequest, window models.WeeklySlot) ([]models.BookingAlternative, error) {
+	args := m.Called(ctx, req, window)
 	return args.Get(0).([]models.BookingAlternative), args.Error(1)
 }
 
@@ -56,7 +56,8 @@ func TestBookingService_ExactMatchFound_ReturnsExactMatch(t *testing.T) {
 	engine := new(mockBookingEngine)
 	svc := NewBookingService(repo, engine)
 
-	req := bookingReq(1, 1, time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC), 60)
+	s := slot(0, "09:00", "10:00")
+	req := bookingReq(1, 1, s, 60)
 
 	exactMatch := &ports.BookingMatch{
 		Booking: models.Booking{
@@ -69,15 +70,16 @@ func TestBookingService_ExactMatchFound_ReturnsExactMatch(t *testing.T) {
 		},
 		TeacherName: "Alice",
 	}
-	repo.On("FindExactMatch", mock.Anything, req).Return(exactMatch, nil)
+	repo.On("FindExactMatch", mock.Anything, 1, 1, s, 60, interface{}(nil)).Return(exactMatch, nil)
 
 	result, err := svc.Evaluate(context.Background(), req)
 
 	assert.NoError(t, err)
-	assert.NotNil(t, result.ExactMatch)
-	assert.Equal(t, 100, result.ExactMatch.Score)
-	assert.Equal(t, "Alice", result.ExactMatch.TeacherName)
-	assert.Empty(t, result.Alternatives)
+	assert.Len(t, result.Results, 1)
+	assert.NotNil(t, result.Results[0].ExactMatch)
+	assert.Equal(t, 100, result.Results[0].ExactMatch.Score)
+	assert.Equal(t, "Alice", result.Results[0].ExactMatch.TeacherName)
+	assert.Empty(t, result.Results[0].Alternatives)
 	repo.AssertExpectations(t)
 }
 
@@ -86,16 +88,17 @@ func TestBookingService_NoExactMatch_ReturnsAlternatives(t *testing.T) {
 	engine := new(mockBookingEngine)
 	svc := NewBookingService(repo, engine)
 
-	req := bookingReq(1, 1, time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC), 60)
+	s := slot(0, "09:00", "10:00")
+	req := bookingReq(1, 1, s, 60)
 
-	repo.On("FindExactMatch", mock.Anything, req).Return(nil, nil)
-	engine.On("FindAlternatives", mock.Anything, req).Return([]models.BookingAlternative{}, nil)
+	repo.On("FindExactMatch", mock.Anything, 1, 1, s, 60, interface{}(nil)).Return(nil, nil)
+	engine.On("FindAlternativesForSlot", mock.Anything, req, s).Return([]models.BookingAlternative{}, nil)
 
 	result, err := svc.Evaluate(context.Background(), req)
 
 	assert.NoError(t, err)
-	assert.Nil(t, result.ExactMatch)
-	assert.Contains(t, result.Message, "No exact match")
+	assert.Nil(t, result.Results[0].ExactMatch)
+	assert.Contains(t, result.Results[0].Message, "No exact match")
 }
 
 func TestBookingService_MissingSubjectID_ValidationError(t *testing.T) {
@@ -103,7 +106,7 @@ func TestBookingService_MissingSubjectID_ValidationError(t *testing.T) {
 	engine := new(mockBookingEngine)
 	svc := NewBookingService(repo, engine)
 
-	req := bookingReq(0, 1, time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC), 60)
+	req := bookingReq(0, 1, slot(0, "09:00", "10:00"), 60)
 
 	_, err := svc.Evaluate(context.Background(), req)
 
@@ -116,7 +119,7 @@ func TestBookingService_MissingBranchID_ValidationError(t *testing.T) {
 	engine := new(mockBookingEngine)
 	svc := NewBookingService(repo, engine)
 
-	req := bookingReq(1, 0, time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC), 60)
+	req := bookingReq(1, 0, slot(0, "09:00", "10:00"), 60)
 
 	_, err := svc.Evaluate(context.Background(), req)
 
@@ -124,15 +127,72 @@ func TestBookingService_MissingBranchID_ValidationError(t *testing.T) {
 	assert.Contains(t, err.Error(), "branch_id")
 }
 
-func TestBookingService_InvalidDuration_ValidationError(t *testing.T) {
+func TestBookingService_EmptySlots_ValidationError(t *testing.T) {
 	repo := new(mockEngineRepo)
 	engine := new(mockBookingEngine)
 	svc := NewBookingService(repo, engine)
 
-	req := bookingReq(1, 1, time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC), 0)
+	req := models.BookingRequest{
+		SubjectID:       1,
+		BranchID:        1,
+		DurationMinutes: 60,
+	}
 
 	_, err := svc.Evaluate(context.Background(), req)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "duration")
+	assert.Contains(t, err.Error(), "preferred_slots")
+}
+
+func TestBookingService_InvalidDayOfWeek_ValidationError(t *testing.T) {
+	repo := new(mockEngineRepo)
+	engine := new(mockBookingEngine)
+	svc := NewBookingService(repo, engine)
+
+	req := bookingReq(1, 1, slot(7, "09:00", "10:00"), 60)
+
+	_, err := svc.Evaluate(context.Background(), req)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "day_of_week")
+}
+
+func TestBookingService_TwoSlots_OneExactMatch_OneCLP(t *testing.T) {
+	repo := new(mockEngineRepo)
+	engine := new(mockBookingEngine)
+	svc := NewBookingService(repo, engine)
+
+	monSlot := slot(0, "09:00", "10:00")
+	friSlot := slot(4, "12:00", "14:00")
+	req := models.BookingRequest{
+		SubjectID: 1,
+		BranchID:  1,
+		PreferredSlots: []models.WeeklySlot{
+			monSlot,
+			friSlot,
+		},
+		DurationMinutes: 60,
+	}
+
+	exactMatch := &ports.BookingMatch{
+		Booking:     models.Booking{ID: 42, TeacherID: 1, BranchID: 1, SubjectID: 1, StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC), EndTime: time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)},
+		TeacherName: "Alice",
+	}
+	repo.On("FindExactMatch", mock.Anything, 1, 1, monSlot, 60, interface{}(nil)).Return(exactMatch, nil)
+	repo.On("FindExactMatch", mock.Anything, 1, 1, friSlot, 60, interface{}(nil)).Return(nil, nil)
+
+	alts := []models.BookingAlternative{
+		{TeacherID: 3, TeacherName: "Carol", Score: 70},
+	}
+	engine.On("FindAlternativesForSlot", mock.Anything, req, friSlot).Return(alts, nil)
+
+	result, err := svc.Evaluate(context.Background(), req)
+
+	assert.NoError(t, err)
+	assert.Len(t, result.Results, 2)
+	assert.NotNil(t, result.Results[0].ExactMatch)
+	assert.Equal(t, "Alice", result.Results[0].ExactMatch.TeacherName)
+	assert.Nil(t, result.Results[1].ExactMatch)
+	assert.Len(t, result.Results[1].Alternatives, 1)
+	assert.Equal(t, "Carol", result.Results[1].Alternatives[0].TeacherName)
 }

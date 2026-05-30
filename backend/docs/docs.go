@@ -299,8 +299,11 @@ const docTemplate = `{
                 "duration_minutes": {
                     "type": "integer"
                 },
-                "preferred_start": {
-                    "type": "string"
+                "preferred_slots": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.WeeklySlot"
+                    }
                 },
                 "preferred_teacher_id": {
                     "type": "integer"

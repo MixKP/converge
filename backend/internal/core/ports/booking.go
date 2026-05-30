@@ -13,7 +13,7 @@ type BookingMatch struct {
 }
 
 type BookingRepository interface {
-	FindExactMatch(ctx context.Context, req models.BookingRequest) (*BookingMatch, error)
+	FindExactMatch(ctx context.Context, subjectID, branchID int, slot models.WeeklySlot, durationMinutes int, teacherIDVal interface{}) (*BookingMatch, error)
 	FindTeachersBySubject(ctx context.Context, subjectID int) ([]models.Teacher, error)
 	FindConflictingBookings(ctx context.Context, teacherID int, startTime, endTime time.Time) ([]models.Booking, error)
 	FindTeacherAvailability(ctx context.Context, teacherID int) ([]models.WeeklySlot, error)
@@ -25,6 +25,7 @@ type ScorableCandidate struct {
 	EndTime           time.Time
 	Request           models.BookingRequest
 	AvailabilitySlots []models.WeeklySlot
+	MatchedSlot       models.WeeklySlot
 }
 
 type ScoreResult struct {

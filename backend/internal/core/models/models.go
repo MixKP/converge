@@ -68,11 +68,11 @@ type Booking struct {
 }
 
 type BookingRequest struct {
-	SubjectID          int       `json:"subject_id"`
-	BranchID           int       `json:"branch_id"`
-	PreferredStart     time.Time `json:"preferred_start"`
-	DurationMinutes    int       `json:"duration_minutes"`
-	PreferredTeacherID *int      `json:"preferred_teacher_id,omitempty"`
+	SubjectID          int          `json:"subject_id"`
+	BranchID           int          `json:"branch_id"`
+	PreferredSlots     []WeeklySlot `json:"preferred_slots"`
+	DurationMinutes    int          `json:"duration_minutes,omitempty"`
+	PreferredTeacherID *int         `json:"preferred_teacher_id,omitempty"`
 }
 
 type BookingAlternative struct {
@@ -88,10 +88,15 @@ type BookingAlternative struct {
 	CommuteMinutes *int      `json:"commute_minutes,omitempty"`
 }
 
-type BookingResponse struct {
+type SlotResult struct {
+	Slot         WeeklySlot           `json:"slot"`
 	ExactMatch   *BookingAlternative  `json:"exact_match,omitempty"`
 	Alternatives []BookingAlternative `json:"alternatives,omitempty"`
 	Message      string               `json:"message"`
+}
+
+type BookingResponse struct {
+	Results []SlotResult `json:"results"`
 }
 
 type MessageResponse struct {

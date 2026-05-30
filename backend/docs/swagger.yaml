@@ -41,8 +41,10 @@ definitions:
         type: integer
       duration_minutes:
         type: integer
-      preferred_start:
-        type: string
+      preferred_slots:
+        items:
+          $ref: '#/definitions/models.WeeklySlot'
+        type: array
       preferred_teacher_id:
         type: integer
       subject_id:
