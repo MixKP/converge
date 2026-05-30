@@ -1,9 +1,6 @@
 <script setup lang="ts">
   import { ref, computed, onMounted, watch } from 'vue'
-  import FullCalendar from '@fullcalendar/vue3'
-  import timeGridPlugin from '@fullcalendar/timegrid'
-  import interactionPlugin from '@fullcalendar/interaction'
-  import type { EventInput, EventSourceFunc } from '@fullcalendar/core'
+  import type { EventInput, BusinessHoursInput } from '@fullcalendar/core'
   import { useTeacherStore } from '../stores/teacherStore'
   import { availabilityApi } from '../services/availabilityApi'
   import { subjectApi } from '../services/subjectApi'
@@ -23,7 +20,7 @@
   const isLoadingAvailability = ref(false)
   const isLoadingTeachers = ref(false)
   const events = ref<EventInput[]>([])
-  const businessHours = ref<BusinessHoursInput>({})
+  const businessHours = ref<BusinessHoursInput>([])
   const availabilityCache = ref<Map<number, WeeklySlot[]>>(new Map())
   const subjects = ref<Subject[]>([])
   const filteredTeachers = ref<Teacher[]>([])
@@ -65,7 +62,7 @@
   const updateBusinessHours = (teacherId: number) => {
     const availability = availabilityCache.value.get(teacherId)
     if (!availability) {
-      businessHours.value = false
+      businessHours.value = []
       return
     }
     businessHours.value = availability.map((avail) => ({
@@ -79,7 +76,7 @@
     if (!selectedTeacherId.value || isLoading.value) return
     isLoading.value = true
     try {
-      const payload = generatePayload(events.value, selectedTeacherId.value)
+      const payload = generateAvailabilityPayload(events.value, selectedTeacherId.value)
       await availabilityApi.submitAvailability(payload)
       events.value = []
       teacherStore.setSelectedTeacherById(null)
@@ -99,21 +96,11 @@
   watch(selectedTeacherId, (newId) => {
     events.value = []
     if (newId) {
-      fetchAvailability(newId)
+      updateBusinessHours(newId)
     } else {
-      businessHours.value = false
+      businessHours.value = []
     }
   })
-
-  watch(
-    businessHours,
-    () => {
-      if (calendarApi.value) {
-        calendarApi.value.setOption('businessHours', businessHours.value)
-      }
-    },
-    { deep: true }
-  )
 </script>
 <template>
   <PageLayout title="Booking Course">
