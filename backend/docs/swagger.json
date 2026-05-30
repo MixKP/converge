@@ -81,6 +81,52 @@
                 }
             }
         },
+        "/bookings": {
+            "post": {
+                "description": "Tries to find an exact match for the booking request via the CLP engine. If none is found, returns up to 3 best alternatives.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "bookings"
+                ],
+                "summary": "Evaluate a booking request",
+                "parameters": [
+                    {
+                        "description": "Booking request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.BookingRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.BookingResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/branches": {
             "get": {
                 "description": "Returns all branches ordered by id",
@@ -196,6 +242,81 @@
                     "items": {
                         "$ref": "#/definitions/models.WeeklySlot"
                     }
+                }
+            }
+        },
+        "models.BookingAlternative": {
+            "type": "object",
+            "properties": {
+                "branch_id": {
+                    "type": "integer"
+                },
+                "commute_minutes": {
+                    "type": "integer"
+                },
+                "end_time": {
+                    "type": "string"
+                },
+                "reasons": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "room_available": {
+                    "type": "boolean"
+                },
+                "score": {
+                    "type": "integer"
+                },
+                "start_time": {
+                    "type": "string"
+                },
+                "subject_id": {
+                    "type": "integer"
+                },
+                "teacher_id": {
+                    "type": "integer"
+                },
+                "teacher_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.BookingRequest": {
+            "type": "object",
+            "properties": {
+                "branch_id": {
+                    "type": "integer"
+                },
+                "duration_minutes": {
+                    "type": "integer"
+                },
+                "preferred_start": {
+                    "type": "string"
+                },
+                "preferred_teacher_id": {
+                    "type": "integer"
+                },
+                "subject_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.BookingResponse": {
+            "type": "object",
+            "properties": {
+                "alternatives": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.BookingAlternative"
+                    }
+                },
+                "exact_match": {
+                    "$ref": "#/definitions/models.BookingAlternative"
+                },
+                "message": {
+                    "type": "string"
                 }
             }
         },

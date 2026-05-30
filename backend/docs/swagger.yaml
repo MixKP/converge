@@ -10,6 +10,55 @@ definitions:
           $ref: '#/definitions/models.WeeklySlot'
         type: array
     type: object
+  models.BookingAlternative:
+    properties:
+      branch_id:
+        type: integer
+      commute_minutes:
+        type: integer
+      end_time:
+        type: string
+      reasons:
+        items:
+          type: string
+        type: array
+      room_available:
+        type: boolean
+      score:
+        type: integer
+      start_time:
+        type: string
+      subject_id:
+        type: integer
+      teacher_id:
+        type: integer
+      teacher_name:
+        type: string
+    type: object
+  models.BookingRequest:
+    properties:
+      branch_id:
+        type: integer
+      duration_minutes:
+        type: integer
+      preferred_start:
+        type: string
+      preferred_teacher_id:
+        type: integer
+      subject_id:
+        type: integer
+    type: object
+  models.BookingResponse:
+    properties:
+      alternatives:
+        items:
+          $ref: '#/definitions/models.BookingAlternative'
+        type: array
+      exact_match:
+        $ref: '#/definitions/models.BookingAlternative'
+      message:
+        type: string
+    type: object
   models.Branch:
     properties:
       id:
@@ -127,6 +176,37 @@ paths:
       summary: Submit weekly availability
       tags:
       - availability
+  /bookings:
+    post:
+      consumes:
+      - application/json
+      description: Tries to find an exact match for the booking request via the CLP
+        engine. If none is found, returns up to 3 best alternatives.
+      parameters:
+      - description: Booking request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.BookingRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.BookingResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Evaluate a booking request
+      tags:
+      - bookings
   /branches:
     get:
       description: Returns all branches ordered by id

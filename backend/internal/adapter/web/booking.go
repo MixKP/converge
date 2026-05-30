@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
 
 	"github.com/RinZ5/converge/backend/internal/core/models"
@@ -48,6 +49,7 @@ func (h *BookingHandler) CreateBooking(c *gin.Context) {
 		if errors.As(err, &valErr) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		} else {
+			log.Printf("BookingHandler.CreateBooking: Evaluate error: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to evaluate booking"})
 		}
 		return

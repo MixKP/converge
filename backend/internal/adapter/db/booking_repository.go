@@ -22,49 +22,30 @@ func (r *BookingRepo) FindExactMatch(ctx context.Context, req models.BookingRequ
 	startTime := req.PreferredStart.Format("15:04")
 	endTime := preferredEnd.Format("15:04")
 
-	var teacherID *int
+	var teacherIDVal interface{}
 	if req.PreferredTeacherID != nil && *req.PreferredTeacherID > 0 {
-		teacherID = req.PreferredTeacherID
+		teacherIDVal = *req.PreferredTeacherID
 	}
 
-	var row *sql.Row
-	if teacherID != nil {
-		row = r.DB.QueryRowContext(ctx, `
-			SELECT b.id, b.teacher_id, b.branch_id, b.subject_id, b.start_time, b.end_time, t.name
-			FROM bookings b
-			JOIN teachers t ON t.id = b.teacher_id
-			JOIN teacher_subjects ts ON t.id = ts.teacher_id AND ts.subject_id = $1
-			JOIN teacher_availability ta ON t.id = ta.teacher_id
-			WHERE b.subject_id = $1
-			  AND b.branch_id = $2
-			  AND b.teacher_id = $3
-			  AND b.start_time = $4
-			  AND b.end_time = $5
-			  AND t.status = 'active'
-			ORDER BY b.id
-			LIMIT 1`,
-			req.SubjectID, req.BranchID, *teacherID, req.PreferredStart, preferredEnd,
-		)
-	} else {
-		row = r.DB.QueryRowContext(ctx, `
-			SELECT t.id, 0, $2, $1, $4::timestamptz, $5::timestamptz, t.name
-			FROM teachers t
-			JOIN teacher_subjects ts ON t.id = ts.teacher_id AND ts.subject_id = $1
-			JOIN teacher_availability ta ON t.id = ta.teacher_id
-			WHERE t.status = 'active'
-			  AND ta.day_of_week = (EXTRACT(DOW FROM $4::timestamptz)::int + 6) % 7
-			  AND ta.start_time <= $3::time
-			  AND ta.end_time >= $6::time
-			  AND NOT EXISTS (
-			    SELECT 1 FROM bookings b
-			    WHERE b.teacher_id = t.id
-			      AND tstzrange(b.start_time, b.end_time) && tstzrange($4::timestamptz, $5::timestamptz)
-			  )
-			ORDER BY t.id
-			LIMIT 1`,
-			req.SubjectID, req.BranchID, startTime, req.PreferredStart, preferredEnd, endTime,
-		)
-	}
+	row := r.DB.QueryRowContext(ctx, `
+		SELECT 0, t.id, $2::int, $1::int, $4::timestamptz, $5::timestamptz, t.name
+		FROM teachers t
+		JOIN teacher_subjects ts ON t.id = ts.teacher_id AND ts.subject_id = $1
+		JOIN teacher_availability ta ON t.id = ta.teacher_id
+		WHERE t.status = 'active'
+		  AND ta.day_of_week = (EXTRACT(DOW FROM $4::timestamptz)::int + 6) % 7
+		  AND ta.start_time <= $6::time
+		  AND ta.end_time >= $7::time
+		  AND ($3::int IS NULL OR t.id = $3)
+		  AND NOT EXISTS (
+		    SELECT 1 FROM bookings b
+		    WHERE b.teacher_id = t.id
+		      AND tstzrange(b.start_time, b.end_time) && tstzrange($4::timestamptz, $5::timestamptz)
+		  )
+		ORDER BY t.id
+		LIMIT 1`,
+		req.SubjectID, req.BranchID, teacherIDVal, req.PreferredStart, preferredEnd, startTime, endTime,
+	)
 
 	var booking models.Booking
 	var name string

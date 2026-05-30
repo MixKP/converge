@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/RinZ5/converge/backend/internal/core/models"
 	"github.com/RinZ5/converge/backend/internal/core/ports"
@@ -36,6 +37,7 @@ func (s *BookingService) Evaluate(ctx context.Context, req models.BookingRequest
 
 	match, err := s.repo.FindExactMatch(ctx, req)
 	if err != nil {
+		log.Printf("BookingService.Evaluate: FindExactMatch error: %v", err)
 		return nil, err
 	}
 
@@ -58,6 +60,7 @@ func (s *BookingService) Evaluate(ctx context.Context, req models.BookingRequest
 
 	alternatives, err := s.engine.FindAlternatives(ctx, req)
 	if err != nil {
+		log.Printf("BookingService.Evaluate: FindAlternatives error: %v", err)
 		return nil, err
 	}
 
