@@ -1,5 +1,8 @@
 .PHONY: build test test-integration lint clean swag seed
 
+run:
+	go run cmd/api/main.go
+
 swag:
 	go run github.com/swaggo/swag/cmd/swag@v1.16.6 init -g cmd/api/main.go -o ./docs
 
