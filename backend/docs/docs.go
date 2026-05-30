@@ -316,17 +316,11 @@ const docTemplate = `{
         "models.BookingResponse": {
             "type": "object",
             "properties": {
-                "alternatives": {
+                "results": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.BookingAlternative"
+                        "$ref": "#/definitions/models.SlotResult"
                     }
-                },
-                "exact_match": {
-                    "$ref": "#/definitions/models.BookingAlternative"
-                },
-                "message": {
-                    "type": "string"
                 }
             }
         },
@@ -356,6 +350,26 @@ const docTemplate = `{
                 "message": {
                     "type": "string",
                     "example": "Availability saved successfully"
+                }
+            }
+        },
+        "models.SlotResult": {
+            "type": "object",
+            "properties": {
+                "alternatives": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.BookingAlternative"
+                    }
+                },
+                "exact_match": {
+                    "$ref": "#/definitions/models.BookingAlternative"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "slot": {
+                    "$ref": "#/definitions/models.WeeklySlot"
                 }
             }
         },

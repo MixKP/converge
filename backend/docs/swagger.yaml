@@ -52,14 +52,10 @@ definitions:
     type: object
   models.BookingResponse:
     properties:
-      alternatives:
+      results:
         items:
-          $ref: '#/definitions/models.BookingAlternative'
+          $ref: '#/definitions/models.SlotResult'
         type: array
-      exact_match:
-        $ref: '#/definitions/models.BookingAlternative'
-      message:
-        type: string
     type: object
   models.Branch:
     properties:
@@ -79,6 +75,19 @@ definitions:
       message:
         example: Availability saved successfully
         type: string
+    type: object
+  models.SlotResult:
+    properties:
+      alternatives:
+        items:
+          $ref: '#/definitions/models.BookingAlternative'
+        type: array
+      exact_match:
+        $ref: '#/definitions/models.BookingAlternative'
+      message:
+        type: string
+      slot:
+        $ref: '#/definitions/models.WeeklySlot'
     type: object
   models.Subject:
     properties:
