@@ -11,12 +11,14 @@
     BusinessHoursInput,
     CalendarOptions,
   } from '@fullcalendar/core'
+
   interface Props {
     editable?: boolean
     businessHours?: BusinessHoursInput
     constraint?: string | 'businessHours'
     modelValue?: EventInput[]
   }
+
   const props = withDefaults(defineProps<Props>(), {
     editable: false,
     businessHours: undefined,
@@ -82,6 +84,7 @@
     const id = clickInfo.event.id
     if (!id) return
     eventToDelete.value = id
+    previouslyFocused.value = clickInfo.el as HTMLElement
     showDeleteDialog.value = true
   }
   const confirmDelete = () => {
@@ -160,7 +163,6 @@
   }))
   watch(showDeleteDialog, (isOpen) => {
     if (isOpen) {
-      previouslyFocused.value = document.activeElement as HTMLElement
       cancelBtnRef.value?.focus()
     } else {
       previouslyFocused.value?.focus()

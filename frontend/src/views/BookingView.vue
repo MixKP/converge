@@ -16,6 +16,7 @@
   import type { WeeklySlot, Subject } from '../types'
   import { generateAvailabilityPayload } from '../utils/calendarHelpers'
   import { transformBackendAvailability } from '../utils/availabilityTransform'
+
   const teacherStore = useTeacherStore()
   const calendarRef = ref<InstanceType<typeof Calendar>>()
   const isLoading = ref(false)
@@ -27,6 +28,7 @@
   const subjects = ref<Subject[]>([])
   const filteredTeachers = ref<Teacher[]>([])
   const selectedSubjectId = ref<number | null>(null)
+
   const fetchAvailability = async () => {
     try {
       isLoadingAvailability.value = true
