@@ -1,0 +1,134 @@
+package service
+
+import (
+	"context"
+	"fmt"
+	"math"
+	"time"
+
+	"github.com/RinZ5/converge/backend/internal/core/models"
+	"github.com/RinZ5/converge/backend/internal/core/ports"
+)
+
+type WeightedScorer struct {
+	TeacherWeight int
+	TimeWeight    int
+	FitWeight     int
+}
+
+func NewWeightedScorer() *WeightedScorer {
+	return &WeightedScorer{TeacherWeight: 40, TimeWeight: 30, FitWeight: 30}
+}
+
+func (s *WeightedScorer) Score(ctx context.Context, candidate ports.ScorableCandidate) ports.ScoreResult {
+	var reasons []string
+
+	teacherScore, teacherReason := s.scoreTeacherPreference(candidate)
+	reasons = appendReason(reasons, teacherReason)
+
+	timeScore, timeReason := s.scoreTimeProximity(candidate)
+	reasons = appendReason(reasons, timeReason)
+
+	fitScore, fitReason := s.scoreAvailabilityFit(candidate)
+	reasons = appendReason(reasons, fitReason)
+
+	total := teacherScore + timeScore + fitScore
+
+	return ports.ScoreResult{
+		Score:   total,
+		Reasons: reasons,
+	}
+}
+
+func (s *WeightedScorer) scoreTeacherPreference(candidate ports.ScorableCandidate) (int, string) {
+	if candidate.Request.PreferredTeacherID == nil {
+		return 20, ""
+	}
+	if *candidate.Request.PreferredTeacherID == candidate.Teacher.ID {
+		return s.TeacherWeight, "Preferred teacher"
+	}
+	return 0, "Different teacher"
+}
+
+func (s *WeightedScorer) scoreTimeProximity(candidate ports.ScorableCandidate) (int, string) {
+	preferred := candidate.Request.PreferredStart
+	if preferred.IsZero() {
+		return 15, ""
+	}
+
+	delta := candidate.StartTime.Sub(preferred)
+	if delta < 0 {
+		delta = -delta
+	}
+	deltaMinutes := delta.Minutes()
+
+	switch {
+	case deltaMinutes <= 15:
+		return s.TimeWeight, "Exact time match"
+	case deltaMinutes <= 60:
+		return 25, formatTimeReason("Within 1hr", preferred, candidate.StartTime)
+	case deltaMinutes <= 120:
+		return 15, formatTimeReason("Within 2hrs", preferred, candidate.StartTime)
+	default:
+		return 5, formatTimeReason("Far from preferred", preferred, candidate.StartTime)
+	}
+}
+
+func (s *WeightedScorer) scoreAvailabilityFit(candidate ports.ScorableCandidate) (int, string) {
+	if len(candidate.AvailabilitySlots) == 0 {
+		return s.FitWeight / 2, ""
+	}
+
+	proposedStart := timeOfDay(candidate.StartTime)
+	proposedEnd := timeOfDay(candidate.EndTime)
+
+	for _, slot := range candidate.AvailabilitySlots {
+		availStart := parseTimeHHMM(slot.Start)
+		availEnd := parseTimeHHMM(slot.End)
+
+		if (proposedStart.Equal(availStart) || proposedStart.After(availStart)) && (proposedEnd.Equal(availEnd) || proposedEnd.Before(availEnd)) {
+			marginBefore := float64(proposedStart.Sub(availStart).Minutes())
+			marginAfter := float64(availEnd.Sub(proposedEnd).Minutes())
+			buffer := math.Min(marginBefore, marginAfter)
+			duration := float64(candidate.EndTime.Sub(candidate.StartTime).Minutes())
+			ratio := buffer / duration
+
+			switch {
+			case ratio >= 2:
+				return s.FitWeight, "Plenty of buffer"
+			case ratio >= 1:
+				return 25, "Good buffer"
+			case ratio >= 0.5:
+				return 15, "Tight fit"
+			default:
+				return 5, "Very tight fit"
+			}
+		}
+	}
+
+	return 5, "Very tight fit"
+}
+
+func timeOfDay(t time.Time) time.Time {
+	return time.Date(0, 1, 1, t.Hour(), t.Minute(), 0, 0, time.UTC)
+}
+
+func parseTimeHHMM(t models.TimeHHMM) time.Time {
+	parsed, _ := time.Parse("15:04", string(t))
+	return time.Date(0, 1, 1, parsed.Hour(), parsed.Minute(), 0, 0, time.UTC)
+}
+
+func formatTimeReason(prefix string, preferred, actual time.Time) string {
+	delta := actual.Sub(preferred)
+	if delta < 0 {
+		delta = -delta
+	}
+	return fmt.Sprintf("%s — off by %dm", prefix, int(delta.Minutes()))
+}
+
+func appendReason(reasons []string, reason string) []string {
+	if reason == "" {
+		return reasons
+	}
+	return append(reasons, reason)
+}

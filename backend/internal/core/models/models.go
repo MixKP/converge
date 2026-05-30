@@ -75,6 +75,25 @@ type BookingRequest struct {
 	PreferredTeacherID *int      `json:"preferred_teacher_id,omitempty"`
 }
 
+type BookingAlternative struct {
+	TeacherID      int       `json:"teacher_id"`
+	TeacherName    string    `json:"teacher_name"`
+	BranchID       int       `json:"branch_id"`
+	SubjectID      int       `json:"subject_id"`
+	StartTime      time.Time `json:"start_time"`
+	EndTime        time.Time `json:"end_time"`
+	Score          int       `json:"score"`
+	Reasons        []string  `json:"reasons"`
+	RoomAvailable  *bool     `json:"room_available,omitempty"`
+	CommuteMinutes *int      `json:"commute_minutes,omitempty"`
+}
+
+type BookingResponse struct {
+	ExactMatch   *BookingAlternative  `json:"exact_match,omitempty"`
+	Alternatives []BookingAlternative `json:"alternatives,omitempty"`
+	Message      string               `json:"message"`
+}
+
 type MessageResponse struct {
 	Message string `json:"message" example:"Availability saved successfully"`
 }

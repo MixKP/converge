@@ -52,18 +52,25 @@ func main() {
 	}
 
 	repo := db.NewPostgresRepo(database)
-	svc := service.NewAvailabilityService(repo)
+	availSvc := service.NewAvailabilityService(repo)
 
-	handler := web.NewAvailabilityHandler(svc)
+	bookingRepo := db.NewBookingRepository(database)
+	scorer := service.NewWeightedScorer()
+	clpEngine := service.NewCLPEngine(bookingRepo, scorer, nil, nil)
+	bookingSvc := service.NewBookingService(bookingRepo, clpEngine)
+
+	availHandler := web.NewAvailabilityHandler(availSvc)
+	bookingHandler := web.NewBookingHandler(bookingSvc)
 
 	r := gin.Default()
 	r.Use(cors.New(corsConfig()))
 	api := r.Group("/api")
-	api.GET("/teachers", handler.GetTeachers)
-	api.GET("/availability", handler.GetAllAvailability)
-	api.POST("/availability", handler.SubmitWeeklyAvailability)
-	api.GET("/branches", handler.GetBranches)
-	api.GET("/subjects", handler.GetSubjects)
+	api.GET("/teachers", availHandler.GetTeachers)
+	api.GET("/availability", availHandler.GetAllAvailability)
+	api.POST("/availability", availHandler.SubmitWeeklyAvailability)
+	api.GET("/branches", availHandler.GetBranches)
+	api.GET("/subjects", availHandler.GetSubjects)
+	api.POST("/bookings", bookingHandler.CreateBooking)
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
