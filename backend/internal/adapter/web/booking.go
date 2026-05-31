@@ -108,8 +108,11 @@ func (h *BookingHandler) ConfirmBooking(c *gin.Context) {
 	result, err := h.svc.Confirm(c.Request.Context(), req)
 	if err != nil {
 		var valErr *service.ValidationError
+		var confErr *service.ConflictError
 		if errors.As(err, &valErr) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		} else if errors.As(err, &confErr) {
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 		} else {
 			log.Printf("BookingHandler.ConfirmBooking: Confirm error: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to confirm booking"})
@@ -141,7 +144,10 @@ func (h *BookingHandler) CancelBooking(c *gin.Context) {
 	err = h.svc.Cancel(c.Request.Context(), id)
 	if err != nil {
 		var valErr *service.ValidationError
+		var notFoundErr *service.NotFoundError
 		if errors.As(err, &valErr) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		} else if errors.As(err, &notFoundErr) {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		} else {
 			log.Printf("BookingHandler.CancelBooking: Cancel error: %v", err)

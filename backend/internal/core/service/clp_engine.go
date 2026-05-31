@@ -41,7 +41,11 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req models.Book
 
 		candidateSlots := e.generateCandidateSlots(req, availSlots, window)
 		for _, slot := range candidateSlots {
-			if e.hasConflict(ctx, teacher.ID, slot.startTime, slot.endTime) {
+			hasConf, err := e.hasConflict(ctx, teacher.ID, slot.startTime, slot.endTime)
+			if err != nil {
+				return nil, err
+			}
+			if hasConf {
 				continue
 			}
 
@@ -95,7 +99,8 @@ func (e *CLPEngine) generateCandidateSlots(req models.BookingRequest, availSlots
 	var candidates []candidateSlot
 
 	anchorDate := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
-	for int(anchorDate.Weekday()) != window.DayOfWeek+1 {
+	desiredWeekday := time.Weekday((window.DayOfWeek + 1) % 7)
+	for anchorDate.Weekday() != desiredWeekday {
 		anchorDate = anchorDate.Add(24 * time.Hour)
 	}
 
@@ -130,12 +135,12 @@ func (e *CLPEngine) generateCandidateSlots(req models.BookingRequest, availSlots
 	return candidates
 }
 
-func (e *CLPEngine) hasConflict(ctx context.Context, teacherID int, startTime, endTime time.Time) bool {
+func (e *CLPEngine) hasConflict(ctx context.Context, teacherID int, startTime, endTime time.Time) (bool, error) {
 	conflicts, err := e.repo.FindConflictingBookings(ctx, teacherID, startTime, endTime)
 	if err != nil {
-		return true
+		return false, err
 	}
-	return len(conflicts) > 0
+	return len(conflicts) > 0, nil
 }
 
 func deduplicateByTeacher(alternatives []models.BookingAlternative) []models.BookingAlternative {

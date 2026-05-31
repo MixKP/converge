@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/RinZ5/converge/backend/internal/adapter/db"
 	"github.com/RinZ5/converge/backend/internal/core/models"
 	"github.com/RinZ5/converge/backend/internal/core/ports"
 )
@@ -144,6 +145,9 @@ func (s *BookingService) Confirm(ctx context.Context, req models.ConfirmBookingR
 
 	booking, err := s.repo.CreateBooking(ctx, req)
 	if err != nil {
+		if errors.Is(err, db.ErrBookingConflict) {
+			return nil, &ConflictError{Msg: "Teacher already has a booking in this time range"}
+		}
 		log.Printf("BookingService.Confirm: CreateBooking error: %v", err)
 		return nil, err
 	}
@@ -156,7 +160,7 @@ func (s *BookingService) Cancel(ctx context.Context, bookingID int) error {
 	}
 	err := s.repo.DeleteBooking(ctx, bookingID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return &ValidationError{Msg: fmt.Sprintf("booking %d not found", bookingID)}
+		return &NotFoundError{Msg: fmt.Sprintf("booking %d not found", bookingID)}
 	}
 	if err != nil {
 		log.Printf("BookingService.Cancel: DeleteBooking error: %v", err)

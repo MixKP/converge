@@ -3,11 +3,15 @@ package db
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/RinZ5/converge/backend/internal/core/models"
 	"github.com/RinZ5/converge/backend/internal/core/ports"
+	"github.com/jackc/pgx/v5/pgconn"
 )
+
+var ErrBookingConflict = errors.New("booking conflict: teacher already has a booking in this time range")
 
 type BookingRepo struct {
 	DB *sql.DB
@@ -27,7 +31,8 @@ func (r *BookingRepo) FindExactMatch(ctx context.Context, subjectID, branchID in
 	}
 
 	anchorDate := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
-	for int(anchorDate.Weekday()) != slot.DayOfWeek+1 {
+	desiredWeekday := time.Weekday((slot.DayOfWeek + 1) % 7)
+	for anchorDate.Weekday() != desiredWeekday {
 		anchorDate = anchorDate.Add(24 * time.Hour)
 	}
 	parsedStart, _ := time.Parse("15:04", string(slot.Start))
@@ -35,6 +40,9 @@ func (r *BookingRepo) FindExactMatch(ctx context.Context, subjectID, branchID in
 	endTS := startTS
 	if duration > 0 {
 		endTS = endTS.Add(duration)
+	} else {
+		parsedEnd, _ := time.Parse("15:04", string(slot.End))
+		endTS = anchorDate.Add(time.Duration(parsedEnd.Hour())*time.Hour + time.Duration(parsedEnd.Minute())*time.Minute)
 	}
 
 	row := r.DB.QueryRowContext(ctx, `
@@ -152,6 +160,10 @@ func (r *BookingRepo) CreateBooking(ctx context.Context, req models.ConfirmBooki
 	var b models.Booking
 	if err := row.Scan(&b.ID, &b.TeacherID, &b.BranchID, &b.SubjectID,
 		&b.StartTime, &b.EndTime, &b.ClientName, &b.CreatedAt); err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23P01" {
+			return nil, ErrBookingConflict
+		}
 		return nil, err
 	}
 	return &b, nil

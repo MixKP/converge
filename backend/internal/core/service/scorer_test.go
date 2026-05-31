@@ -171,7 +171,8 @@ func makeCandidate(teacher models.Teacher, preferredTeacherID int, prefSlot mode
 	}
 
 	anchorDate := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
-	for int(anchorDate.Weekday()) != prefSlot.DayOfWeek+1 {
+	desiredWeekday := time.Weekday((prefSlot.DayOfWeek + 1) % 7)
+	for anchorDate.Weekday() != desiredWeekday {
 		anchorDate = anchorDate.Add(24 * time.Hour)
 	}
 	parsedStart, _ := time.Parse("15:04", string(prefSlot.Start))
@@ -184,6 +185,6 @@ func makeCandidate(teacher models.Teacher, preferredTeacherID int, prefSlot mode
 		StartTime:         startTime,
 		EndTime:           endTime,
 		Request:           req,
-		AvailabilitySlots: []models.WeeklySlot{{DayOfWeek: 1, Start: "09:00", End: "17:00"}},
+		AvailabilitySlots: []models.WeeklySlot{{DayOfWeek: prefSlot.DayOfWeek, Start: "09:00", End: "17:00"}},
 	}
 }

@@ -1,4 +1,4 @@
-.PHONY: build test test-integration lint clean swag seed
+.PHONY: build test test-integration lint clean swag seed run
 
 run: swag
 	go run cmd/api/main.go

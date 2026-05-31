@@ -67,7 +67,7 @@ func (s *WeightedScorer) scoreTimeProximity(candidate ports.ScorableCandidate) (
 
 	distStart := math.Abs(candStart.Sub(winStart).Minutes())
 	distEnd := math.Abs(candEnd.Sub(winEnd).Minutes())
-	distanceMinutes := math.Min(distStart, distEnd)
+	distanceMinutes := math.Max(distStart, distEnd)
 
 	switch {
 	case distanceMinutes <= 15:
@@ -90,6 +90,11 @@ func (s *WeightedScorer) scoreAvailabilityFit(candidate ports.ScorableCandidate)
 	proposedEnd := timeOfDay(candidate.EndTime)
 
 	for _, slot := range candidate.AvailabilitySlots {
+		slotWeekday := time.Weekday((slot.DayOfWeek + 1) % 7)
+		if candidate.StartTime.Weekday() != slotWeekday {
+			continue
+		}
+
 		availStart := parseTimeHHMM(slot.Start)
 		availEnd := parseTimeHHMM(slot.End)
 
