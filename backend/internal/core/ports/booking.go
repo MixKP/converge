@@ -19,6 +19,7 @@ type BookingRepository interface {
 	FindTeacherAvailability(ctx context.Context, teacherID int) ([]models.WeeklySlot, error)
 	CreateBooking(ctx context.Context, req models.ConfirmBookingRequest) (*models.Booking, error)
 	DeleteBooking(ctx context.Context, bookingID int) error
+	FindAllBookings(ctx context.Context) ([]models.Booking, error)
 }
 
 type ScorableCandidate struct {

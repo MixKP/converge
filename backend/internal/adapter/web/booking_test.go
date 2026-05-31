@@ -22,6 +22,8 @@ type mockBookingSvc struct {
 	confirm   *models.Booking
 	confErr   error
 	cancelErr error
+	listAll   []models.Booking
+	listErr   error
 }
 
 func (m *mockBookingSvc) Evaluate(ctx context.Context, req models.BookingRequest) (*models.BookingResponse, error) {
@@ -34,6 +36,10 @@ func (m *mockBookingSvc) Confirm(ctx context.Context, req models.ConfirmBookingR
 
 func (m *mockBookingSvc) Cancel(ctx context.Context, bookingID int) error {
 	return m.cancelErr
+}
+
+func (m *mockBookingSvc) ListAll(ctx context.Context) ([]models.Booking, error) {
+	return m.listAll, m.listErr
 }
 
 func slot(day int, start, end string) models.WeeklySlot {
@@ -444,4 +450,62 @@ func TestCancelBookingServiceError(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	assert.Contains(t, w.Body.String(), "failed to cancel booking")
+}
+
+func TestListBookingsSuccess(t *testing.T) {
+	mock := &mockBookingSvc{
+		listAll: []models.Booking{
+			{ID: 1, TeacherID: 1, ClientName: "John Doe", StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC), EndTime: time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)},
+			{ID: 2, TeacherID: 2, ClientName: "Jane Doe", StartTime: time.Date(2026, 6, 2, 10, 0, 0, 0, time.UTC), EndTime: time.Date(2026, 6, 2, 11, 0, 0, 0, time.UTC)},
+		},
+	}
+	handler := NewBookingHandler(mock)
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.GET("/api/bookings", handler.ListBookings)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/bookings", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var bookings []models.Booking
+	err := json.Unmarshal(w.Body.Bytes(), &bookings)
+	require.NoError(t, err)
+	assert.Len(t, bookings, 2)
+	assert.Equal(t, "John Doe", bookings[0].ClientName)
+}
+
+func TestListBookingsEmpty(t *testing.T) {
+	mock := &mockBookingSvc{listAll: []models.Booking{}}
+	handler := NewBookingHandler(mock)
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.GET("/api/bookings", handler.ListBookings)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/bookings", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "[]", w.Body.String())
+}
+
+func TestListBookingsServiceError(t *testing.T) {
+	mock := &mockBookingSvc{listErr: assert.AnError}
+	handler := NewBookingHandler(mock)
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.GET("/api/bookings", handler.ListBookings)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/bookings", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Contains(t, w.Body.String(), "failed to list bookings")
 }

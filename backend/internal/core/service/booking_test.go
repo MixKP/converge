@@ -53,6 +53,11 @@ func (m *mockEngineRepo) DeleteBooking(ctx context.Context, bookingID int) error
 	return args.Error(0)
 }
 
+func (m *mockEngineRepo) FindAllBookings(ctx context.Context) ([]models.Booking, error) {
+	args := m.Called(ctx)
+	return args.Get(0).([]models.Booking), args.Error(1)
+}
+
 type mockBookingEngine struct {
 	mock.Mock
 }

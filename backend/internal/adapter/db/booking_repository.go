@@ -180,3 +180,25 @@ func (r *BookingRepo) DeleteBooking(ctx context.Context, bookingID int) error {
 	}
 	return nil
 }
+
+func (r *BookingRepo) FindAllBookings(ctx context.Context) ([]models.Booking, error) {
+	rows, err := r.DB.QueryContext(ctx, `
+		SELECT id, teacher_id, branch_id, subject_id, start_time, end_time, client_name, created_at
+		FROM bookings
+		ORDER BY created_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var bookings []models.Booking
+	for rows.Next() {
+		var b models.Booking
+		if err := rows.Scan(&b.ID, &b.TeacherID, &b.BranchID, &b.SubjectID,
+			&b.StartTime, &b.EndTime, &b.ClientName, &b.CreatedAt); err != nil {
+			return nil, err
+		}
+		bookings = append(bookings, b)
+	}
+	return bookings, rows.Err()
+}

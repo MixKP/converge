@@ -71,6 +71,7 @@ func main() {
 	api.GET("/branches", availHandler.GetBranches)
 	api.GET("/subjects", availHandler.GetSubjects)
 	api.POST("/bookings", bookingHandler.CreateBooking)
+	api.GET("/bookings", bookingHandler.ListBookings)
 	api.POST("/bookings/confirm", bookingHandler.ConfirmBooking)
 	api.DELETE("/bookings/:id", bookingHandler.CancelBooking)
 

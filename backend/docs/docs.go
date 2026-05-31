@@ -89,6 +89,33 @@ const docTemplate = `{
             }
         },
         "/bookings": {
+            "get": {
+                "description": "Returns all bookings sorted by creation date descending.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "bookings"
+                ],
+                "summary": "List all confirmed bookings",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Booking"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    }
+                }
+            },
             "post": {
                 "description": "Evaluates each preferred_slot independently and returns per-slot results with either an exact_match or alternatives.\n\n**Required fields:**\n- ` + "`" + `subject_id` + "`" + ` (int): The subject to book. Must be positive.\n- ` + "`" + `branch_id` + "`" + ` (int): The branch location. Must be positive.\n- ` + "`" + `preferred_slots` + "`" + ` (array): One or more time windows. Each slot has:\n- ` + "`" + `day_of_week` + "`" + `: 0=Monday through 6=Sunday\n- ` + "`" + `start` + "`" + `: Time in HH:MM format (e.g. \"09:00\")\n- ` + "`" + `end` + "`" + `: Time in HH:MM format, must be after start\n\n**Optional fields:**\n- ` + "`" + `duration_minutes` + "`" + ` (int): Session length. When omitted or 0, the full window (end - start) is used as the session duration. When set, candidates are generated in 30-minute steps within the window matching this duration.\n- ` + "`" + `preferred_teacher_id` + "`" + ` (int): Prioritize a specific teacher. When omitted, all teachers scored neutrally (+20). When set, matching teacher gets +40, others +0.\n\n**Response:** ` + "`" + `results[]` + "`" + ` has one entry per slot, in request order. Each entry has either ` + "`" + `exact_match` + "`" + ` (score=100, teacher fully matches) or ` + "`" + `alternatives` + "`" + ` (up to 3, ranked by score 0-100).",
                 "consumes": [
@@ -417,6 +444,11 @@ const docTemplate = `{
         },
         "models.BookingRequest": {
             "type": "object",
+            "required": [
+                "branch_id",
+                "preferred_slots",
+                "subject_id"
+            ],
             "properties": {
                 "branch_id": {
                     "type": "integer",
@@ -466,6 +498,14 @@ const docTemplate = `{
         },
         "models.ConfirmBookingRequest": {
             "type": "object",
+            "required": [
+                "branch_id",
+                "client_name",
+                "end_time",
+                "start_time",
+                "subject_id",
+                "teacher_id"
+            ],
             "properties": {
                 "branch_id": {
                     "type": "integer",

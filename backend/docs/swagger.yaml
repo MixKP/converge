@@ -72,6 +72,10 @@ definitions:
       subject_id:
         example: 1
         type: integer
+    required:
+    - branch_id
+    - preferred_slots
+    - subject_id
     type: object
   models.BookingResponse:
     properties:
@@ -107,6 +111,13 @@ definitions:
       teacher_id:
         example: 1
         type: integer
+    required:
+    - branch_id
+    - client_name
+    - end_time
+    - start_time
+    - subject_id
+    - teacher_id
     type: object
   models.ErrorResponse:
     properties:
@@ -232,6 +243,24 @@ paths:
       tags:
       - availability
   /bookings:
+    get:
+      description: Returns all bookings sorted by creation date descending.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Booking'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: List all confirmed bookings
+      tags:
+      - bookings
     post:
       consumes:
       - application/json

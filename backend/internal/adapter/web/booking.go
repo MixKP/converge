@@ -17,6 +17,7 @@ type bookingService interface {
 	Evaluate(ctx context.Context, req models.BookingRequest) (*models.BookingResponse, error)
 	Confirm(ctx context.Context, req models.ConfirmBookingRequest) (*models.Booking, error)
 	Cancel(ctx context.Context, bookingID int) error
+	ListAll(ctx context.Context) ([]models.Booking, error)
 }
 
 type BookingHandler struct {
@@ -157,4 +158,23 @@ func (h *BookingHandler) CancelBooking(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Booking cancelled successfully"})
+}
+
+// ListBookings godoc
+//
+//	@Summary		List all confirmed bookings
+//	@Description	Returns all bookings sorted by creation date descending.
+//	@Tags			bookings
+//	@Produce		json
+//	@Success		200	{array}		models.Booking
+//	@Failure		500	{object}	models.ErrorResponse
+//	@Router			/bookings [get]
+func (h *BookingHandler) ListBookings(c *gin.Context) {
+	bookings, err := h.svc.ListAll(c.Request.Context())
+	if err != nil {
+		log.Printf("BookingHandler.ListBookings: error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list bookings"})
+		return
+	}
+	c.JSON(http.StatusOK, bookings)
 }

@@ -169,6 +169,15 @@ func (s *BookingService) Cancel(ctx context.Context, bookingID int) error {
 	return nil
 }
 
+func (s *BookingService) ListAll(ctx context.Context) ([]models.Booking, error) {
+	bookings, err := s.repo.FindAllBookings(ctx)
+	if err != nil {
+		log.Printf("BookingService.ListAll: error: %v", err)
+		return nil, err
+	}
+	return bookings, nil
+}
+
 func joinParts(parts []string) string {
 	result := parts[0]
 	for i := 1; i < len(parts); i++ {
