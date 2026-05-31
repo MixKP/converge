@@ -134,6 +134,58 @@ const docTemplate = `{
                 }
             }
         },
+        "/bookings/confirm": {
+            "post": {
+                "description": "Creates the actual booking in the database after the client selects a result from the evaluate endpoint.\n\n**Required fields:**\n- ` + "`" + `teacher_id` + "`" + ` (int): The teacher assigned to the booking.\n- ` + "`" + `branch_id` + "`" + ` (int): The branch location.\n- ` + "`" + `subject_id` + "`" + ` (int): The subject to book.\n- ` + "`" + `start_time` + "`" + ` (RFC3339): Start time of the booking (use the value directly from the evaluate response).\n- ` + "`" + `end_time` + "`" + ` (RFC3339): End time of the booking (use the value directly from the evaluate response).\n- ` + "`" + `client_name` + "`" + ` (string): Name of the client making the booking.\n\n**Constraints:** Overlapping bookings for the same teacher are rejected (409 Conflict) via EXCLUDE gist constraint.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "bookings"
+                ],
+                "summary": "Confirm a booking",
+                "parameters": [
+                    {
+                        "description": "Booking confirmation",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ConfirmBookingRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.Booking"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/branches": {
             "get": {
                 "description": "Returns all branches ordered by id",
@@ -252,6 +304,35 @@ const docTemplate = `{
                 }
             }
         },
+        "models.Booking": {
+            "type": "object",
+            "properties": {
+                "branch_id": {
+                    "type": "integer"
+                },
+                "client_name": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "end_time": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "start_time": {
+                    "type": "string"
+                },
+                "subject_id": {
+                    "type": "integer"
+                },
+                "teacher_id": {
+                    "type": "integer"
+                }
+            }
+        },
         "models.BookingAlternative": {
             "type": "object",
             "properties": {
@@ -336,6 +417,35 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                }
+            }
+        },
+        "models.ConfirmBookingRequest": {
+            "type": "object",
+            "properties": {
+                "branch_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "client_name": {
+                    "type": "string",
+                    "example": "John Doe"
+                },
+                "end_time": {
+                    "type": "string",
+                    "example": "2026-06-01T10:00:00Z"
+                },
+                "start_time": {
+                    "type": "string",
+                    "example": "2026-06-01T09:00:00Z"
+                },
+                "subject_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "teacher_id": {
+                    "type": "integer",
+                    "example": 1
                 }
             }
         },

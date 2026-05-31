@@ -140,3 +140,19 @@ func (r *BookingRepo) FindTeacherAvailability(ctx context.Context, teacherID int
 	}
 	return slots, rows.Err()
 }
+
+func (r *BookingRepo) CreateBooking(ctx context.Context, req models.ConfirmBookingRequest) (*models.Booking, error) {
+	row := r.DB.QueryRowContext(ctx, `
+		INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time, client_name)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id, teacher_id, branch_id, subject_id, start_time, end_time, client_name, created_at`,
+		req.TeacherID, req.BranchID, req.SubjectID, req.StartTime, req.EndTime, req.ClientName,
+	)
+
+	var b models.Booking
+	if err := row.Scan(&b.ID, &b.TeacherID, &b.BranchID, &b.SubjectID,
+		&b.StartTime, &b.EndTime, &b.ClientName, &b.CreatedAt); err != nil {
+		return nil, err
+	}
+	return &b, nil
+}

@@ -120,6 +120,34 @@ func (s *BookingService) checkedResources() string {
 	return fmt.Sprintf("%s.", joinParts(parts))
 }
 
+func (s *BookingService) Confirm(ctx context.Context, req models.ConfirmBookingRequest) (*models.Booking, error) {
+	if req.TeacherID <= 0 {
+		return nil, &ValidationError{Msg: "teacher_id must be positive"}
+	}
+	if req.BranchID <= 0 {
+		return nil, &ValidationError{Msg: "branch_id must be positive"}
+	}
+	if req.SubjectID <= 0 {
+		return nil, &ValidationError{Msg: "subject_id must be positive"}
+	}
+	if req.StartTime.IsZero() || req.EndTime.IsZero() {
+		return nil, &ValidationError{Msg: "start_time and end_time must be provided"}
+	}
+	if !req.EndTime.After(req.StartTime) {
+		return nil, &ValidationError{Msg: "end_time must be after start_time"}
+	}
+	if req.ClientName == "" {
+		return nil, &ValidationError{Msg: "client_name must not be empty"}
+	}
+
+	booking, err := s.repo.CreateBooking(ctx, req)
+	if err != nil {
+		log.Printf("BookingService.Confirm: CreateBooking error: %v", err)
+		return nil, err
+	}
+	return booking, nil
+}
+
 func joinParts(parts []string) string {
 	result := parts[0]
 	for i := 1; i < len(parts); i++ {

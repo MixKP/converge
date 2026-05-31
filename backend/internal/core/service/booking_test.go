@@ -39,6 +39,14 @@ func (m *mockEngineRepo) FindTeacherAvailability(ctx context.Context, teacherID 
 	return args.Get(0).([]models.WeeklySlot), args.Error(1)
 }
 
+func (m *mockEngineRepo) CreateBooking(ctx context.Context, req models.ConfirmBookingRequest) (*models.Booking, error) {
+	args := m.Called(ctx, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.Booking), args.Error(1)
+}
+
 type mockBookingEngine struct {
 	mock.Mock
 }
@@ -195,4 +203,63 @@ func TestBookingService_TwoSlots_OneExactMatch_OneCLP(t *testing.T) {
 	assert.Nil(t, result.Results[1].ExactMatch)
 	assert.Len(t, result.Results[1].Alternatives, 1)
 	assert.Equal(t, "Carol", result.Results[1].Alternatives[0].TeacherName)
+}
+
+func TestBookingService_ConfirmSuccess(t *testing.T) {
+	repo := new(mockEngineRepo)
+	engine := new(mockBookingEngine)
+	svc := NewBookingService(repo, engine)
+
+	req := models.ConfirmBookingRequest{
+		TeacherID:  1,
+		BranchID:   1,
+		SubjectID:  1,
+		StartTime:  time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		EndTime:    time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+		ClientName: "John Doe",
+	}
+
+	expected := &models.Booking{
+		ID:         10,
+		TeacherID:  1,
+		BranchID:   1,
+		SubjectID:  1,
+		StartTime:  time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		EndTime:    time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+		ClientName: "John Doe",
+	}
+	repo.On("CreateBooking", mock.Anything, req).Return(expected, nil)
+
+	result, err := svc.Confirm(context.Background(), req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 10, result.ID)
+	assert.Equal(t, "John Doe", result.ClientName)
+	repo.AssertExpectations(t)
+}
+
+func TestBookingService_ConfirmMissingFields(t *testing.T) {
+	svc := NewBookingService(new(mockEngineRepo), new(mockBookingEngine))
+
+	tests := []struct {
+		name string
+		req  models.ConfirmBookingRequest
+		err  string
+	}{
+		{"teacher", models.ConfirmBookingRequest{BranchID: 1, SubjectID: 1, StartTime: time.Now(), EndTime: time.Now().Add(time.Hour), ClientName: "X"}, "teacher_id"},
+		{"branch", models.ConfirmBookingRequest{TeacherID: 1, SubjectID: 1, StartTime: time.Now(), EndTime: time.Now().Add(time.Hour), ClientName: "X"}, "branch_id"},
+		{"subject", models.ConfirmBookingRequest{TeacherID: 1, BranchID: 1, StartTime: time.Now(), EndTime: time.Now().Add(time.Hour), ClientName: "X"}, "subject_id"},
+		{"start_time", models.ConfirmBookingRequest{TeacherID: 1, BranchID: 1, SubjectID: 1, EndTime: time.Now(), ClientName: "X"}, "start_time"},
+		{"end_time", models.ConfirmBookingRequest{TeacherID: 1, BranchID: 1, SubjectID: 1, StartTime: time.Now(), ClientName: "X"}, "end_time"},
+		{"time_reversed", models.ConfirmBookingRequest{TeacherID: 1, BranchID: 1, SubjectID: 1, StartTime: time.Now().Add(time.Hour), EndTime: time.Now(), ClientName: "X"}, "end_time must be after start_time"},
+		{"client_name", models.ConfirmBookingRequest{TeacherID: 1, BranchID: 1, SubjectID: 1, StartTime: time.Now(), EndTime: time.Now().Add(time.Hour)}, "client_name"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := svc.Confirm(context.Background(), tt.req)
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), tt.err)
+		})
+	}
 }

@@ -90,10 +90,12 @@ func AutoMigrate(database *sql.DB) error {
 			subject_id INTEGER NOT NULL REFERENCES subjects(id),
 			start_time TIMESTAMPTZ NOT NULL,
 			end_time TIMESTAMPTZ NOT NULL,
+			client_name VARCHAR(255) NOT NULL DEFAULT '',
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			CHECK (start_time < end_time),
 			EXCLUDE USING gist (teacher_id WITH =, tstzrange(start_time, end_time) WITH &&)
 		)`,
+		`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS client_name VARCHAR(255) NOT NULL DEFAULT ''`,
 	}
 	for _, q := range queries {
 		if _, err := database.Exec(q); err != nil {

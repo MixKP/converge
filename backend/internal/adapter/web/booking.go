@@ -14,6 +14,7 @@ import (
 
 type bookingService interface {
 	Evaluate(ctx context.Context, req models.BookingRequest) (*models.BookingResponse, error)
+	Confirm(ctx context.Context, req models.ConfirmBookingRequest) (*models.Booking, error)
 }
 
 type BookingHandler struct {
@@ -70,4 +71,49 @@ func (h *BookingHandler) CreateBooking(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, result)
+}
+
+// ConfirmBooking godoc
+//
+//	@Summary		Confirm a booking
+//	@Description	Creates the actual booking in the database after the client selects a result from the evaluate endpoint.
+//	@Description
+//	@Description	**Required fields:**
+//	@Description	- `teacher_id` (int): The teacher assigned to the booking.
+//	@Description	- `branch_id` (int): The branch location.
+//	@Description	- `subject_id` (int): The subject to book.
+//	@Description	- `start_time` (RFC3339): Start time of the booking (use the value directly from the evaluate response).
+//	@Description	- `end_time` (RFC3339): End time of the booking (use the value directly from the evaluate response).
+//	@Description	- `client_name` (string): Name of the client making the booking.
+//	@Description
+//	@Description	**Constraints:** Overlapping bookings for the same teacher are rejected (409 Conflict) via EXCLUDE gist constraint.
+//	@Tags			bookings
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		models.ConfirmBookingRequest	true	"Booking confirmation"
+//	@Success		201		{object}	models.Booking
+//	@Failure		400		{object}	models.ErrorResponse
+//	@Failure		409		{object}	models.ErrorResponse
+//	@Failure		500		{object}	models.ErrorResponse
+//	@Router			/bookings/confirm [post]
+func (h *BookingHandler) ConfirmBooking(c *gin.Context) {
+	var req models.ConfirmBookingRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	result, err := h.svc.Confirm(c.Request.Context(), req)
+	if err != nil {
+		var valErr *service.ValidationError
+		if errors.As(err, &valErr) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		} else {
+			log.Printf("BookingHandler.ConfirmBooking: Confirm error: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to confirm booking"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusCreated, result)
 }

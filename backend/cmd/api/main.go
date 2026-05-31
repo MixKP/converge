@@ -71,6 +71,7 @@ func main() {
 	api.GET("/branches", availHandler.GetBranches)
 	api.GET("/subjects", availHandler.GetSubjects)
 	api.POST("/bookings", bookingHandler.CreateBooking)
+	api.POST("/bookings/confirm", bookingHandler.ConfirmBooking)
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 

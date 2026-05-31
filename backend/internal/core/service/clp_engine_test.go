@@ -39,6 +39,14 @@ func (m *mockBookingRepo) FindTeacherAvailability(ctx context.Context, teacherID
 	return args.Get(0).([]models.WeeklySlot), args.Error(1)
 }
 
+func (m *mockBookingRepo) CreateBooking(ctx context.Context, req models.ConfirmBookingRequest) (*models.Booking, error) {
+	args := m.Called(ctx, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.Booking), args.Error(1)
+}
+
 type mockScorer struct {
 	mock.Mock
 }

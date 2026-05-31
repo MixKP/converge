@@ -19,10 +19,16 @@ import (
 type mockBookingSvc struct {
 	result  *models.BookingResponse
 	evalErr error
+	confirm *models.Booking
+	confErr error
 }
 
 func (m *mockBookingSvc) Evaluate(ctx context.Context, req models.BookingRequest) (*models.BookingResponse, error) {
 	return m.result, m.evalErr
+}
+
+func (m *mockBookingSvc) Confirm(ctx context.Context, req models.ConfirmBookingRequest) (*models.Booking, error) {
+	return m.confirm, m.confErr
 }
 
 func slot(day int, start, end string) models.WeeklySlot {
@@ -270,4 +276,101 @@ func TestCreateBookingOptionalPreferredTeacher(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	require.NoError(t, err)
 	assert.Len(t, response.Results, 1)
+}
+
+func TestConfirmBookingSuccess(t *testing.T) {
+	mock := &mockBookingSvc{
+		confirm: &models.Booking{
+			ID:         10,
+			TeacherID:  1,
+			BranchID:   2,
+			SubjectID:  3,
+			StartTime:  time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+			EndTime:    time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+			ClientName: "John Doe",
+		},
+	}
+	handler := NewBookingHandler(mock)
+
+	payload := models.ConfirmBookingRequest{
+		TeacherID:  1,
+		BranchID:   2,
+		SubjectID:  3,
+		StartTime:  time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		EndTime:    time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+		ClientName: "John Doe",
+	}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPost, "/api/bookings/confirm", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.POST("/api/bookings/confirm", handler.ConfirmBooking)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code)
+
+	var response models.Booking
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, 10, response.ID)
+	assert.Equal(t, "John Doe", response.ClientName)
+}
+
+func TestConfirmBookingValidationError(t *testing.T) {
+	mock := &mockBookingSvc{
+		confErr: &service.ValidationError{Msg: "client_name must not be empty"},
+	}
+	handler := NewBookingHandler(mock)
+
+	payload := models.ConfirmBookingRequest{
+		TeacherID: 1,
+		BranchID:  2,
+		SubjectID: 3,
+		StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+	}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPost, "/api/bookings/confirm", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.POST("/api/bookings/confirm", handler.ConfirmBooking)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "client_name must not be empty")
+}
+
+func TestConfirmBookingServiceError(t *testing.T) {
+	mock := &mockBookingSvc{confErr: assert.AnError}
+	handler := NewBookingHandler(mock)
+
+	payload := models.ConfirmBookingRequest{
+		TeacherID:  1,
+		BranchID:   2,
+		SubjectID:  3,
+		StartTime:  time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		EndTime:    time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+		ClientName: "John Doe",
+	}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPost, "/api/bookings/confirm", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.POST("/api/bookings/confirm", handler.ConfirmBooking)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Contains(t, w.Body.String(), "failed to confirm booking")
 }

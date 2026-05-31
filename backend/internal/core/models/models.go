@@ -58,13 +58,14 @@ type Branch struct {
 }
 
 type Booking struct {
-	ID        int       `json:"id"`
-	TeacherID int       `json:"teacher_id"`
-	BranchID  int       `json:"branch_id"`
-	SubjectID int       `json:"subject_id"`
-	StartTime time.Time `json:"start_time"`
-	EndTime   time.Time `json:"end_time"`
-	CreatedAt time.Time `json:"created_at"`
+	ID         int       `json:"id"`
+	TeacherID  int       `json:"teacher_id"`
+	BranchID   int       `json:"branch_id"`
+	SubjectID  int       `json:"subject_id"`
+	StartTime  time.Time `json:"start_time"`
+	EndTime    time.Time `json:"end_time"`
+	ClientName string    `json:"client_name"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 type BookingRequest struct {
@@ -73,6 +74,15 @@ type BookingRequest struct {
 	PreferredSlots     []WeeklySlot `json:"preferred_slots"`
 	DurationMinutes    int          `json:"duration_minutes,omitempty" example:"60"`
 	PreferredTeacherID *int         `json:"preferred_teacher_id,omitempty" example:"5"`
+}
+
+type ConfirmBookingRequest struct {
+	TeacherID  int       `json:"teacher_id"  example:"1"`
+	BranchID   int       `json:"branch_id"   example:"1"`
+	SubjectID  int       `json:"subject_id"  example:"1"`
+	StartTime  time.Time `json:"start_time"  example:"2026-06-01T09:00:00Z"`
+	EndTime    time.Time `json:"end_time"    example:"2026-06-01T10:00:00Z"`
+	ClientName string    `json:"client_name" example:"John Doe"`
 }
 
 type BookingAlternative struct {

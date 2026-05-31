@@ -10,6 +10,25 @@ definitions:
           $ref: '#/definitions/models.WeeklySlot'
         type: array
     type: object
+  models.Booking:
+    properties:
+      branch_id:
+        type: integer
+      client_name:
+        type: string
+      created_at:
+        type: string
+      end_time:
+        type: string
+      id:
+        type: integer
+      start_time:
+        type: string
+      subject_id:
+        type: integer
+      teacher_id:
+        type: integer
+    type: object
   models.BookingAlternative:
     properties:
       branch_id:
@@ -67,6 +86,27 @@ definitions:
         type: integer
       name:
         type: string
+    type: object
+  models.ConfirmBookingRequest:
+    properties:
+      branch_id:
+        example: 1
+        type: integer
+      client_name:
+        example: John Doe
+        type: string
+      end_time:
+        example: "2026-06-01T10:00:00Z"
+        type: string
+      start_time:
+        example: "2026-06-01T09:00:00Z"
+        type: string
+      subject_id:
+        example: 1
+        type: integer
+      teacher_id:
+        example: 1
+        type: integer
     type: object
   models.ErrorResponse:
     properties:
@@ -234,6 +274,51 @@ paths:
           schema:
             $ref: '#/definitions/models.ErrorResponse'
       summary: Evaluate a booking request
+      tags:
+      - bookings
+  /bookings/confirm:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Creates the actual booking in the database after the client selects a result from the evaluate endpoint.
+
+        **Required fields:**
+        - `teacher_id` (int): The teacher assigned to the booking.
+        - `branch_id` (int): The branch location.
+        - `subject_id` (int): The subject to book.
+        - `start_time` (RFC3339): Start time of the booking (use the value directly from the evaluate response).
+        - `end_time` (RFC3339): End time of the booking (use the value directly from the evaluate response).
+        - `client_name` (string): Name of the client making the booking.
+
+        **Constraints:** Overlapping bookings for the same teacher are rejected (409 Conflict) via EXCLUDE gist constraint.
+      parameters:
+      - description: Booking confirmation
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.ConfirmBookingRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Booking'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Confirm a booking
       tags:
       - bookings
   /branches:
