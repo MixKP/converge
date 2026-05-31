@@ -47,6 +47,11 @@ func (m *mockBookingRepo) CreateBooking(ctx context.Context, req models.ConfirmB
 	return args.Get(0).(*models.Booking), args.Error(1)
 }
 
+func (m *mockBookingRepo) DeleteBooking(ctx context.Context, bookingID int) error {
+	args := m.Called(ctx, bookingID)
+	return args.Error(0)
+}
+
 type mockScorer struct {
 	mock.Mock
 }

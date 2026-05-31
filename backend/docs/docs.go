@@ -186,6 +186,50 @@ const docTemplate = `{
                 }
             }
         },
+        "/bookings/{id}": {
+            "delete": {
+                "description": "Deletes a confirmed booking by ID. Returns 404 if not found.",
+                "tags": [
+                    "bookings"
+                ],
+                "summary": "Cancel a booking",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Booking ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/branches": {
             "get": {
                 "description": "Returns all branches ordered by id",

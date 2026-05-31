@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 
@@ -146,6 +148,21 @@ func (s *BookingService) Confirm(ctx context.Context, req models.ConfirmBookingR
 		return nil, err
 	}
 	return booking, nil
+}
+
+func (s *BookingService) Cancel(ctx context.Context, bookingID int) error {
+	if bookingID <= 0 {
+		return &ValidationError{Msg: "booking_id must be positive"}
+	}
+	err := s.repo.DeleteBooking(ctx, bookingID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return &ValidationError{Msg: fmt.Sprintf("booking %d not found", bookingID)}
+	}
+	if err != nil {
+		log.Printf("BookingService.Cancel: DeleteBooking error: %v", err)
+		return err
+	}
+	return nil
 }
 
 func joinParts(parts []string) string {

@@ -156,3 +156,15 @@ func (r *BookingRepo) CreateBooking(ctx context.Context, req models.ConfirmBooki
 	}
 	return &b, nil
 }
+
+func (r *BookingRepo) DeleteBooking(ctx context.Context, bookingID int) error {
+	res, err := r.DB.ExecContext(ctx, `DELETE FROM bookings WHERE id = $1`, bookingID)
+	if err != nil {
+		return err
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}

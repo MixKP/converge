@@ -72,6 +72,7 @@ func main() {
 	api.GET("/subjects", availHandler.GetSubjects)
 	api.POST("/bookings", bookingHandler.CreateBooking)
 	api.POST("/bookings/confirm", bookingHandler.ConfirmBooking)
+	api.DELETE("/bookings/:id", bookingHandler.CancelBooking)
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 

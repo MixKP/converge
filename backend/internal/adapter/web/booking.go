@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/RinZ5/converge/backend/internal/core/models"
 	"github.com/RinZ5/converge/backend/internal/core/service"
@@ -15,6 +16,7 @@ import (
 type bookingService interface {
 	Evaluate(ctx context.Context, req models.BookingRequest) (*models.BookingResponse, error)
 	Confirm(ctx context.Context, req models.ConfirmBookingRequest) (*models.Booking, error)
+	Cancel(ctx context.Context, bookingID int) error
 }
 
 type BookingHandler struct {
@@ -116,4 +118,37 @@ func (h *BookingHandler) ConfirmBooking(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, result)
+}
+
+// CancelBooking godoc
+//
+//	@Summary		Cancel a booking
+//	@Description	Deletes a confirmed booking by ID. Returns 404 if not found.
+//	@Tags			bookings
+//	@Param			id	path	int	true	"Booking ID"
+//	@Success		200	{object}	models.MessageResponse
+//	@Failure		400	{object}	models.ErrorResponse
+//	@Failure		404	{object}	models.ErrorResponse
+//	@Failure		500	{object}	models.ErrorResponse
+//	@Router			/bookings/{id} [delete]
+func (h *BookingHandler) CancelBooking(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid booking id"})
+		return
+	}
+
+	err = h.svc.Cancel(c.Request.Context(), id)
+	if err != nil {
+		var valErr *service.ValidationError
+		if errors.As(err, &valErr) {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		} else {
+			log.Printf("BookingHandler.CancelBooking: Cancel error: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to cancel booking"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Booking cancelled successfully"})
 }

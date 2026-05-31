@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 	"time"
 
@@ -45,6 +46,11 @@ func (m *mockEngineRepo) CreateBooking(ctx context.Context, req models.ConfirmBo
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*models.Booking), args.Error(1)
+}
+
+func (m *mockEngineRepo) DeleteBooking(ctx context.Context, bookingID int) error {
+	args := m.Called(ctx, bookingID)
+	return args.Error(0)
 }
 
 type mockBookingEngine struct {
@@ -262,4 +268,37 @@ func TestBookingService_ConfirmMissingFields(t *testing.T) {
 			assert.Contains(t, err.Error(), tt.err)
 		})
 	}
+}
+
+func TestBookingService_CancelSuccess(t *testing.T) {
+	repo := new(mockEngineRepo)
+	svc := NewBookingService(repo, new(mockBookingEngine))
+
+	repo.On("DeleteBooking", mock.Anything, 10).Return(nil)
+
+	err := svc.Cancel(context.Background(), 10)
+
+	assert.NoError(t, err)
+	repo.AssertExpectations(t)
+}
+
+func TestBookingService_CancelNotFound(t *testing.T) {
+	repo := new(mockEngineRepo)
+	svc := NewBookingService(repo, new(mockBookingEngine))
+
+	repo.On("DeleteBooking", mock.Anything, 999).Return(sql.ErrNoRows)
+
+	err := svc.Cancel(context.Background(), 999)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+func TestBookingService_CancelInvalidID(t *testing.T) {
+	svc := NewBookingService(new(mockEngineRepo), new(mockBookingEngine))
+
+	err := svc.Cancel(context.Background(), 0)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "booking_id must be positive")
 }

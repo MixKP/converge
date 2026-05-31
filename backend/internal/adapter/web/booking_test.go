@@ -17,10 +17,11 @@ import (
 )
 
 type mockBookingSvc struct {
-	result  *models.BookingResponse
-	evalErr error
-	confirm *models.Booking
-	confErr error
+	result    *models.BookingResponse
+	evalErr   error
+	confirm   *models.Booking
+	confErr   error
+	cancelErr error
 }
 
 func (m *mockBookingSvc) Evaluate(ctx context.Context, req models.BookingRequest) (*models.BookingResponse, error) {
@@ -29,6 +30,10 @@ func (m *mockBookingSvc) Evaluate(ctx context.Context, req models.BookingRequest
 
 func (m *mockBookingSvc) Confirm(ctx context.Context, req models.ConfirmBookingRequest) (*models.Booking, error) {
 	return m.confirm, m.confErr
+}
+
+func (m *mockBookingSvc) Cancel(ctx context.Context, bookingID int) error {
+	return m.cancelErr
 }
 
 func slot(day int, start, end string) models.WeeklySlot {
@@ -373,4 +378,70 @@ func TestConfirmBookingServiceError(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	assert.Contains(t, w.Body.String(), "failed to confirm booking")
+}
+
+func TestCancelBookingSuccess(t *testing.T) {
+	mock := &mockBookingSvc{}
+	handler := NewBookingHandler(mock)
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.DELETE("/api/bookings/:id", handler.CancelBooking)
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/bookings/10", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "Booking cancelled successfully")
+}
+
+func TestCancelBookingNotFound(t *testing.T) {
+	mock := &mockBookingSvc{
+		cancelErr: &service.ValidationError{Msg: "booking 999 not found"},
+	}
+	handler := NewBookingHandler(mock)
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.DELETE("/api/bookings/:id", handler.CancelBooking)
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/bookings/999", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+	assert.Contains(t, w.Body.String(), "not found")
+}
+
+func TestCancelBookingInvalidID(t *testing.T) {
+	mock := &mockBookingSvc{}
+	handler := NewBookingHandler(mock)
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.DELETE("/api/bookings/:id", handler.CancelBooking)
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/bookings/abc", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "invalid booking id")
+}
+
+func TestCancelBookingServiceError(t *testing.T) {
+	mock := &mockBookingSvc{cancelErr: assert.AnError}
+	handler := NewBookingHandler(mock)
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.DELETE("/api/bookings/:id", handler.CancelBooking)
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/bookings/10", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Contains(t, w.Body.String(), "failed to cancel booking")
 }
