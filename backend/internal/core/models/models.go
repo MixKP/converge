@@ -68,11 +68,11 @@ type Booking struct {
 }
 
 type BookingRequest struct {
-	SubjectID          int          `json:"subject_id"`
-	BranchID           int          `json:"branch_id"`
+	SubjectID          int          `json:"subject_id"          example:"1"`
+	BranchID           int          `json:"branch_id"           example:"1"`
 	PreferredSlots     []WeeklySlot `json:"preferred_slots"`
-	DurationMinutes    int          `json:"duration_minutes,omitempty"`
-	PreferredTeacherID *int         `json:"preferred_teacher_id,omitempty"`
+	DurationMinutes    int          `json:"duration_minutes,omitempty" example:"60"`
+	PreferredTeacherID *int         `json:"preferred_teacher_id,omitempty" example:"5"`
 }
 
 type BookingAlternative struct {
