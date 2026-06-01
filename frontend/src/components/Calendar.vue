@@ -17,6 +17,7 @@
     businessHours?: BusinessHoursInput
     constraint?: string | 'businessHours'
     modelValue?: EventInput[]
+    additionalEvents?: EventInput[]
   }
 
   const props = withDefaults(defineProps<Props>(), {
@@ -24,9 +25,11 @@
     businessHours: undefined,
     constraint: undefined,
     modelValue: () => [],
+    additionalEvents: () => [],
   })
   const emit = defineEmits<{
     'update:modelValue': [value: EventInput[]]
+    'event-click': [info: EventClickArg]
   }>()
   const calendarRef = ref<InstanceType<typeof FullCalendar> | null>(null)
   const screenWidth = ref(0)
@@ -83,6 +86,12 @@
   const handleEventClick = (clickInfo: EventClickArg) => {
     const id = clickInfo.event.id
     if (!id) return
+    const isSuggestionEvent =
+      id.startsWith('suggestion-') || !props.modelValue?.some((e) => e.id === id)
+    if (isSuggestionEvent) {
+      emit('event-click', clickInfo)
+      return
+    }
     eventToDelete.value = id
     previouslyFocused.value = clickInfo.el as HTMLElement
     showDeleteDialog.value = true
@@ -142,6 +151,32 @@
         const existing = api.getEventById(event.id)
         if (!existing) {
           api.addEvent(event)
+        }
+      }
+    },
+    { immediate: true }
+  )
+  watch(
+    () => props.additionalEvents,
+    (newEvents, oldEvents) => {
+      const api = calendarRef.value?.getApi()
+      if (!api) return
+      const oldIds = new Set(
+        (oldEvents ?? []).map((e) => e.id).filter((id): id is string => id != null)
+      )
+      const newIds = new Set(
+        (newEvents ?? []).map((e) => e.id).filter((id): id is string => id != null)
+      )
+      for (const id of oldIds) {
+        if (!newIds.has(id)) {
+          api.getEventById(id)?.remove()
+        }
+      }
+      for (const event of newEvents ?? []) {
+        if (!event.id) continue
+        const existing = api.getEventById(event.id)
+        if (!existing) {
+          api.addEvent({ ...event, editable: false })
         }
       }
     },

@@ -30,7 +30,8 @@ func (r *BookingRepo) FindExactMatch(ctx context.Context, subjectID, branchID in
 		windowEnd = models.TimeHHMM(parsedStart.Add(duration).Format("15:04"))
 	}
 
-	anchorDate := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	loc, _ := time.LoadLocation("Asia/Bangkok")
+	anchorDate := time.Date(2026, 6, 1, 0, 0, 0, 0, loc)
 	desiredWeekday := time.Weekday((slot.DayOfWeek + 1) % 7)
 	for anchorDate.Weekday() != desiredWeekday {
 		anchorDate = anchorDate.Add(24 * time.Hour)
