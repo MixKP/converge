@@ -1,16 +1,19 @@
 <script setup lang="ts">
-  import { onMounted } from 'vue'
+  import { ref, onMounted, computed, watch } from 'vue'
   import { useBooking } from '../composables/useBooking'
   import PageLayout from '../components/PageLayout.vue'
   import Calendar from '../components/Calendar.vue'
   import CalendarDisabledOverlay from '../components/CalendarDisabledOverlay.vue'
-  import BookingForm from '../components/BookingForm.vue'
   import BookingResults from '../components/BookingResults.vue'
   import type { EventClickArg } from '@fullcalendar/core'
+  import type { Teacher } from '../types'
+
+  // Force recompile
+  const __RECOMPILE__ = Date.now()
 
   const {
     calendarRef,
-    currentView,
+    activeTab,
     isEvaluating,
     errorMessage,
     successMessage,
@@ -22,26 +25,68 @@
     selectedSubjectId,
     selectedBranchId,
     selectedTeacherId,
-    preferredTeacherId,
     durationMinutes,
     suggestions,
     showDetailedResults,
-    manualSlots,
-    newSlotDay,
-    newSlotStart,
-    newSlotEnd,
-    currentStep,
-    canSelectTeacher,
-    canAddManualSlot,
-    canEvaluate,
     suggestionEvents,
     initWatchers,
-    handleAddManualSlot,
-    removeManualSlot,
     addToCartDirectly,
     resetBookingState,
     handleEvaluate,
+    getTeachersBySubject,
   } = useBooking()
+
+  // AI-specific selections (independent from manual tab)
+  const aiSubjectId = ref<number | null>(null)
+  const aiBranchId = ref<number | null>(null)
+  const aiTeacherId = ref<number | null>(null)
+  const aiFilteredTeachers = ref<Teacher[]>([])
+
+  // Watch AI subject changes to fetch teachers
+  watch(aiSubjectId, async (newSubjectId) => {
+    if (newSubjectId) {
+      aiFilteredTeachers.value = await getTeachersBySubject(newSubjectId)
+    } else {
+      aiFilteredTeachers.value = []
+    }
+    aiTeacherId.value = null
+  })
+
+  // AI time slots
+  const aiTimeSlots = ref<Array<{ day_of_week: number; start: string; end: string }>>([])
+  const aiNewSlotDay = ref<number>(1) // Monday default
+  const aiNewSlotStart = ref<string>('09:00')
+  const aiNewSlotEnd = ref<string>('10:00')
+
+  const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const
+
+  const TIME_OPTIONS: string[] = []
+  for (let hour = 8; hour <= 18; hour++) {
+    const hourStr = String(hour).padStart(2, '0')
+    TIME_OPTIONS.push(`${hourStr}:00`, `${hourStr}:30`)
+  }
+  TIME_OPTIONS.push('19:00')
+
+  const addAiTimeSlot = () => {
+    if (aiNewSlotStart.value >= aiNewSlotEnd.value) return
+    aiTimeSlots.value.push({
+      day_of_week: aiNewSlotDay.value,
+      start: aiNewSlotStart.value,
+      end: aiNewSlotEnd.value,
+    })
+    // Reset to default values
+    aiNewSlotDay.value = (aiNewSlotDay.value + 1) % 7
+    aiNewSlotStart.value = '09:00'
+    aiNewSlotEnd.value = '10:00'
+  }
+
+  const removeAiTimeSlot = (index: number) => {
+    aiTimeSlots.value.splice(index, 1)
+  }
+
+  const getDayName = (dayOfWeek: number): string => {
+    return DAY_NAMES[dayOfWeek] || 'Unknown'
+  }
 
   onMounted(() => {
     initWatchers()
@@ -53,6 +98,38 @@
       addToCartDirectly(props.teacherId, props.teacherName, info.event.startStr, info.event.endStr)
     }
   }
+
+  const handleGetAISuggestions = async () => {
+    if (!aiSubjectId.value || !aiBranchId.value || aiTimeSlots.value.length === 0) {
+      errorMessage.value = 'Please select subject, branch, and time slots'
+      return
+    }
+
+    // Use AI time slots directly
+    try {
+      isEvaluating.value = true
+      errorMessage.value = ''
+      successMessage.value = ''
+
+      const { bookingApi } = await import('../services/bookingApi')
+      const response = await bookingApi.evaluate({
+        subject_id: aiSubjectId.value!,
+        branch_id: aiBranchId.value!,
+        preferred_slots: aiTimeSlots.value,
+        duration_minutes: 60,
+        preferred_teacher_id: aiTeacherId.value ?? undefined,
+      })
+
+      suggestions.value = response
+      showDetailedResults.value = true
+      successMessage.value = 'Booking options generated!'
+      setTimeout(() => (successMessage.value = ''), 3000)
+    } catch (error) {
+      errorMessage.value = error instanceof Error ? error.message : 'Failed to generate booking options'
+    } finally {
+      isEvaluating.value = false
+    }
+  }
 </script>
 
 <template>
@@ -60,33 +137,12 @@
     <div class="flex h-full gap-6">
       <div class="w-1/2 flex flex-col">
         <div class="flex items-center justify-between mb-4">
-          <button
-            v-if="currentView === 'options'"
-            type="button"
-            class="text-sm text-(--accent-terracotta) hover:underline"
-            @click="currentView = 'details'"
-          >
-            ← Back to Details
-          </button>
-          <h2 class="text-lg font-semibold text-(--ink-primary)">
-            {{ currentView === 'details' ? 'Your Availability' : 'Booking Options' }}
-          </h2>
-          <div v-if="currentView === 'details'" class="flex items-center gap-1">
-            <div
-              v-for="i in 3"
-              :key="i"
-              class="w-8 h-1 rounded-full transition-colors duration-300"
-              :class="{
-                'bg-(--accent-terracotta)': currentStep >= i,
-                'bg-gray-200': currentStep < i,
-              }"
-            ></div>
-          </div>
+          <h2 class="text-lg font-semibold text-(--ink-primary)">Availability</h2>
         </div>
 
         <div class="flex-1 relative">
           <Calendar
-            v-if="selectedTeacherId"
+            v-if="activeTab === 'manual' ? selectedSubjectId : aiSubjectId"
             ref="calendarRef"
             :model-value="events"
             :additional-events="suggestionEvents"
@@ -100,61 +156,244 @@
                 calendarRef?.setOption('dayHeaderFormat', e.dayHeaderFormat)
             "
           />
-          <CalendarDisabledOverlay v-else message="Select a teacher to view their availability" />
+          <CalendarDisabledOverlay
+            v-else
+            message="Select a subject to view availability"
+          />
         </div>
       </div>
 
-      <div class="w-1/2">
-        <div v-if="currentView === 'details'" class="flex flex-col h-full">
-          <BookingForm
-            :subjects="subjects"
-            :branches="branches"
-            :filtered-teachers="filteredTeachers"
-            :selected-subject-id="selectedSubjectId"
-            :selected-branch-id="selectedBranchId"
-            :selected-teacher-id="selectedTeacherId"
-            :preferred-teacher-id="preferredTeacherId"
-            :duration-minutes="durationMinutes"
-            :manual-slots="manualSlots"
-            :new-slot-day="newSlotDay"
-            :new-slot-start="newSlotStart"
-            :new-slot-end="newSlotEnd"
-            :current-step="currentStep"
-            :can-select-teacher="canSelectTeacher"
-            :can-add-manual-slot="canAddManualSlot"
-            @update:selected-subject-id="selectedSubjectId = $event"
-            @update:selected-branch-id="selectedBranchId = $event"
-            @update:selected-teacher-id="selectedTeacherId = $event"
-            @update:preferred-teacher-id="preferredTeacherId = $event"
-            @update:duration-minutes="durationMinutes = $event"
-            @update:new-slot-day="newSlotDay = $event"
-            @update:new-slot-start="newSlotStart = $event"
-            @update:new-slot-end="newSlotEnd = $event"
-            @add-manual-slot="handleAddManualSlot"
-            @remove-manual-slot="removeManualSlot"
-          />
-          <div class="flex gap-3 mt-4">
-            <button
-              type="button"
-              class="flex-1 px-4 py-2 text-white bg-(--accent-terracotta) rounded-lg hover:bg-(--accent-terracotta-dark) transition-all font-medium"
-              :disabled="!canEvaluate"
-              @click="handleEvaluate"
-            >
-              {{ isEvaluating ? 'Evaluating...' : 'Evaluate Options' }}
-            </button>
+      <div class="w-1/2 flex flex-col">
+        <div class="flex items-center gap-2 mb-4 border-b border-(--border-subtle)">
+          <button
+            type="button"
+            class="px-4 py-2 font-medium transition-all relative"
+            :class="activeTab === 'manual' ? 'text-(--accent-terracotta)' : 'text-(--text-secondary)'"
+            @click="activeTab = 'manual'"
+          >
+            Manual
+            <div
+              v-if="activeTab === 'manual'"
+              class="absolute bottom-0 left-0 right-0 h-0.5 bg-(--accent-terracotta)"
+            ></div>
+          </button>
+          <button
+            type="button"
+            class="px-4 py-2 font-medium transition-all relative"
+            :class="activeTab === 'ai' ? 'text-(--accent-terracotta)' : 'text-(--text-secondary)'"
+            @click="activeTab = 'ai'"
+          >
+            AI Suggestion
+            <div
+              v-if="activeTab === 'ai'"
+              class="absolute bottom-0 left-0 right-0 h-0.5 bg-(--accent-terracotta)"
+            ></div>
+          </button>
+        </div>
+
+        <div v-if="activeTab === 'manual'" class="flex flex-col gap-4">
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-(--ink-primary) mb-1">Subject</label>
+              <select
+                v-model="selectedSubjectId"
+                class="w-full px-3 py-2 border border-(--border-subtle) rounded-lg bg-white text-(--ink-primary) focus:outline-none focus:ring-2 focus:ring-(--accent-terracotta)"
+              >
+                <option :value="null">Select a subject</option>
+                <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
+                  {{ subject.name }}
+                </option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-(--ink-primary) mb-1">Branch</label>
+              <select
+                v-model="selectedBranchId"
+                :disabled="!selectedSubjectId"
+                class="w-full px-3 py-2 border border-(--border-subtle) rounded-lg bg-white text-(--ink-primary) focus:outline-none focus:ring-2 focus:ring-(--accent-terracotta) disabled:bg-gray-100 disabled:cursor-not-allowed"
+              >
+                <option :value="null">Select a branch</option>
+                <option v-for="branch in branches" :key="branch.id" :value="branch.id">
+                  {{ branch.name }}
+                </option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-(--ink-primary) mb-1">Teacher</label>
+              <select
+                v-model="selectedTeacherId"
+                :disabled="!selectedSubjectId"
+                class="w-full px-3 py-2 border border-(--border-subtle) rounded-lg bg-white text-(--ink-primary) focus:outline-none focus:ring-2 focus:ring-(--accent-terracotta) disabled:bg-gray-100 disabled:cursor-not-allowed"
+              >
+                <option :value="null">Select a teacher</option>
+                <option v-for="teacher in filteredTeachers" :key="teacher.id" :value="teacher.id">
+                  {{ teacher.name }}
+                </option>
+              </select>
+            </div>
           </div>
+
+          <div v-if="events.length > 0" class="mt-4">
+            <h3 class="text-sm font-medium text-(--ink-primary) mb-2">Selected Time Slot</h3>
+            <div class="bg-(--paper-cream) p-3 rounded-lg border border-(--border-subtle)">
+              <p class="text-sm text-(--text-secondary)">
+                {{ events.length }} slot(s) selected from calendar
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="w-full px-4 py-3 text-white bg-(--accent-terracotta) rounded-lg hover:bg-(--accent-terracotta-dark) transition-all font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
+            :disabled="!selectedSubjectId || !selectedBranchId || !selectedTeacherId || events.length === 0"
+            @click="
+              events.forEach((e) => {
+                const teacher = filteredTeachers.find((t) => t.id === selectedTeacherId)
+                if (teacher) {
+                  addToCartDirectly(teacher.id, teacher.name, e.start as string, e.end as string)
+                }
+              })
+            "
+          >
+            Add to Cart
+          </button>
         </div>
 
         <div v-else class="flex flex-col h-full">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-semibold text-(--ink-primary)">Booking Options</h2>
+          <div v-if="!showDetailedResults && !isEvaluating" class="flex flex-col gap-4 overflow-y-auto pr-2 flex-1">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-(--ink-primary) mb-1">Subject</label>
+                <select
+                  v-model="aiSubjectId"
+                  class="w-full px-3 py-2 border border-(--border-subtle) rounded-lg bg-white text-(--ink-primary) focus:outline-none focus:ring-2 focus:ring-(--accent-terracotta)"
+                >
+                  <option :value="null">Select a subject</option>
+                  <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
+                    {{ subject.name }}
+                  </option>
+                </select>
+              </div>
+
+              <div class="p-4 bg-(--paper-cream) rounded-lg border border-(--border-subtle)">
+                <h4 class="text-sm font-semibold text-(--ink-primary) mb-3">Preferred Time Slots</h4>
+
+                <div class="space-y-3 mb-3">
+                  <div>
+                    <label class="block text-xs text-(--text-secondary) mb-1">Day</label>
+                    <select
+                      v-model="aiNewSlotDay"
+                      class="w-full px-2 py-1.5 text-sm border border-(--border-subtle) rounded bg-white text-(--ink-primary) focus:outline-none focus:ring-1 focus:ring-(--accent-terracotta)"
+                    >
+                      <option :value="0">Sunday</option>
+                      <option :value="1">Monday</option>
+                      <option :value="2">Tuesday</option>
+                      <option :value="3">Wednesday</option>
+                      <option :value="4">Thursday</option>
+                      <option :value="5">Friday</option>
+                      <option :value="6">Saturday</option>
+                    </select>
+                  </div>
+                  <div class="flex gap-2">
+                    <div class="flex-1">
+                      <label class="block text-xs text-(--text-secondary) mb-1">Start</label>
+                      <select
+                        v-model="aiNewSlotStart"
+                        class="w-full px-2 py-1.5 text-sm border border-(--border-subtle) rounded bg-white text-(--ink-primary) focus:outline-none focus:ring-1 focus:ring-(--accent-terracotta)"
+                      >
+                        <option v-for="time in TIME_OPTIONS" :key="time" :value="time">
+                          {{ time }}
+                        </option>
+                      </select>
+                    </div>
+                    <div class="flex-1">
+                      <label class="block text-xs text-(--text-secondary) mb-1">End</label>
+                      <select
+                        v-model="aiNewSlotEnd"
+                        class="w-full px-2 py-1.5 text-sm border border-(--border-subtle) rounded bg-white text-(--ink-primary) focus:outline-none focus:ring-1 focus:ring-(--accent-terracotta)"
+                      >
+                        <option v-for="time in TIME_OPTIONS" :key="time" :value="time">
+                          {{ time }}
+                        </option>
+                      </select>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    class="w-full px-3 py-1.5 text-sm bg-(--accent-terracotta) text-white rounded hover:bg-(--accent-terracotta-dark) transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    :disabled="aiNewSlotStart >= aiNewSlotEnd"
+                    @click="addAiTimeSlot"
+                  >
+                    Add Time Slot
+                  </button>
+                </div>
+
+                <div v-if="aiTimeSlots.length > 0" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  <div
+                    v-for="(slot, index) in aiTimeSlots"
+                    :key="index"
+                    class="flex items-center justify-between p-2 bg-white rounded border border-(--border-subtle)"
+                  >
+                    <span class="text-sm text-(--ink-primary)">
+                      {{ getDayName(slot.day_of_week) }} {{ slot.start }} - {{ slot.end }}
+                    </span>
+                    <button
+                      type="button"
+                      class="text-red-500 hover:text-red-700 text-sm px-2 py-1"
+                      @click="removeAiTimeSlot(index)"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+                <p v-else class="text-xs text-(--text-secondary)">No time slots added yet</p>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-(--ink-primary) mb-1">Branch</label>
+                <select
+                  v-model="aiBranchId"
+                  :disabled="!aiSubjectId"
+                  class="w-full px-3 py-2 border border-(--border-subtle) rounded-lg bg-white text-(--ink-primary) focus:outline-none focus:ring-2 focus:ring-(--accent-terracotta) disabled:bg-gray-100 disabled:cursor-not-allowed"
+                >
+                  <option :value="null">Select a branch</option>
+                  <option v-for="branch in branches" :key="branch.id" :value="branch.id">
+                    {{ branch.name }}
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-(--ink-primary) mb-1">Teacher (Optional)</label>
+                <select
+                  v-model="aiTeacherId"
+                  :disabled="!aiSubjectId"
+                  class="w-full px-3 py-2 border border-(--border-subtle) rounded-lg bg-white text-(--ink-primary) focus:outline-none focus:ring-2 focus:ring-(--accent-terracotta) disabled:bg-gray-100 disabled:cursor-not-allowed"
+                >
+                  <option :value="null">Any teacher</option>
+                  <option v-for="teacher in aiFilteredTeachers" :key="teacher.id" :value="teacher.id">
+                    {{ teacher.name }}
+                  </option>
+                </select>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              class="w-full px-4 py-3 text-white bg-(--accent-terracotta) rounded-lg hover:bg-(--accent-terracotta-dark) transition-all font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
+              :disabled="!aiSubjectId || !aiBranchId || aiTimeSlots.length === 0"
+              @click="handleGetAISuggestions"
+            >
+              Get AI Suggestions
+            </button>
           </div>
           <BookingResults
             :suggestions="suggestions"
             :show-detailed-results="showDetailedResults"
             :is-evaluating="isEvaluating"
             @confirm-booking="addToCartDirectly"
-            @go-back="currentView = 'details'"
             @reset="resetBookingState"
           />
         </div>

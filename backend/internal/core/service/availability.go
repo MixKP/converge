@@ -68,12 +68,17 @@ func (s *AvailabilityService) SubmitWeeklyAvailability(ctx context.Context, payl
 	if err := validatePayload(payload); err != nil {
 		return err
 	}
-	rawJSON, _ := json.Marshal(payload)
+	rawJSON, err := json.Marshal(payload)
+	if err != nil {
+		log.Printf("Warning: failed to marshal payload for audit log: %v", err)
+	}
 	if err := s.repo.ReplaceWeeklyAvailability(ctx, payload.TeacherID, payload.Weekly); err != nil {
 		return err
 	}
-	if err := s.repo.SaveRawSubmission(ctx, payload.TeacherID, rawJSON); err != nil {
-		log.Printf("Warning: failed to save submission audit log: %v", err)
+	if rawJSON != nil {
+		if err := s.repo.SaveRawSubmission(ctx, payload.TeacherID, rawJSON); err != nil {
+			log.Printf("Warning: failed to save submission audit log: %v", err)
+		}
 	}
 	return nil
 }

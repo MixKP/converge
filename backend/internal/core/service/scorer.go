@@ -126,7 +126,10 @@ func timeOfDay(t time.Time) time.Time {
 }
 
 func parseTimeHHMM(t models.TimeHHMM) time.Time {
-	parsed, _ := time.Parse("15:04", string(t))
+	parsed, err := time.Parse("15:04", string(t))
+	if err != nil {
+		return time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC)
+	}
 	return time.Date(0, 1, 1, parsed.Hour(), parsed.Minute(), 0, 0, time.UTC)
 }
 

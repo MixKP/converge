@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"log"
 	"sort"
 	"time"
 
@@ -98,7 +99,11 @@ func (e *CLPEngine) generateCandidateSlots(req models.BookingRequest, availSlots
 	}
 	var candidates []candidateSlot
 
-	loc, _ := time.LoadLocation("Asia/Bangkok")
+	loc, err := time.LoadLocation("Asia/Bangkok")
+	if err != nil {
+		log.Printf("Warning: failed to load Asia/Bangkok timezone, falling back to UTC: %v", err)
+		loc = time.UTC
+	}
 	anchorDate := time.Date(2026, 6, 1, 0, 0, 0, 0, loc)
 	desiredWeekday := time.Weekday((window.DayOfWeek + 1) % 7)
 	for anchorDate.Weekday() != desiredWeekday {

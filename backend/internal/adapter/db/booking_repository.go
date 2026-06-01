@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/RinZ5/converge/backend/internal/core/models"
@@ -26,23 +27,35 @@ func (r *BookingRepo) FindExactMatch(ctx context.Context, subjectID, branchID in
 
 	windowEnd := slot.End
 	if duration > 0 {
-		parsedStart, _ := time.Parse("15:04", string(slot.Start))
+		parsedStart, err := time.Parse("15:04", string(slot.Start))
+		if err != nil {
+			return nil, fmt.Errorf("invalid slot start time format: %w", err)
+		}
 		windowEnd = models.TimeHHMM(parsedStart.Add(duration).Format("15:04"))
 	}
 
-	loc, _ := time.LoadLocation("Asia/Bangkok")
+	loc, err := time.LoadLocation("Asia/Bangkok")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load timezone: %w", err)
+	}
 	anchorDate := time.Date(2026, 6, 1, 0, 0, 0, 0, loc)
 	desiredWeekday := time.Weekday((slot.DayOfWeek + 1) % 7)
 	for anchorDate.Weekday() != desiredWeekday {
 		anchorDate = anchorDate.Add(24 * time.Hour)
 	}
-	parsedStart, _ := time.Parse("15:04", string(slot.Start))
+	parsedStart, err := time.Parse("15:04", string(slot.Start))
+	if err != nil {
+		return nil, fmt.Errorf("invalid slot start time format: %w", err)
+	}
 	startTS := anchorDate.Add(time.Duration(parsedStart.Hour())*time.Hour + time.Duration(parsedStart.Minute())*time.Minute)
 	endTS := startTS
 	if duration > 0 {
 		endTS = endTS.Add(duration)
 	} else {
-		parsedEnd, _ := time.Parse("15:04", string(slot.End))
+		parsedEnd, err := time.Parse("15:04", string(slot.End))
+		if err != nil {
+			return nil, fmt.Errorf("invalid slot end time format: %w", err)
+		}
 		endTS = anchorDate.Add(time.Duration(parsedEnd.Hour())*time.Hour + time.Duration(parsedEnd.Minute())*time.Minute)
 	}
 
@@ -175,7 +188,10 @@ func (r *BookingRepo) DeleteBooking(ctx context.Context, bookingID int) error {
 	if err != nil {
 		return err
 	}
-	rows, _ := res.RowsAffected()
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
 	if rows == 0 {
 		return sql.ErrNoRows
 	}

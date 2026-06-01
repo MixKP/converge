@@ -10,6 +10,8 @@
   import { generateAvailabilityPayload } from '../utils/calendarHelpers'
   const teacherStore = useTeacherStore()
   const isLoading = ref(false)
+  const errorMessage = ref<string>('')
+  const successMessage = ref<string>('')
   const events = ref<EventInput[]>([])
   const selectedTeacherId = computed({
     get: () => teacherStore.selectedTeacherId,
@@ -20,22 +22,30 @@
   )
   watch(selectedTeacherId, () => {
     events.value = []
+    errorMessage.value = ''
   })
   const handleSubmit = async () => {
     if (!selectedTeacherId.value || events.value.length === 0 || isLoading.value) return
     isLoading.value = true
+    errorMessage.value = ''
+    successMessage.value = ''
     try {
       const payload = generateAvailabilityPayload(events.value, selectedTeacherId.value)
       await availabilityApi.submitAvailability(payload)
       events.value = []
       teacherStore.setSelectedTeacherById(null)
+      successMessage.value = 'Availability submitted successfully!'
+      setTimeout(() => (successMessage.value = ''), 3000)
+    } catch (error) {
+      errorMessage.value =
+        error instanceof Error ? error.message : 'Failed to submit availability. Please try again.'
     } finally {
       isLoading.value = false
     }
   }
 </script>
 <template>
-  <PageLayout title="Submit Availability">
+  <PageLayout title="Submit Availability" :show-cart="false">
     <form class="flex flex-col gap-3 sm:gap-4 flex-1 min-h-0" @submit.prevent="handleSubmit">
       <div
         class="bg-(--paper-white) p-4 sm:p-5 rounded-sm border border-(--border-subtle) shadow-card stagger-in"
@@ -99,5 +109,46 @@
         />
       </div>
     </form>
+    <div
+      v-if="successMessage"
+      class="fixed bottom-4 right-4 bg-green-600 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-slide-up"
+    >
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+      </svg>
+      {{ successMessage }}
+    </div>
+    <div
+      v-if="errorMessage"
+      class="fixed bottom-4 right-4 bg-red-600 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-slide-up"
+    >
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M6 18L18 6M6 6l12 12"
+        />
+      </svg>
+      {{ errorMessage }}
+      <button class="ml-2 text-white/80 hover:text-white" @click="errorMessage = ''">×</button>
+    </div>
   </PageLayout>
 </template>
+
+<style scoped>
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.3s ease-out;
+  }
+</style>

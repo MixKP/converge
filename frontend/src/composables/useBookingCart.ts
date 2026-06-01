@@ -37,7 +37,7 @@ export function useBookingCart() {
   const addToCart = (item: Omit<CartItem, 'id' | 'status'>) => {
     const newItem: CartItem = {
       ...item,
-      id: Date.now(),
+      id: Date.now() + Math.random(),
       status: 'pending',
     }
     cartItems.value.push(newItem)
@@ -75,10 +75,27 @@ export function useBookingCart() {
         })
       )
 
-      await Promise.all(promises)
+      const results = await Promise.allSettled(promises)
 
-      successMessage.value = `Successfully confirmed ${cartItems.value.length} booking(s)!`
-      clearCart()
+      const successfulItems: CartItem[] = []
+      const failedCount = results.filter((r) => r.status === 'rejected').length
+
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          successfulItems.push(cartItems.value[index])
+        }
+      })
+
+      if (failedCount > 0) {
+        cartItems.value = cartItems.value.filter(
+          (item) => !successfulItems.some((success) => success.id === item.id)
+        )
+        saveCart()
+        errorMessage.value = `${failedCount} booking(s) failed. ${successfulItems.length} succeeded and were removed from cart.`
+      } else {
+        successMessage.value = `Successfully confirmed ${cartItems.value.length} booking(s)!`
+        clearCart()
+      }
     } catch (error) {
       errorMessage.value = error instanceof Error ? error.message : 'Failed to confirm bookings'
     } finally {

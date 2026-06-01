@@ -17,7 +17,6 @@
       startTime: string,
       endTime: string
     ): void
-    (e: 'goBack'): void
     (e: 'reset'): void
   }>()
 
@@ -25,6 +24,11 @@
     if (score >= 80) return 'text-green-600'
     if (score >= 60) return 'text-yellow-600'
     return 'text-red-600'
+  }
+
+  const formatTime = (dateStr: string): string => {
+    const date = new Date(dateStr)
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
   }
 </script>
 
@@ -84,7 +88,7 @@
           v-if="slotResult.exact_match"
           class="bg-(--accent-terracotta) p-3 rounded-md flex items-center justify-between"
         >
-          <div>
+          <div class="flex-1">
             <div class="flex items-center gap-2">
               <span class="text-white">⭐</span>
               <span class="font-semibold text-white">{{
@@ -92,6 +96,12 @@
               }}</span>
             </div>
             <p class="text-sm text-white/80">Score: {{ slotResult.exact_match.score }}</p>
+            <p
+              v-if="slotResult.exact_match.reasons && slotResult.exact_match.reasons.length > 0"
+              class="text-xs text-white/70 mt-1"
+            >
+              {{ slotResult.exact_match.reasons.join(' • ') }}
+            </p>
           </div>
           <button
             type="button"
@@ -117,12 +127,36 @@
             :key="altIndex"
             class="flex items-center justify-between p-3 bg-(--accent-terracotta-soft) rounded-md"
           >
-            <div>
+            <div class="flex-1">
               <div class="flex items-center gap-2">
                 <span>💡</span>
                 <span class="font-medium text-(--ink-primary)">{{ alt.teacher_name }}</span>
+                <span
+                  v-if="alt.room_available !== undefined"
+                  class="text-xs px-2 py-0.5 rounded-full"
+                  :class="
+                    alt.room_available ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                  "
+                >
+                  {{ alt.room_available ? 'Room' : 'No Room' }}
+                </span>
+                <span
+                  v-if="alt.commute_minutes !== undefined"
+                  class="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full"
+                >
+                  {{ alt.commute_minutes }}m commute
+                </span>
               </div>
               <p class="text-sm" :class="getScoreColor(alt.score)">Score: {{ alt.score }}</p>
+              <p class="text-xs text-(--text-secondary)">
+                {{ formatTime(alt.start_time) }} - {{ formatTime(alt.end_time) }}
+              </p>
+              <p
+                v-if="alt.reasons && alt.reasons.length > 0"
+                class="text-xs text-(--text-secondary) mt-1"
+              >
+                {{ alt.reasons.join(' • ') }}
+              </p>
             </div>
             <button
               type="button"
@@ -166,13 +200,6 @@
     </div>
 
     <div v-if="showDetailedResults" class="flex gap-3 pt-4 border-t border-(--border-subtle)">
-      <button
-        type="button"
-        class="flex-1 px-4 py-2 text-(--ink-primary) bg-white border border-(--border-strong) rounded-lg hover:bg-(--paper-cream) transition-all"
-        @click="emit('goBack')"
-      >
-        Back to Details
-      </button>
       <button
         type="button"
         class="flex-1 px-4 py-2 text-(--ink-primary) bg-white border border-(--border-strong) rounded-lg hover:bg-(--paper-cream) transition-all"

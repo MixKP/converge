@@ -16,7 +16,7 @@ export function useBooking() {
   const { addToCart } = useBookingCart()
 
   const calendarRef = ref()
-  const currentView = ref<'details' | 'options'>('details')
+  const activeTab = ref<'manual' | 'ai'>('manual')
   const isLoadingTeachers = ref(false)
   const isEvaluating = ref(false)
   const errorMessage = ref<string>('')
@@ -146,7 +146,7 @@ export function useBooking() {
     suggestions.value = null
     events.value = []
     manualSlots.value = []
-    currentView.value = 'details'
+    activeTab.value = 'manual'
   }
   const showError = (error: unknown, defaultMessage: string): void => {
     errorMessage.value = error instanceof Error ? error.message : defaultMessage
@@ -171,33 +171,74 @@ export function useBooking() {
       isLoadingTeachers.value = false
     }
   }
-  const updateBusinessHours = (teacherId: number): void => {
-    const cached = availabilityCache.value.get(teacherId)
-    if (cached) {
-      businessHours.value = cached.map((slot) => ({
-        daysOfWeek: [(slot.day_of_week + 1) % 7],
-        startTime: slot.start,
-        endTime: slot.end,
-      }))
+  const getTeachersBySubject = async (subjectId: number): Promise<Teacher[]> => {
+    return await teacherApi.getBySubject(subjectId)
+  }
+  const updateBusinessHours = (teacherId: number | null): void => {
+    if (teacherId) {
+      const cached = availabilityCache.value.get(teacherId)
+      if (cached) {
+        businessHours.value = cached.map((slot) => ({
+          daysOfWeek: [(slot.day_of_week + 1) % 7],
+          startTime: slot.start,
+          endTime: slot.end,
+        }))
+      }
+    } else {
+      businessHours.value = []
     }
   }
 
+  const getAggregatedAvailability = (teacherIds: number[]): WeeklySlot[] => {
+    const allSlots: WeeklySlot[] = []
+    for (const teacherId of teacherIds) {
+      const cached = availabilityCache.value.get(teacherId)
+      if (cached) {
+        allSlots.push(...cached)
+      }
+    }
+    return allSlots
+  }
+
+  const updateBusinessHoursFromTeachers = (teachers: Teacher[]): void => {
+    const teacherIds = teachers.map((t) => t.id)
+    const slots = getAggregatedAvailability(teacherIds)
+
+    if (slots.length === 0) {
+      businessHours.value = []
+      return
+    }
+
+    businessHours.value = slots.map((slot) => ({
+      daysOfWeek: [(slot.day_of_week + 1) % 7],
+      startTime: slot.start,
+      endTime: slot.end,
+    }))
+  }
+
   const handleEvaluate = async (): Promise<void> => {
+    if (!selectedSubjectId.value || !selectedBranchId.value) {
+      showError(
+        new Error('Subject and branch must be selected'),
+        'Please select subject and branch'
+      )
+      return
+    }
     isEvaluating.value = true
     errorMessage.value = ''
     successMessage.value = ''
     try {
       const effectiveSlots = getEffectiveSlots()
       const response = await bookingApi.evaluate({
-        subject_id: selectedSubjectId.value!,
-        branch_id: selectedBranchId.value!,
+        subject_id: selectedSubjectId.value,
+        branch_id: selectedBranchId.value,
         preferred_slots: effectiveSlots,
         duration_minutes: durationMinutes.value,
         preferred_teacher_id: preferredTeacherId.value ?? undefined,
       })
       suggestions.value = response
       showDetailedResults.value = true
-      currentView.value = 'options'
+      activeTab.value = 'ai'
       showSuccess('Booking options generated!')
     } catch (error) {
       showError(error, 'Failed to generate booking options')
@@ -224,11 +265,18 @@ export function useBooking() {
     startTime: string,
     endTime: string
   ): void => {
+    if (!selectedBranchId.value || !selectedSubjectId.value) {
+      showError(
+        new Error('Branch and subject must be selected'),
+        'Please select branch and subject before adding to cart'
+      )
+      return
+    }
     addToCart({
       teacher_id: teacherId,
       teacher_name: teacherName,
-      branch_id: selectedBranchId.value!,
-      subject_id: selectedSubjectId.value!,
+      branch_id: selectedBranchId.value,
+      subject_id: selectedSubjectId.value,
       start_time: startTime,
       end_time: endTime,
       client_name: 'Guest',
@@ -250,15 +298,20 @@ export function useBooking() {
     watch(selectedSubjectId, async (newSubjectId) => {
       if (newSubjectId) {
         await fetchTeachersBySubject(newSubjectId)
+        updateBusinessHoursFromTeachers(filteredTeachers.value)
       } else {
         filteredTeachers.value = []
+        businessHours.value = []
       }
       preferredTeacherId.value = null
+      resetBookingState()
     })
 
     watch(selectedTeacherId, async (teacherId) => {
       if (teacherId) {
         updateBusinessHours(teacherId)
+      } else if (selectedSubjectId.value) {
+        updateBusinessHoursFromTeachers(filteredTeachers.value)
       } else {
         businessHours.value = []
       }
@@ -267,7 +320,7 @@ export function useBooking() {
   }
   return {
     calendarRef,
-    currentView,
+    activeTab,
     isLoadingTeachers,
     isEvaluating,
     errorMessage,
@@ -304,5 +357,7 @@ export function useBooking() {
     removeManualSlot,
     addToCartDirectly,
     initWatchers,
+    getAggregatedAvailability,
+    getTeachersBySubject,
   }
 }
