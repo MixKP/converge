@@ -116,6 +116,25 @@
   const handleEventResize = () => {
     handleEventChange()
   }
+  const handleDayHeaderDidMount = (info: { el: HTMLElement }) => {
+    if (!props.businessHours) return
+    const api = calendarRef.value?.getApi()
+    if (!api) return
+
+    const headerDate = new Date(info.el.getAttribute('data-date') || '')
+    const dayOfWeek = headerDate.getDay()
+
+    const hasAvailability = (props.businessHours || []).some((hour: any) => {
+      if (Array.isArray(hour.daysOfWeek)) {
+        return hour.daysOfWeek.includes(dayOfWeek)
+      }
+      return false
+    })
+
+    if (hasAvailability) {
+      info.el.classList.add('has-availability')
+    }
+  }
   const CALENDAR_DEFAULT_OPTIONS = {
     initialView: 'timeGridWeek',
     headerToolbar: false,
@@ -129,6 +148,7 @@
     slotMaxTime: '19:00',
     slotDuration: '00:30:00',
     snapDuration: '01:00:00',
+    dayHeaderDidMount: handleDayHeaderDidMount,
   } as const
   watch(
     () => props.modelValue,
@@ -188,6 +208,27 @@
       const api = calendarRef.value?.getApi()
       if (api) {
         api.setOption('businessHours', newBusinessHours)
+        // Update day header classes based on availability
+        const headerEls = api.el.querySelectorAll('.fc-col-header-cell')
+        headerEls.forEach((headerEl: HTMLElement) => {
+          const dateStr = headerEl.getAttribute('data-date')
+          if (!dateStr) return
+          const headerDate = new Date(dateStr)
+          const dayOfWeek = headerDate.getDay()
+
+          const hasAvailability = (newBusinessHours || []).some((hour: any) => {
+            if (Array.isArray(hour.daysOfWeek)) {
+              return hour.daysOfWeek.includes(dayOfWeek)
+            }
+            return false
+          })
+
+          if (hasAvailability) {
+            headerEl.classList.add('has-availability')
+          } else {
+            headerEl.classList.remove('has-availability')
+          }
+        })
       }
     }
   )

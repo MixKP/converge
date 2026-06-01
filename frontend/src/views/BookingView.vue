@@ -42,6 +42,8 @@
   const aiNewSlotStart = ref<string>('09:00')
   const aiNewSlotEnd = ref<string>('10:00')
 
+  const canAddTimeSlots = computed(() => !!aiSubjectId.value)
+
   const DAY_NAMES = [
     'Sunday',
     'Monday',
@@ -68,7 +70,13 @@
   const showAIOverlay = computed(() => aiMode.value !== 'idle' || showDetailedResults.value)
 
   const addAiTimeSlot = () => {
-    if (aiNewSlotStart.value >= aiNewSlotEnd.value) return
+    // Convert time strings to minutes for proper comparison
+    const toMinutes = (timeStr: string) => {
+      const [hour, minute] = timeStr.split(':').map(Number)
+      return hour * 60 + minute
+    }
+    if (toMinutes(aiNewSlotStart.value) >= toMinutes(aiNewSlotEnd.value)) return
+
     aiTimeSlots.value.push({
       day_of_week: aiNewSlotDay.value,
       start: aiNewSlotStart.value,
@@ -102,8 +110,12 @@
   const handleSuggestionClick = (info: EventClickArg): void => {
     const props = info.event.extendedProps
     if (props?.isSuggestion) {
-      addToCartDirectly(props.teacherId, props.teacherName, info.event.startStr, info.event.endStr)
+      addToCartDirectly(props.teacherId, props.teacherName, info.event.startStr, info.event.endStr, aiSubjectId.value ?? undefined, aiBranchId.value ?? undefined)
     }
+  }
+
+  const handleAIBooking = (teacherId: number, teacherName: string, startTime: string, endTime: string): void => {
+    addToCartDirectly(teacherId, teacherName, startTime, endTime, aiSubjectId.value ?? undefined, aiBranchId.value ?? undefined)
   }
 
   const handleGetAISuggestions = async () => {
@@ -342,7 +354,7 @@
 
             <div v-if="!showDetailedResults && !isEvaluating" class="ai-form">
               <div class="ai-field">
-                <label class="ai-label">Subject</label>
+                <label class="ai-label">Subject <span class="required">*</span></label>
                 <select v-model="aiSubjectId" class="ai-select">
                   <option :value="null">Select subject</option>
                   <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
@@ -352,10 +364,13 @@
               </div>
 
               <div class="ai-field">
-                <label class="ai-label">Preferred Time Slots</label>
-                <div class="slot-builder">
-                  <div class="slot-controls">
-                    <select v-model="aiNewSlotDay" class="time-select">
+                <label class="ai-label">Preferred Time Slots <span class="required">*</span></label>
+                <div class="slot-builder" :class="{ 'slot-builder--disabled': !canAddTimeSlots }">
+                  <div v-if="!canAddTimeSlots" class="slot-disabled-msg">
+                    Select a subject first
+                  </div>
+                  <div class="slot-controls" :class="{ 'slot-controls--disabled': !canAddTimeSlots }">
+                    <select v-model="aiNewSlotDay" class="time-select" :disabled="!canAddTimeSlots">
                       <option value="0">SUN</option>
                       <option value="1">MON</option>
                       <option value="2">TUE</option>
@@ -364,13 +379,13 @@
                       <option value="5">FRI</option>
                       <option value="6">SAT</option>
                     </select>
-                    <select v-model="aiNewSlotStart" class="time-select">
+                    <select v-model="aiNewSlotStart" class="time-select" :disabled="!canAddTimeSlots">
                       <option v-for="time in TIME_OPTIONS" :key="time" :value="time">
                         {{ time }}
                       </option>
                     </select>
                     <span class="time-separator">—</span>
-                    <select v-model="aiNewSlotEnd" class="time-select">
+                    <select v-model="aiNewSlotEnd" class="time-select" :disabled="!canAddTimeSlots">
                       <option v-for="time in TIME_OPTIONS" :key="time" :value="time">
                         {{ time }}
                       </option>
@@ -378,7 +393,7 @@
                     <button
                       type="button"
                       class="slot-add"
-                      :disabled="aiNewSlotStart >= aiNewSlotEnd"
+                      :disabled="!canAddTimeSlots"
                       @click="addAiTimeSlot"
                     >
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -417,7 +432,7 @@
               </div>
 
               <div class="ai-field">
-                <label class="ai-label">Branch</label>
+                <label class="ai-label">Branch <span class="required">*</span></label>
                 <select v-model="aiBranchId" :disabled="!aiSubjectId" class="ai-select">
                   <option :value="null">Select branch</option>
                   <option v-for="branch in branches" :key="branch.id" :value="branch.id">
@@ -462,7 +477,7 @@
               :suggestions="suggestions"
               :show-detailed-results="showDetailedResults"
               :is-evaluating="isEvaluating"
-              @confirm-booking="addToCartDirectly"
+              @confirm-booking="handleAIBooking"
               @reset="closeAIMode"
             />
           </div>
@@ -985,6 +1000,11 @@
     color: var(--text-primary);
   }
 
+  .time-select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
   .time-separator {
     color: var(--text-muted);
     font-size: 0.75rem;
@@ -1057,6 +1077,30 @@
   .slot-item-remove svg {
     width: 0.75rem;
     height: 0.75rem;
+  }
+
+  /* Required indicator */
+  .required {
+    color: var(--accent-coral);
+    margin-left: 0.25rem;
+  }
+
+  /* Slot Builder Disabled State */
+  .slot-builder--disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  .slot-disabled-msg {
+    padding: 0.75rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .slot-controls--disabled {
+    opacity: 0.5;
   }
 
   /* AI Submit */

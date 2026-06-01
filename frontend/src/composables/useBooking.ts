@@ -263,9 +263,13 @@ export function useBooking() {
     teacherId: number,
     teacherName: string,
     startTime: string,
-    endTime: string
+    endTime: string,
+    subjectId?: number,
+    branchId?: number
   ): void => {
-    if (!selectedBranchId.value || !selectedSubjectId.value) {
+    const effectiveSubjectId = subjectId ?? selectedSubjectId.value
+    const effectiveBranchId = branchId ?? selectedBranchId.value
+    if (!effectiveBranchId || !effectiveSubjectId) {
       showError(
         new Error('Branch and subject must be selected'),
         'Please select branch and subject before adding to cart'
@@ -275,8 +279,8 @@ export function useBooking() {
     addToCart({
       teacher_id: teacherId,
       teacher_name: teacherName,
-      branch_id: selectedBranchId.value,
-      subject_id: selectedSubjectId.value,
+      branch_id: effectiveBranchId,
+      subject_id: effectiveSubjectId,
       start_time: startTime,
       end_time: endTime,
       client_name: 'Guest',

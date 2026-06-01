@@ -62,7 +62,6 @@
       <!-- Technical Background -->
       <div class="technical-bg" aria-hidden="true">
         <div class="bg-grid"></div>
-        <div class="bg-label">INVOICE_0024</div>
       </div>
 
       <div v-if="cartItems.length === 0 && !isLoading" class="empty-state">
