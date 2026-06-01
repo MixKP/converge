@@ -1,0 +1,308 @@
+import { ref, computed, watch } from 'vue'
+import { useTeacherStore } from '../stores/teacherStore'
+import { availabilityApi } from '../services/availabilityApi'
+import { subjectApi } from '../services/subjectApi'
+import { teacherApi } from '../services/teacherApi'
+import { bookingApi } from '../services/bookingApi'
+import { branchApi } from '../services/branchApi'
+import type { Teacher, Branch } from '../types'
+import type { EventInput, BusinessHoursInput } from '@fullcalendar/core'
+import type { WeeklySlot, Subject, BookingResponse, BookingAlternative } from '../types'
+import { transformBackendAvailability } from '../utils/availabilityTransform'
+import { useBookingCart } from './useBookingCart'
+const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const
+export function useBooking() {
+  const teacherStore = useTeacherStore()
+  const { addToCart } = useBookingCart()
+
+  const calendarRef = ref()
+  const currentView = ref<'details' | 'options'>('details')
+  const isLoadingTeachers = ref(false)
+  const isEvaluating = ref(false)
+  const errorMessage = ref<string>('')
+  const successMessage = ref<string>('')
+
+  const events = ref<EventInput[]>([])
+  const businessHours = ref<BusinessHoursInput>([])
+  const availabilityCache = ref<Map<number, WeeklySlot[]>>(new Map())
+
+  const subjects = ref<Subject[]>([])
+  const branches = ref<Branch[]>([])
+  const filteredTeachers = ref<Teacher[]>([])
+  const selectedSubjectId = ref<number | null>(null)
+  const selectedBranchId = ref<number | null>(null)
+  const selectedTeacherId = computed({
+    get: () => teacherStore.selectedTeacherId,
+    set: (val) => teacherStore.setSelectedTeacherById(val),
+  })
+  const preferredTeacherId = ref<number | null>(null)
+  const durationMinutes = ref<number>(60)
+
+  const suggestions = ref<BookingResponse | null>(null)
+  const showDetailedResults = ref(false)
+
+  const manualSlots = ref<WeeklySlot[]>([])
+  const newSlotDay = ref<number>(0)
+  const newSlotStart = ref<string>('09:00')
+  const newSlotEnd = ref<string>('10:00')
+
+  const timeOptions = computed(() => {
+    const options: string[] = []
+    for (let hour = 8; hour <= 18; hour++) {
+      const hourStr = String(hour).padStart(2, '0')
+      options.push(`${hourStr}:00`, `${hourStr}:30`)
+    }
+    options.push('19:00')
+    return options
+  })
+  const currentStep = computed(() => {
+    if (!selectedSubjectId.value) return 1
+    if (!selectedBranchId.value) return 2
+    return 3
+  })
+  const canSelectTeacher = computed(() => !!selectedSubjectId.value)
+  const canAddManualSlot = computed(() => newSlotStart.value < newSlotEnd.value)
+  const getEffectiveSlots = (): WeeklySlot[] => {
+    if (manualSlots.value.length > 0) return manualSlots.value
+    return events.value.map((e) => {
+      const start = new Date(e.start as Date)
+      const end = new Date(e.end as Date)
+      return {
+        day_of_week: start.getDay(),
+        start: start.toTimeString().slice(0, 5),
+        end: end.toTimeString().slice(0, 5),
+      }
+    })
+  }
+  const canEvaluate = computed(() => {
+    return (
+      !!selectedSubjectId.value &&
+      !!selectedBranchId.value &&
+      getEffectiveSlots().length > 0 &&
+      !isEvaluating.value
+    )
+  })
+  const calculatedDuration = computed(() => {
+    if (events.value.length === 0) return 60
+    const event = events.value[0]
+    if (!event.start || !event.end) return 60
+    const start = new Date(event.start as Date)
+    const end = new Date(event.end as Date)
+    return Math.round((end.getTime() - start.getTime()) / (1000 * 60))
+  })
+  const createExactMatchEvent = (match: BookingAlternative, index: number): EventInput => ({
+    id: `suggestion-exact-${index}`,
+    title: `⭐ ${match.teacher_name} (Score: ${match.score})`,
+    start: match.start_time,
+    end: match.end_time,
+    backgroundColor: 'var(--accent-terracotta)',
+    borderColor: 'var(--accent-terracotta-dark)',
+    textColor: '#fff',
+    extendedProps: {
+      isSuggestion: true,
+      teacherId: match.teacher_id,
+      teacherName: match.teacher_name,
+      score: match.score,
+    },
+  })
+  const createAlternativeEvent = (alt: BookingAlternative, index: number): EventInput => ({
+    id: `suggestion-alt-${index}`,
+    title: `💡 ${alt.teacher_name} (Score: ${alt.score})`,
+    start: alt.start_time,
+    end: alt.end_time,
+    backgroundColor: 'var(--accent-terracotta-soft)',
+    borderColor: 'var(--accent-terracotta)',
+    textColor: 'var(--ink-primary)',
+    extendedProps: {
+      isSuggestion: true,
+      teacherId: alt.teacher_id,
+      teacherName: alt.teacher_name,
+      score: alt.score,
+    },
+  })
+  const suggestionEvents = computed<EventInput[]>(() => {
+    if (!suggestions.value || !showDetailedResults.value) return []
+    const result: EventInput[] = []
+    let index = 0
+    for (const slotResult of suggestions.value.results) {
+      if (slotResult.exact_match) {
+        result.push(createExactMatchEvent(slotResult.exact_match, index++))
+      }
+      if (slotResult.alternatives) {
+        for (const alt of slotResult.alternatives) {
+          result.push(createAlternativeEvent(alt, index++))
+        }
+      }
+    }
+    return result
+  })
+  const allEvents = computed<EventInput[]>(() => [...events.value, ...suggestionEvents.value])
+
+  const getSlotLabel = (slot: WeeklySlot): string => {
+    return `${DAY_NAMES[slot.day_of_week]} ${slot.start} - ${slot.end}`
+  }
+  const resetBookingState = () => {
+    showDetailedResults.value = false
+    suggestions.value = null
+    events.value = []
+    manualSlots.value = []
+    currentView.value = 'details'
+  }
+  const showError = (error: unknown, defaultMessage: string): void => {
+    errorMessage.value = error instanceof Error ? error.message : defaultMessage
+  }
+  const showSuccess = (message: string): void => {
+    successMessage.value = message
+    setTimeout(() => (successMessage.value = ''), 3000)
+  }
+  const fetchAvailability = async (): Promise<void> => {
+    try {
+      const data = await availabilityApi.getAll()
+      availabilityCache.value = transformBackendAvailability(data)
+    } catch (error) {
+      showError(error, 'Failed to load availability')
+    }
+  }
+  const fetchTeachersBySubject = async (subjectId: number): Promise<void> => {
+    try {
+      isLoadingTeachers.value = true
+      filteredTeachers.value = await teacherApi.getBySubject(subjectId)
+    } finally {
+      isLoadingTeachers.value = false
+    }
+  }
+  const updateBusinessHours = (teacherId: number): void => {
+    const cached = availabilityCache.value.get(teacherId)
+    if (cached) {
+      businessHours.value = cached.map((slot) => ({
+        daysOfWeek: [(slot.day_of_week + 1) % 7],
+        startTime: slot.start,
+        endTime: slot.end,
+      }))
+    }
+  }
+
+  const handleEvaluate = async (): Promise<void> => {
+    isEvaluating.value = true
+    errorMessage.value = ''
+    successMessage.value = ''
+    try {
+      const effectiveSlots = getEffectiveSlots()
+      const response = await bookingApi.evaluate({
+        subject_id: selectedSubjectId.value!,
+        branch_id: selectedBranchId.value!,
+        preferred_slots: effectiveSlots,
+        duration_minutes: durationMinutes.value,
+        preferred_teacher_id: preferredTeacherId.value ?? undefined,
+      })
+      suggestions.value = response
+      showDetailedResults.value = true
+      currentView.value = 'options'
+      showSuccess('Booking options generated!')
+    } catch (error) {
+      showError(error, 'Failed to generate booking options')
+    } finally {
+      isEvaluating.value = false
+    }
+  }
+  const handleAddManualSlot = (): void => {
+    if (!canAddManualSlot.value) return
+    manualSlots.value.push({
+      day_of_week: newSlotDay.value,
+      start: newSlotStart.value,
+      end: newSlotEnd.value,
+    })
+    newSlotStart.value = '09:00'
+    newSlotEnd.value = '10:00'
+  }
+  const removeManualSlot = (index: number): void => {
+    manualSlots.value.splice(index, 1)
+  }
+  const addToCartDirectly = (
+    teacherId: number,
+    teacherName: string,
+    startTime: string,
+    endTime: string
+  ): void => {
+    addToCart({
+      teacher_id: teacherId,
+      teacher_name: teacherName,
+      branch_id: selectedBranchId.value!,
+      subject_id: selectedSubjectId.value!,
+      start_time: startTime,
+      end_time: endTime,
+      client_name: 'Guest',
+    })
+    showSuccess('Added to cart!')
+  }
+
+  const initWatchers = () => {
+    fetchAvailability()
+
+    subjectApi.getAll().then((data) => {
+      subjects.value = data
+    })
+
+    branchApi.getAll().then((data) => {
+      branches.value = data
+    })
+
+    watch(selectedSubjectId, async (newSubjectId) => {
+      if (newSubjectId) {
+        await fetchTeachersBySubject(newSubjectId)
+      } else {
+        filteredTeachers.value = []
+      }
+      preferredTeacherId.value = null
+    })
+
+    watch(selectedTeacherId, async (teacherId) => {
+      if (teacherId) {
+        updateBusinessHours(teacherId)
+      } else {
+        businessHours.value = []
+      }
+      resetBookingState()
+    })
+  }
+  return {
+    calendarRef,
+    currentView,
+    isLoadingTeachers,
+    isEvaluating,
+    errorMessage,
+    successMessage,
+    events,
+    businessHours,
+    subjects,
+    branches,
+    filteredTeachers,
+    selectedSubjectId,
+    selectedBranchId,
+    selectedTeacherId,
+    preferredTeacherId,
+    durationMinutes,
+    suggestions,
+    showDetailedResults,
+    manualSlots,
+    newSlotDay,
+    newSlotStart,
+    newSlotEnd,
+    timeOptions,
+    currentStep,
+    canSelectTeacher,
+    canAddManualSlot,
+    canEvaluate,
+    calculatedDuration,
+    suggestionEvents,
+    allEvents,
+
+    getSlotLabel,
+    resetBookingState,
+    handleEvaluate,
+    handleAddManualSlot,
+    removeManualSlot,
+    addToCartDirectly,
+    initWatchers,
+  }
+}

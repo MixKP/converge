@@ -26,6 +26,13 @@ module.exports = [
         sourceType: "module",
         ecmaVersion: "latest",
       },
+      globals: {
+        window: "readonly",
+        setTimeout: "readonly",
+        clearTimeout: "readonly",
+        setInterval: "readonly",
+        clearInterval: "readonly",
+      },
     },
     rules: {
       "prettier/prettier": "error",

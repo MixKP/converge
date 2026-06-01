@@ -182,6 +182,15 @@
     },
     { immediate: true }
   )
+  watch(
+    () => props.businessHours,
+    (newBusinessHours) => {
+      const api = calendarRef.value?.getApi()
+      if (api) {
+        api.setOption('businessHours', newBusinessHours)
+      }
+    }
+  )
   const calendarOptions = computed(() => ({
     plugins: [timeGridPlugin, interactionPlugin],
     ...CALENDAR_DEFAULT_OPTIONS,
