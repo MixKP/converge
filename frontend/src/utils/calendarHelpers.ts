@@ -15,7 +15,7 @@ export function generateAvailabilityPayload(
     const endDate = event.end as Date | undefined
     if (!startDate || !endDate) continue
 
-    const dayOfWeek = (startDate.getDay() + 6) % 7
+    const dayOfWeek = startDate.getDay()
     const startTime = startDate.toTimeString().slice(0, 5)
     const endTime = endDate.toTimeString().slice(0, 5)
 

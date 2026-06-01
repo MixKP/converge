@@ -110,12 +110,31 @@
   const handleSuggestionClick = (info: EventClickArg): void => {
     const props = info.event.extendedProps
     if (props?.isSuggestion) {
-      addToCartDirectly(props.teacherId, props.teacherName, info.event.startStr, info.event.endStr, aiSubjectId.value ?? undefined, aiBranchId.value ?? undefined)
+      addToCartDirectly(
+        props.teacherId,
+        props.teacherName,
+        info.event.startStr,
+        info.event.endStr,
+        aiSubjectId.value ?? undefined,
+        aiBranchId.value ?? undefined
+      )
     }
   }
 
-  const handleAIBooking = (teacherId: number, teacherName: string, startTime: string, endTime: string): void => {
-    addToCartDirectly(teacherId, teacherName, startTime, endTime, aiSubjectId.value ?? undefined, aiBranchId.value ?? undefined)
+  const handleAIBooking = (
+    teacherId: number,
+    teacherName: string,
+    startTime: string,
+    endTime: string
+  ): void => {
+    addToCartDirectly(
+      teacherId,
+      teacherName,
+      startTime,
+      endTime,
+      aiSubjectId.value ?? undefined,
+      aiBranchId.value ?? undefined
+    )
   }
 
   const handleGetAISuggestions = async () => {
@@ -183,12 +202,7 @@
               <h2 class="title">Availability</h2>
               <p class="subtitle">Select your preferred time slot</p>
             </div>
-            <button
-              v-if="!showAIOverlay"
-              type="button"
-              class="ai-button"
-              @click="openAIMode"
-            >
+            <button v-if="!showAIOverlay" type="button" class="ai-button" @click="openAIMode">
               <span class="ai-button-text">AI Assist</span>
               <svg class="ai-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 <path
@@ -369,7 +383,10 @@
                   <div v-if="!canAddTimeSlots" class="slot-disabled-msg">
                     Select a subject first
                   </div>
-                  <div class="slot-controls" :class="{ 'slot-controls--disabled': !canAddTimeSlots }">
+                  <div
+                    class="slot-controls"
+                    :class="{ 'slot-controls--disabled': !canAddTimeSlots }"
+                  >
                     <select v-model="aiNewSlotDay" class="time-select" :disabled="!canAddTimeSlots">
                       <option value="0">SUN</option>
                       <option value="1">MON</option>
@@ -379,7 +396,11 @@
                       <option value="5">FRI</option>
                       <option value="6">SAT</option>
                     </select>
-                    <select v-model="aiNewSlotStart" class="time-select" :disabled="!canAddTimeSlots">
+                    <select
+                      v-model="aiNewSlotStart"
+                      class="time-select"
+                      :disabled="!canAddTimeSlots"
+                    >
                       <option v-for="time in TIME_OPTIONS" :key="time" :value="time">
                         {{ time }}
                       </option>

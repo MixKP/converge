@@ -179,7 +179,7 @@ export function useBooking() {
       const cached = availabilityCache.value.get(teacherId)
       if (cached) {
         businessHours.value = cached.map((slot) => ({
-          daysOfWeek: [(slot.day_of_week + 1) % 7],
+          daysOfWeek: [slot.day_of_week],
           startTime: slot.start,
           endTime: slot.end,
         }))
@@ -210,7 +210,7 @@ export function useBooking() {
     }
 
     businessHours.value = slots.map((slot) => ({
-      daysOfWeek: [(slot.day_of_week + 1) % 7],
+      daysOfWeek: [slot.day_of_week],
       startTime: slot.start,
       endTime: slot.end,
     }))

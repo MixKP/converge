@@ -67,7 +67,9 @@
           </option>
         </select>
         <div v-if="events.length > 0" class="slots-info">
-          <span class="slots-count">{{ events.length }} slot{{ events.length > 1 ? 's' : '' }}</span>
+          <span class="slots-count"
+            >{{ events.length }} slot{{ events.length > 1 ? 's' : '' }}</span
+          >
           <button type="button" class="clear-btn" @click="clearEvents">Clear</button>
         </div>
       </div>
@@ -221,7 +223,13 @@
     left: 0;
     right: 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent, var(--border-technical) 20%, var(--border-technical) 80%, transparent);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--border-technical) 20%,
+      var(--border-technical) 80%,
+      transparent
+    );
   }
 
   .calendar-inner--disabled {
