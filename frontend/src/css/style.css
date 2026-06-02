@@ -37,12 +37,6 @@
   --accent-terracotta: var(--accent-coral);
   --accent-terracotta-soft: var(--accent-coral-soft);
   --accent-terracotta-light: var(--accent-coral-soft);
-  --text-primary: var(--text-primary);
-  --text-secondary: var(--text-secondary);
-  --border-subtle: var(--border-subtle);
-  --border-strong: var(--border-strong);
-  --shadow-card: var(--shadow-card);
-  --shadow-elevated: var(--shadow-elevated);
   --shadow-badge: var(--shadow-card);
 }
 

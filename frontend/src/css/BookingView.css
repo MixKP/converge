@@ -43,7 +43,7 @@
   background: var(--primary-indigo);
 }
 
-.label-text {
+.label-text--watermark {
   font-family: 'JetBrains Mono', monospace;
   font-size: 1.5rem;
   font-weight: 600;
@@ -194,6 +194,8 @@
 .calendar-wrapper {
   flex: 1;
   min-height: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .calendar-inner {
@@ -202,6 +204,7 @@
   border-radius: 8px;
   border: 1px solid var(--border-medium);
   box-shadow: var(--shadow-card);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   overflow: hidden;
   position: relative;
 }
@@ -220,6 +223,7 @@
     var(--border-technical) 80%,
     transparent
   );
+  z-index: 1;
 }
 
 /* Control Panel */

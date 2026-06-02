@@ -1,5 +1,4 @@
 import type { WeeklySlot } from './calendar'
-import type { Subject } from './subject'
 
 export interface BookingRequest {
   subject_id: number
@@ -57,5 +56,3 @@ export interface Branch {
   id: number
   name: string
 }
-
-export type { Subject }

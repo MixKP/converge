@@ -233,10 +233,9 @@
     <div class="booking-container">
       <!-- Technical watermark -->
       <div class="technical-watermark" aria-hidden="true">
-        <div class="watermark-grid"></div>
         <div class="watermark-label">
           <span class="label-line"></span>
-          <span class="label-text">SCHEDULING_SYSTEM</span>
+          <span class="label-text--watermark">SCHEDULING_SYSTEM</span>
           <span class="label-line"></span>
         </div>
       </div>

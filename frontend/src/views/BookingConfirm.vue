@@ -22,7 +22,7 @@
     fetchCartItems()
   })
 
-  const totalAmount = computed(() => cartItems.value.length * 50)
+  const totalAmount = computed(() => cartItems.value.length * 0)
 
   const handleRemove = (id: number) => {
     removeItem(id)
@@ -178,8 +178,8 @@
                 </div>
               </div>
               <span class="item-qty">1</span>
-              <span class="item-price">$50.00</span>
-              <span class="item-total">$50.00</span>
+              <span class="item-price">$0.00</span>
+              <span class="item-total">$0.00</span>
               <button type="button" class="item-remove" @click="handleRemove(item.id)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                   <path
@@ -198,11 +198,11 @@
         <div class="invoice-summary">
           <div class="summary-row">
             <span class="summary-label">SUBTOTAL</span>
-            <span class="summary-value">${{ (cartItems.length * 50).toFixed(2) }}</span>
+            <span class="summary-value">${{ (cartItems.length * 0).toFixed(2) }}</span>
           </div>
           <div class="summary-row">
             <span class="summary-label">SESSIONS</span>
-            <span class="summary-value">{{ cartItems.length }} × $50.00</span>
+            <span class="summary-value">{{ cartItems.length }} × $0.00</span>
           </div>
           <div class="summary-row summary-row--total">
             <span class="total-label">TOTAL</span>
