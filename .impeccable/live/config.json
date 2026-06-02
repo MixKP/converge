@@ -1,0 +1,6 @@
+{
+  "files": ["frontend/index.html"],
+  "insertBefore": "<script type=\"module\" src=\"/src/main.ts\"></script>",
+  "commentSyntax": "html",
+  "cspChecked": true
+}

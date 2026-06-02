@@ -7,7 +7,7 @@
     title: string
     showCart?: boolean
   }
-  const props = withDefaults(defineProps<Props>(), {
+  withDefaults(defineProps<Props>(), {
     showCart: true,
   })
   const router = useRouter()

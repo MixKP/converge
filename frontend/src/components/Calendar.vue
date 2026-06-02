@@ -12,6 +12,14 @@
     CalendarOptions,
   } from '@fullcalendar/core'
 
+  interface BusinessHourItem {
+    daysOfWeek: number[]
+    startTime?: string
+    endTime?: string
+    start?: string
+    end?: string
+  }
+
   interface Props {
     editable?: boolean
     businessHours?: BusinessHoursInput
@@ -124,7 +132,7 @@
     const headerDate = new Date(info.el.getAttribute('data-date') || '')
     const dayOfWeek = headerDate.getDay()
 
-    const hasAvailability = (props.businessHours || []).some((hour: any) => {
+    const hasAvailability = (props.businessHours || []).some((hour: BusinessHourItem) => {
       if (Array.isArray(hour.daysOfWeek)) {
         return hour.daysOfWeek.includes(dayOfWeek)
       }
@@ -216,7 +224,7 @@
           const headerDate = new Date(dateStr)
           const dayOfWeek = headerDate.getDay()
 
-          const hasAvailability = (newBusinessHours || []).some((hour: any) => {
+          const hasAvailability = (newBusinessHours || []).some((hour: BusinessHourItem) => {
             if (Array.isArray(hour.daysOfWeek)) {
               return hour.daysOfWeek.includes(dayOfWeek)
             }

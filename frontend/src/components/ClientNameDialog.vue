@@ -1,54 +1,54 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+  import { ref, watch, nextTick } from 'vue'
 
-interface Props {
-  isOpen: boolean
-  teacherName: string
-  isProcessing?: boolean
-}
+  interface Props {
+    isOpen: boolean
+    teacherName: string
+    isProcessing?: boolean
+  }
 
-const props = withDefaults(defineProps<Props>(), {
-  isProcessing: false,
-})
+  const props = withDefaults(defineProps<Props>(), {
+    isProcessing: false,
+  })
 
-const clientName = defineModel<string>('clientName', { default: '' })
+  const clientName = defineModel<string>('clientName', { default: '' })
 
-const emit = defineEmits<{
-  confirm: []
-  cancel: []
-}>()
+  const emit = defineEmits<{
+    confirm: []
+    cancel: []
+  }>()
 
-const inputRef = ref<HTMLInputElement>()
+  const inputRef = ref<HTMLInputElement>()
 
-watch(
-  () => props.isOpen,
-  (isOpen: boolean) => {
-    if (isOpen) {
-      nextTick(() => inputRef.value?.focus())
-    } else {
-      clientName.value = ''
+  watch(
+    () => props.isOpen,
+    (isOpen: boolean) => {
+      if (isOpen) {
+        nextTick(() => inputRef.value?.focus())
+      } else {
+        clientName.value = ''
+      }
+    }
+  )
+
+  const handleSubmit = () => {
+    if (clientName.value.trim()) {
+      emit('confirm')
     }
   }
-)
 
-const handleSubmit = () => {
-  if (clientName.value.trim()) {
-    emit('confirm')
+  const handleCancel = () => {
+    emit('cancel')
   }
-}
 
-const handleCancel = () => {
-  emit('cancel')
-}
-
-const handleKeydown = (e: KeyboardEvent) => {
-  if (e.key === 'Enter') {
-    e.preventDefault()
-    handleSubmit()
-  } else if (e.key === 'Escape') {
-    handleCancel()
+  const handleKeydown = (e: KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleSubmit()
+    } else if (e.key === 'Escape') {
+      handleCancel()
+    }
   }
-}
 </script>
 
 <template>
@@ -73,7 +73,12 @@ const handleKeydown = (e: KeyboardEvent) => {
           <div
             class="shrink-0 w-12 h-12 rounded-sm bg-(--accent-terracotta-soft) flex items-center justify-center border border-(--accent-terracotta)/20"
           >
-            <svg class="w-6 h-6 text-(--accent-terracotta)" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              class="w-6 h-6 text-(--accent-terracotta)"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path
                 stroke-linecap="round"
                 stroke-linejoin="round"
@@ -87,7 +92,8 @@ const handleKeydown = (e: KeyboardEvent) => {
               Confirm Booking
             </h3>
             <p class="text-sm text-(--text-secondary) leading-relaxed">
-              Enter your name to confirm booking with <span class="font-medium text-(--ink-primary)">{{ teacherName }}</span>
+              Enter your name to confirm booking with
+              <span class="font-medium text-(--ink-primary)">{{ teacherName }}</span>
             </p>
           </div>
         </div>

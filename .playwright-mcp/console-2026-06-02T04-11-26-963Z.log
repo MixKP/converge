@@ -1,0 +1,4 @@
+[  640735ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/src/views/BookingView.vue?t=1780374127684&vue&type=style&index=0&scoped=04591c12&lang.css:0
+[  640735ms] [ERROR] [vite] Failed to reload /src/views/BookingView.vue?vue&type=style&index=0&scoped=04591c12&lang.css. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5173/@vite/client:904
+[  640742ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5173/src/views/BookingView.vue?t=1780374127684:0
+[  640742ms] [ERROR] [vite] Failed to reload /src/views/BookingView.vue. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5173/@vite/client:904

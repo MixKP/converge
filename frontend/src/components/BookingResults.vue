@@ -36,19 +36,26 @@
   <div class="space-y-5 flex-1 overflow-y-auto">
     <div v-if="!showDetailedResults && !isEvaluating" class="space-y-4">
       <p class="text-sm text-(--text-secondary)">
-        Select your subject, branch, and preferred time slots, then click "Evaluate Options" to see
-        available booking options.
+        Choose your subject, branch, and when you'd like to learn. We'll find available teachers for
+        your preferred times.
       </p>
     </div>
 
     <div v-if="isEvaluating" class="flex items-center justify-center py-12">
-      <div
-        class="w-8 h-8 border-4 border-(--accent-terracotta) border-t-transparent rounded-full animate-spin"
-      ></div>
+      <div class="loading-state">
+        <div class="loading-spinner">
+          <div class="spinner-ring"></div>
+          <div class="spinner-ring spinner-ring--delay"></div>
+          <div class="spinner-ring spinner-ring--delay-2"></div>
+        </div>
+        <p class="loading-text">Finding available teachers...</p>
+      </div>
     </div>
 
     <div v-if="showDetailedResults && suggestions" class="space-y-4">
-      <div class="bg-(--paper-cream) p-4 rounded-lg border border-(--border-subtle)">
+      <div
+        class="bg-(--paper-cream) p-4 rounded-lg border border-(--border-subtle) results-summary"
+      >
         <h3 class="font-semibold text-(--ink-primary) mb-2">Booking Options Summary</h3>
         <p class="text-sm text-(--text-secondary)">
           Found {{ suggestions.results.length }} time slot(s) with available teachers.
@@ -58,7 +65,8 @@
       <div
         v-for="(slotResult, index) in suggestions.results"
         :key="index"
-        class="bg-white border border-(--border-subtle) rounded-lg p-4 space-y-3"
+        class="bg-white border border-(--border-subtle) rounded-lg p-4 space-y-3 result-card"
+        :style="{ '--stagger-index': index }"
       >
         <div class="flex items-center justify-between">
           <div>
@@ -194,8 +202,8 @@
             d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
           />
         </svg>
-        <p>No booking options found for your selected time slots.</p>
-        <p class="text-sm mt-2">Try different time slots or check back later.</p>
+        <p>No teachers available for these time slots.</p>
+        <p class="text-sm mt-2">Try adjusting your preferred days or times and search again.</p>
       </div>
     </div>
 
@@ -205,8 +213,102 @@
         class="flex-1 px-4 py-2 text-(--ink-primary) bg-white border border-(--border-strong) rounded-lg hover:bg-(--paper-cream) transition-all"
         @click="emit('reset')"
       >
-        Start Over
+        Search Again
       </button>
     </div>
   </div>
 </template>
+
+<style scoped>
+  .loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .loading-spinner {
+    position: relative;
+    width: 48px;
+    height: 48px;
+  }
+
+  .spinner-ring {
+    position: absolute;
+    inset: 0;
+    border: 2px solid transparent;
+    border-top-color: var(--primary-indigo);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  .spinner-ring--delay {
+    inset: 4px;
+    border-top-color: var(--accent-sage);
+    animation: spin 1.2s linear infinite reverse;
+  }
+
+  .spinner-ring--delay-2 {
+    inset: 8px;
+    border-top-color: var(--text-muted);
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .loading-text {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    font-family: 'IBM Plex Sans', sans-serif;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.6;
+    }
+  }
+
+  .empty-state {
+    animation: fade-in 0.4s ease-out;
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .results-summary {
+    animation: fade-in 0.4s ease-out;
+  }
+
+  .result-card {
+    animation: result-card-enter 0.5s cubic-bezier(0.25, 1, 0.5, 1) backwards;
+    animation-delay: calc(var(--stagger-index, 0) * 80ms + 0.2s);
+  }
+
+  @keyframes result-card-enter {
+    from {
+      opacity: 0;
+      transform: translateY(16px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+</style>

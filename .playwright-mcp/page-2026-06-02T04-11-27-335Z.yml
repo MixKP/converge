@@ -1,0 +1,48 @@
+- generic [ref=e4]:
+  - generic [ref=e5]:
+    - heading "Book a Session" [level=1] [ref=e8]
+    - button [ref=e9] [cursor=pointer]:
+      - img [ref=e10]
+  - generic [ref=e13]:
+    - generic:
+      - generic:
+        - generic: SCHEDULING_SYSTEM
+    - generic [ref=e14]:
+      - generic [ref=e15]:
+        - generic [ref=e16]:
+          - generic [ref=e17]:
+            - heading "Availability" [level=2] [ref=e18]
+            - paragraph [ref=e19]: Select your preferred time slot
+          - button "AI Assist" [ref=e20] [cursor=pointer]:
+            - generic [ref=e21]: AI Assist
+            - img [ref=e22]
+        - generic [ref=e27]:
+          - img [ref=e28]
+          - text: Select a subject to view availability
+      - generic [ref=e31]:
+        - generic [ref=e32]:
+          - generic [ref=e34]:
+            - generic [ref=e37]: Subject
+            - combobox [ref=e38] [cursor=pointer]:
+              - option "Select subject" [selected]
+              - option "Mathematics"
+              - option "Physics"
+              - option "English"
+              - option "History"
+              - option "Computer Science"
+              - option "Art"
+          - generic [ref=e40]:
+            - generic [ref=e43]: Branch
+            - combobox [disabled] [ref=e44]:
+              - option "Select branch" [selected]
+              - option "Main Campus"
+              - option "Downtown"
+              - option "Westside"
+              - option "Online"
+          - generic [ref=e46]:
+            - generic [ref=e49]: Teacher
+            - combobox [disabled] [ref=e50]:
+              - option "Any available" [selected]
+        - button "Add to Cart" [disabled] [ref=e51]:
+          - generic [ref=e52]: Add to Cart
+          - img [ref=e53]
