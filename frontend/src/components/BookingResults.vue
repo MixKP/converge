@@ -21,43 +21,45 @@
   }>()
 
   const getScoreColor = (score: number): string => {
-    if (score >= 80) return 'text-green-600'
-    if (score >= 60) return 'text-yellow-600'
-    return 'text-red-600'
+    if (score >= 80) return 'score-high'
+    if (score >= 60) return 'score-medium'
+    return 'score-low'
   }
 
   const formatTime = (dateStr: string): string => {
     const date = new Date(dateStr)
     return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
   }
+
+  const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const
+
+  const getDayName = (dayOfWeek: number): string => {
+    return DAY_NAMES[dayOfWeek] || 'Unknown'
+  }
 </script>
 
 <template>
-  <div class="space-y-5 flex-1 overflow-y-auto">
-    <div v-if="!showDetailedResults && !isEvaluating" class="space-y-4">
-      <p class="text-sm text-(--text-secondary)">
+  <div class="results-container">
+    <div v-if="!showDetailedResults && !isEvaluating" class="results-intro">
+      <p>
         Choose your subject, branch, and when you'd like to learn. We'll find available teachers for
         your preferred times.
       </p>
     </div>
 
-    <div v-if="isEvaluating" class="flex items-center justify-center py-12">
-      <div class="loading-state">
-        <div class="loading-spinner">
-          <div class="spinner-ring"></div>
-          <div class="spinner-ring spinner-ring--delay"></div>
-          <div class="spinner-ring spinner-ring--delay-2"></div>
-        </div>
-        <p class="loading-text">Finding available teachers...</p>
+    <div v-if="isEvaluating" class="results-loading">
+      <div class="loading-spinner">
+        <div class="spinner-ring"></div>
+        <div class="spinner-ring spinner-ring--delay"></div>
+        <div class="spinner-ring spinner-ring--delay-2"></div>
       </div>
+      <p class="loading-text">Finding available teachers...</p>
     </div>
 
-    <div v-if="showDetailedResults && suggestions" class="space-y-4">
-      <div
-        class="bg-(--paper-cream) p-4 rounded-lg border border-(--border-subtle) results-summary"
-      >
-        <h3 class="font-semibold text-(--ink-primary) mb-2">Booking Options Summary</h3>
-        <p class="text-sm text-(--text-secondary)">
+    <div v-if="showDetailedResults && suggestions" class="results-list">
+      <div class="results-summary">
+        <h3 class="summary-title">Booking Options Summary</h3>
+        <p class="summary-text">
           Found {{ suggestions.results.length }} time slot(s) with available teachers.
         </p>
       </div>
@@ -65,55 +67,36 @@
       <div
         v-for="(slotResult, index) in suggestions.results"
         :key="index"
-        class="bg-white border border-(--border-subtle) rounded-lg p-4 space-y-3 result-card"
+        class="result-card"
         :style="{ '--stagger-index': index }"
       >
-        <div class="flex items-center justify-between">
+        <div class="result-header">
           <div>
-            <h4 class="font-semibold text-(--ink-primary)">
-              {{
-                slotResult.slot.day_of_week === 0
-                  ? 'Sun'
-                  : slotResult.slot.day_of_week === 1
-                    ? 'Mon'
-                    : slotResult.slot.day_of_week === 2
-                      ? 'Tue'
-                      : slotResult.slot.day_of_week === 3
-                        ? 'Wed'
-                        : slotResult.slot.day_of_week === 4
-                          ? 'Thu'
-                          : slotResult.slot.day_of_week === 5
-                            ? 'Fri'
-                            : 'Sat'
-              }}
-              {{ slotResult.slot.start }} - {{ slotResult.slot.end }}
+            <h4 class="result-title">
+              {{ getDayName(slotResult.slot.day_of_week) }} {{ slotResult.slot.start }} -
+              {{ slotResult.slot.end }}
             </h4>
-            <p class="text-sm text-(--text-secondary)">{{ slotResult.message }}</p>
+            <p class="result-message">{{ slotResult.message }}</p>
           </div>
         </div>
 
-        <div
-          v-if="slotResult.exact_match"
-          class="bg-(--accent-terracotta) p-3 rounded-md flex items-center justify-between"
-        >
-          <div class="flex-1">
-            <div class="flex items-center gap-2">
-              <span class="text-white">⭐</span>
-              <span class="font-semibold text-white">{{
-                slotResult.exact_match.teacher_name
-              }}</span>
+        <div v-if="slotResult.exact_match" class="match-exact">
+          <div class="match-content">
+            <div class="match-header">
+              <span class="match-star">⭐</span>
+              <span class="match-name">{{ slotResult.exact_match.teacher_name }}</span>
             </div>
-            <p class="text-sm text-white/80">Score: {{ slotResult.exact_match.score }}</p>
+            <p class="match-score">Score: {{ slotResult.exact_match.score }}</p>
             <p
               v-if="slotResult.exact_match.reasons && slotResult.exact_match.reasons.length > 0"
-              class="text-xs text-white/70 mt-1"
+              class="match-reasons"
             >
               {{ slotResult.exact_match.reasons.join(' • ') }}
             </p>
           </div>
           <button
             type="button"
-            class="px-4 py-2 bg-white text-(--accent-terracotta) rounded-md font-semibold hover:bg-(--paper-cream) transition-all"
+            class="match-button"
             @click="
               emit(
                 'confirmBooking',
@@ -128,47 +111,44 @@
           </button>
         </div>
 
-        <div v-if="slotResult.alternatives && slotResult.alternatives.length > 0" class="space-y-2">
-          <p class="text-xs font-semibold text-(--text-secondary) uppercase">Other Options</p>
+        <div
+          v-if="slotResult.alternatives && slotResult.alternatives.length > 0"
+          class="alternatives"
+        >
+          <p class="alternatives-title">Other Options</p>
           <div
             v-for="(alt, altIndex) in slotResult.alternatives"
             :key="altIndex"
-            class="flex items-center justify-between p-3 bg-(--accent-terracotta-soft) rounded-md"
+            class="alternative-item"
           >
-            <div class="flex-1">
-              <div class="flex items-center gap-2">
-                <span>💡</span>
-                <span class="font-medium text-(--ink-primary)">{{ alt.teacher_name }}</span>
+            <div class="alternative-content">
+              <div class="alternative-header">
+                <span class="alternative-bulb">💡</span>
+                <span class="alternative-name">{{ alt.teacher_name }}</span>
                 <span
                   v-if="alt.room_available !== undefined"
-                  class="text-xs px-2 py-0.5 rounded-full"
-                  :class="
-                    alt.room_available ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                  "
+                  class="badge"
+                  :class="alt.room_available ? 'badge-success' : 'badge-error'"
                 >
                   {{ alt.room_available ? 'Room' : 'No Room' }}
                 </span>
-                <span
-                  v-if="alt.commute_minutes !== undefined"
-                  class="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full"
-                >
+                <span v-if="alt.commute_minutes !== undefined" class="badge badge-info">
                   {{ alt.commute_minutes }}m commute
                 </span>
               </div>
-              <p class="text-sm" :class="getScoreColor(alt.score)">Score: {{ alt.score }}</p>
-              <p class="text-xs text-(--text-secondary)">
+              <p class="alternative-score" :class="getScoreColor(alt.score)">
+                Score: {{ alt.score }}
+              </p>
+              <p class="alternative-time">
                 {{ formatTime(alt.start_time) }} - {{ formatTime(alt.end_time) }}
               </p>
-              <p
-                v-if="alt.reasons && alt.reasons.length > 0"
-                class="text-xs text-(--text-secondary) mt-1"
-              >
+              <p v-if="alt.reasons && alt.reasons.length > 0" class="alternative-reasons">
                 {{ alt.reasons.join(' • ') }}
               </p>
             </div>
             <button
               type="button"
-              class="px-4 py-2 bg-(--accent-terracotta) text-white rounded-md font-semibold hover:bg-(--accent-terracotta-dark) transition-all"
+              class="alternative-button"
               @click="
                 emit(
                   'confirmBooking',
@@ -185,16 +165,8 @@
         </div>
       </div>
 
-      <div
-        v-if="!suggestions || suggestions.results.length === 0"
-        class="text-center py-12 text-(--text-secondary)"
-      >
-        <svg
-          class="w-16 h-16 mx-auto mb-4 text-(--border-strong)"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
+      <div v-if="!suggestions || suggestions.results.length === 0" class="empty-state">
+        <svg class="empty-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             stroke-linecap="round"
             stroke-linejoin="round"
@@ -202,17 +174,13 @@
             d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
           />
         </svg>
-        <p>No teachers available for these time slots.</p>
-        <p class="text-sm mt-2">Try adjusting your preferred days or times and search again.</p>
+        <p class="empty-title">No teachers available</p>
+        <p class="empty-text">Try adjusting your preferred days or times and search again.</p>
       </div>
     </div>
 
-    <div v-if="showDetailedResults" class="flex gap-3 pt-4 border-t border-(--border-subtle)">
-      <button
-        type="button"
-        class="flex-1 px-4 py-2 text-(--ink-primary) bg-white border border-(--border-strong) rounded-lg hover:bg-(--paper-cream) transition-all"
-        @click="emit('reset')"
-      >
+    <div v-if="showDetailedResults" class="results-actions">
+      <button type="button" class="action-button action-button--secondary" @click="emit('reset')">
         Search Again
       </button>
     </div>
@@ -220,10 +188,27 @@
 </template>
 
 <style scoped>
-  .loading-state {
+  .results-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .results-intro p {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .results-loading {
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
+    padding: 3rem 0;
     gap: 1rem;
   }
 
@@ -277,8 +262,55 @@
     }
   }
 
-  .empty-state {
+  .results-summary {
+    padding: 1rem;
+    background: var(--bg-subtle);
+    border-radius: 8px;
+    border: 1px solid var(--border-subtle);
     animation: fade-in 0.4s ease-out;
+  }
+
+  .summary-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 0.5rem 0;
+    font-family: 'IBM Plex Sans', sans-serif;
+  }
+
+  .summary-text {
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  .results-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .result-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    animation: result-card-enter 0.5s cubic-bezier(0.25, 1, 0.5, 1) backwards;
+    animation-delay: calc(var(--stagger-index, 0) * 80ms + 0.2s);
+  }
+
+  @keyframes result-card-enter {
+    from {
+      opacity: 0;
+      transform: translateY(16px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
   }
 
   @keyframes fade-in {
@@ -292,23 +324,295 @@
     }
   }
 
-  .results-summary {
+  .result-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+
+  .result-title {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+    font-family: 'IBM Plex Sans', sans-serif;
+  }
+
+  .result-message {
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    margin: 0.25rem 0 0 0;
+  }
+
+  .match-exact {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: var(--accent-coral);
+    border-radius: 6px;
+  }
+
+  .match-content {
+    flex: 1;
+  }
+
+  .match-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .match-star {
+    font-size: 1rem;
+  }
+
+  .match-name {
+    font-weight: 600;
+    color: white;
+    font-size: 0.875rem;
+  }
+
+  .match-score {
+    font-size: 0.8125rem;
+    color: rgba(255, 255, 255, 0.8);
+    margin: 0.25rem 0 0 0;
+  }
+
+  .match-reasons {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0.25rem 0 0 0;
+  }
+
+  .match-button {
+    padding: 0.5rem 1rem;
+    background: white;
+    color: var(--accent-coral);
+    border: none;
+    border-radius: 6px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+    font-family: 'IBM Plex Sans', sans-serif;
+    white-space: nowrap;
+  }
+
+  .match-button:hover {
+    background: var(--bg-cream);
+  }
+
+  .match-button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+  }
+
+  .alternatives {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .alternatives-title {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .alternative-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: var(--bg-subtle);
+    border-radius: 6px;
+  }
+
+  .alternative-content {
+    flex: 1;
+  }
+
+  .alternative-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .alternative-bulb {
+    font-size: 0.875rem;
+  }
+
+  .alternative-name {
+    font-weight: 500;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+  }
+
+  .badge {
+    font-size: 0.75rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .badge-success {
+    background: var(--accent-sage);
+    color: white;
+  }
+
+  .badge-error {
+    background: var(--accent-coral);
+    color: white;
+  }
+
+  .badge-info {
+    background: var(--primary-indigo);
+    color: white;
+  }
+
+  .alternative-score {
+    font-size: 0.8125rem;
+    margin: 0.25rem 0 0 0;
+  }
+
+  .alternative-score.score-high {
+    color: var(--accent-sage);
+  }
+
+  .alternative-score.score-medium {
+    color: #b8860b;
+  }
+
+  .alternative-score.score-low {
+    color: var(--accent-coral);
+  }
+
+  .alternative-time {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin: 0;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .alternative-reasons {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin: 0.25rem 0 0 0;
+  }
+
+  .alternative-button {
+    padding: 0.5rem 1rem;
+    background: var(--accent-coral);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+    font-family: 'IBM Plex Sans', sans-serif;
+    white-space: nowrap;
+  }
+
+  .alternative-button:hover {
+    filter: brightness(0.9);
+  }
+
+  .alternative-button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(201, 109, 93, 0.4);
+  }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 3rem 1rem;
     animation: fade-in 0.4s ease-out;
   }
 
-  .result-card {
-    animation: result-card-enter 0.5s cubic-bezier(0.25, 1, 0.5, 1) backwards;
-    animation-delay: calc(var(--stagger-index, 0) * 80ms + 0.2s);
+  .empty-icon {
+    width: 4rem;
+    height: 4rem;
+    color: var(--border-strong);
+    margin: 0 0 1rem 0;
   }
 
-  @keyframes result-card-enter {
-    from {
-      opacity: 0;
-      transform: translateY(16px) scale(0.98);
+  .empty-title {
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin: 0 0 0.5rem 0;
+  }
+
+  .empty-text {
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  .results-actions {
+    display: flex;
+    gap: 0.75rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .action-button {
+    flex: 1;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+    font-family: 'IBM Plex Sans', sans-serif;
+  }
+
+  .action-button--secondary {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border: 1px solid var(--border-strong);
+  }
+
+  .action-button--secondary:hover {
+    background: var(--bg-cream);
+  }
+
+  .action-button--secondary:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(62, 76, 122, 0.2);
+  }
+
+  @media (max-width: 767px) {
+    .match-exact,
+    .alternative-item {
+      flex-direction: column;
+      align-items: stretch;
     }
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
+
+    .match-button,
+    .alternative-button {
+      width: 100%;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
     }
   }
 </style>

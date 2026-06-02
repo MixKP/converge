@@ -70,10 +70,15 @@
   .booking-layout {
     grid-template-columns: 1fr;
     grid-template-rows: 1fr auto;
+    gap: 1.25rem;
   }
 
   .booking-layout--split {
     grid-template-rows: 1fr auto;
+  }
+
+  .control-panel {
+    max-height: 60vh;
   }
 }
 
@@ -141,6 +146,49 @@
 .ai-icon {
   width: 1rem;
   height: 1rem;
+}
+
+.ai-button-hint {
+  display: none;
+  padding: 0.125rem 0.375rem;
+  font-size: 0.625rem;
+  font-weight: 500;
+  font-family: 'JetBrains Mono', monospace;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.ai-button-description {
+  display: none;
+  font-size: 0.6875rem;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.8);
+  font-style: italic;
+}
+
+@media (min-width: 768px) {
+  .ai-button-hint {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .ai-button-description {
+    display: inline;
+    margin-left: 0.5rem;
+  }
+}
+
+/* Touch optimization - prevent double-tap zoom on buttons */
+.ai-button,
+.ai-close,
+.ai-submit,
+.add-button,
+.slot-add,
+.slot-item-remove,
+.ai-select,
+.field-select {
+  touch-action: manipulation;
 }
 
 .calendar-wrapper {
@@ -319,6 +367,13 @@
   margin-bottom: 0.75rem;
 }
 
+.slots-guidance {
+  margin: 0.5rem 0 0 0;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
 .slots-count {
   font-size: 1.5rem;
   font-weight: 600;
@@ -462,6 +517,35 @@
   font-family: 'JetBrains Mono', monospace;
 }
 
+.ai-description {
+  margin: 0.25rem 0 0 0;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.ai-hint {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.panel-help {
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+}
+
+.panel-help p {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
 .ai-select {
   width: 100%;
   padding: 0.625rem 0.875rem;
@@ -504,7 +588,18 @@
 .slot-builder {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--bg-cream);
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+}
+
+.slot-controls-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-family: 'JetBrains Mono', monospace;
+  margin-bottom: -0.25rem;
 }
 
 .slot-controls {
@@ -512,6 +607,7 @@
   flex-wrap: wrap;
   gap: 0.5rem;
   align-items: center;
+  justify-content: flex-start;
 }
 
 .time-select {
@@ -524,9 +620,19 @@
   color: var(--text-primary);
 }
 
+.time-select:hover:not(:disabled) {
+  border-color: var(--primary-indigo);
+}
+
 .time-select:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.time-select:focus-visible {
+  outline: none;
+  border-color: var(--primary-indigo);
+  box-shadow: 0 0 0 3px rgba(62, 76, 122, 0.15);
 }
 
 .time-separator {
@@ -570,7 +676,17 @@
 .slot-list {
   display: flex;
   flex-direction: column;
-  gap: 0.375rem;
+  gap: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.slot-list-label {
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .slot-item {
@@ -681,6 +797,19 @@
   height: 1rem;
 }
 
+.submit-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Toast */
 .toast {
   position: fixed;
@@ -714,8 +843,40 @@
   flex-shrink: 0;
 }
 
-.toast-close {
+.toast-message {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   margin-left: 0.75rem;
+}
+
+.toast-retry {
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: white;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toast-retry:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.toast-retry:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 2px;
+}
+
+.toast-close {
   color: rgba(255, 255, 255, 0.8);
   background: transparent;
   border: none;
@@ -749,16 +910,131 @@
   }
 }
 
+/* Mobile Touch Optimizations */
+@media (max-width: 767px) {
+  /* Larger touch targets for slot controls */
+  .time-select {
+    padding: 0.75rem 0.875rem;
+    font-size: 0.875rem;
+    min-height: 44px;
+  }
+
+  /* Larger add button for touch */
+  .slot-add {
+    width: 2.75rem;
+    height: 2.75rem;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .slot-add svg {
+    width: 1.125rem;
+    height: 1.125rem;
+  }
+
+  /* Better spacing for slot controls */
+  .slot-controls {
+    gap: 0.625rem;
+  }
+
+  /* Larger slot items for easier tapping */
+  .slot-item {
+    padding: 0.75rem 0.875rem;
+    font-size: 0.8125rem;
+    min-height: 44px;
+  }
+
+  /* Larger remove button */
+  .slot-item-remove {
+    width: 2rem;
+    height: 2rem;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Larger toast close button */
+  .toast-close {
+    width: 2rem;
+    height: 2rem;
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 1.5rem;
+  }
+
+  /* Larger retry button */
+  .toast-retry {
+    padding: 0.5rem 1rem;
+    font-size: 0.8125rem;
+    min-height: 36px;
+  }
+
+  /* AI close button larger */
+  .ai-close {
+    width: 2.5rem;
+    height: 2.5rem;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Form fields with better touch targets */
+  .field-select,
+  .ai-select {
+    padding: 0.75rem 0.875rem;
+    font-size: 0.875rem;
+    min-height: 44px;
+  }
+
+  /* Better button sizing */
+  .add-button,
+  .ai-submit {
+    padding: 0.875rem 1.25rem;
+    font-size: 0.875rem;
+    min-height: 48px;
+  }
+
+  /* Slot chips more tappable */
+  .slot-chip {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8125rem;
+    min-height: 36px;
+  }
+}
+
+/* Small mobile optimizations */
 @media (max-width: 640px) {
+  .booking-layout {
+    gap: 1rem;
+  }
+
+  .calendar-section {
+    gap: 1.25rem;
+  }
+
   .section-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.75rem;
+    gap: 1rem;
+    padding: 0.75rem 0 0.5rem;
   }
 
   .ai-button {
     width: 100%;
     justify-content: center;
+    padding: 0.875rem 1.25rem;
+    font-size: 0.875rem;
+  }
+
+  .control-panel {
+    min-height: 300px;
+  }
+
+  .panel-content {
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .selection-form {
+    gap: 1.25rem;
   }
 
   .control-panel--hidden {
@@ -769,6 +1045,60 @@
   .toast {
     right: 1rem;
     left: 1rem;
+    bottom: 1.5rem;
+    max-width: none;
+  }
+
+  /* Better spacing for slots display on mobile */
+  .slots-display {
+    padding: 1.25rem;
+  }
+
+  /* AI Panel mobile refinements */
+  .ai-header {
+    padding-bottom: 1.25rem;
+    gap: 1rem;
+  }
+
+  .ai-title {
+    font-size: 1rem;
+  }
+
+  .ai-description {
+    font-size: 0.8125rem;
+  }
+
+  .ai-close {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  /* Better spacing for AI form fields */
+  .ai-form {
+    gap: 1.25rem;
+  }
+
+  .ai-field {
+    gap: 0.625rem;
+  }
+
+  .ai-label {
+    font-size: 0.6875rem;
+  }
+
+  /* Slot builder mobile improvements */
+  .slot-builder {
+    gap: 1rem;
+  }
+
+  .slot-list {
+    gap: 0.5rem;
+  }
+
+  /* Results list mobile spacing */
+  .results-summary,
+  .result-card {
+    padding: 1.25rem;
   }
 }
 

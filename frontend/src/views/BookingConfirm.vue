@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { computed, onMounted } from 'vue'
+  import { computed, onMounted, onUnmounted, ref } from 'vue'
   import { useRouter } from 'vue-router'
   import { useBookingCart } from '../composables/useBookingCart'
   import PageLayout from '../components/PageLayout.vue'
@@ -16,6 +16,8 @@
     submitBookings,
   } = useBookingCart()
 
+  const showClearConfirm = ref(false)
+
   onMounted(() => {
     fetchCartItems()
   })
@@ -26,11 +28,21 @@
     removeItem(id)
   }
 
+  const handleClearAll = () => {
+    if (cartItems.value.length === 0) return
+    showClearConfirm.value = true
+  }
+
+  const confirmClearAll = () => {
+    clearCart()
+    showClearConfirm.value = false
+  }
+
   const handleSubmit = async () => {
     await submitBookings()
     if (!errorMessage.value) {
       setTimeout(() => {
-        router.push('/')
+        router.push('/booking')
       }, 2000)
     }
   }
@@ -54,6 +66,20 @@
       hour12: false,
     })
   }
+
+  const handleKeydown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      showClearConfirm.value = false
+    }
+  }
+
+  onMounted(() => {
+    window.addEventListener('keydown', handleKeydown)
+  })
+
+  onUnmounted(() => {
+    window.removeEventListener('keydown', handleKeydown)
+  })
 </script>
 
 <template>
@@ -62,6 +88,7 @@
       <!-- Technical Background -->
       <div class="technical-bg" aria-hidden="true">
         <div class="bg-grid"></div>
+        <div class="bg-label">INVOICE</div>
       </div>
 
       <div v-if="cartItems.length === 0 && !isLoading" class="empty-state">
@@ -75,7 +102,7 @@
             />
           </svg>
         </div>
-        <h2 class="empty-title">Cart Empty</h2>
+        <h2 class="empty-title">Your cart is empty</h2>
         <p class="empty-desc">Add sessions to begin booking</p>
         <button type="button" class="empty-action" @click="goBack">
           Browse Sessions
@@ -112,7 +139,12 @@
               </span>
             </div>
           </div>
-          <button v-if="cartItems.length > 0" type="button" class="clear-btn" @click="clearCart">
+          <button
+            v-if="cartItems.length > 0"
+            type="button"
+            class="clear-btn"
+            @click="handleClearAll"
+          >
             Clear All
           </button>
         </div>
@@ -175,6 +207,36 @@
           <div class="summary-row summary-row--total">
             <span class="total-label">TOTAL</span>
             <span class="total-value">${{ totalAmount.toFixed(2) }}</span>
+          </div>
+        </div>
+
+        <!-- Confirmation Dialog -->
+        <div
+          v-if="showClearConfirm"
+          class="confirm-dialog-overlay"
+          @click.self="showClearConfirm = false"
+        >
+          <div class="confirm-dialog">
+            <h3 class="confirm-title">Clear all sessions?</h3>
+            <p class="confirm-desc">
+              This will remove all sessions from your cart. This action cannot be undone.
+            </p>
+            <div class="confirm-actions">
+              <button
+                type="button"
+                class="confirm-btn confirm-btn--cancel"
+                @click="showClearConfirm = false"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                class="confirm-btn confirm-btn--confirm"
+                @click="confirmClearAll"
+              >
+                Clear All
+              </button>
+            </div>
           </div>
         </div>
 
@@ -601,6 +663,7 @@
   .invoice-summary {
     background: var(--bg-card);
     border: 1px solid var(--border-medium);
+    border-top: 2px solid var(--border-technical);
     border-radius: 8px;
     padding: 1rem 1.25rem;
   }
@@ -747,6 +810,91 @@
     justify-content: center;
   }
 
+  /* Confirmation Dialog */
+  .confirm-dialog-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(26, 28, 35, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    animation: fade-in 0.2s ease-out;
+  }
+
+  .confirm-dialog {
+    background: var(--bg-card);
+    border: 1px solid var(--border-medium);
+    border-top: 2px solid var(--accent-coral);
+    border-radius: 8px;
+    padding: 1.5rem;
+    max-width: 400px;
+    margin: 0 1rem;
+    animation: dialog-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .confirm-title {
+    font-size: 1rem;
+    font-weight: 600;
+    font-family: 'Instrument Sans', sans-serif;
+    color: var(--text-primary);
+    margin: 0 0 0.5rem 0;
+  }
+
+  .confirm-desc {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin: 0 0 1.25rem 0;
+    line-height: 1.5;
+  }
+
+  .confirm-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+  }
+
+  .confirm-btn {
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    font-family: 'IBM Plex Sans', sans-serif;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .confirm-btn--cancel {
+    color: var(--text-primary);
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-medium);
+  }
+
+  .confirm-btn--cancel:hover {
+    background: var(--border-subtle);
+  }
+
+  .confirm-btn--confirm {
+    color: white;
+    background: var(--accent-coral);
+    border: none;
+  }
+
+  .confirm-btn--confirm:hover {
+    background: #b85c4e;
+  }
+
+  @keyframes dialog-in {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
   @keyframes fade-in {
     from {
       opacity: 0;
@@ -779,16 +927,18 @@
   }
 
   @media (max-width: 640px) {
-    .line-items-header,
-    .line-item {
-      grid-template-columns: 1fr auto;
+    .line-items-header {
+      grid-template-columns: 1fr auto auto;
       gap: 0.5rem;
     }
 
-    .cell-price,
-    .cell-total,
-    .item-price,
-    .item-total {
+    .line-item {
+      grid-template-columns: 1fr auto auto;
+      gap: 0.5rem;
+    }
+
+    .cell-qty,
+    .item-qty {
       display: none;
     }
 

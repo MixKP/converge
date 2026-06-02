@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { ref, computed, watch, nextTick } from 'vue'
+  import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
   import { useBooking } from '../composables/useBooking'
   import PageLayout from '../components/PageLayout.vue'
   import Calendar from '../components/Calendar.vue'
@@ -43,6 +43,43 @@
   const aiNewSlotEnd = ref<string>('10:00')
 
   const canAddTimeSlots = computed(() => !!aiSubjectId.value)
+
+  // Focus management
+  const aiSubmitButtonRef = ref<HTMLButtonElement | null>(null)
+  const previouslyFocusedElement = ref<HTMLElement | null>(null)
+
+  // Keyboard shortcuts
+  const handleKeyDown = (event: KeyboardEvent) => {
+    // Cmd/Ctrl + K to open AI mode
+    if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
+      event.preventDefault()
+      if (aiMode.value === 'idle') {
+        openAIMode()
+        nextTick(() => {
+          aiSubmitButtonRef.value?.focus()
+        })
+      }
+    }
+    // Escape to close AI mode or dismiss messages
+    if (event.key === 'Escape') {
+      if (aiMode.value !== 'idle') {
+        closeAIMode()
+        previouslyFocusedElement.value?.focus()
+      } else if (errorMessage.value) {
+        errorMessage.value = ''
+      } else if (successMessage.value) {
+        successMessage.value = ''
+      }
+    }
+  }
+
+  onMounted(() => {
+    globalThis.addEventListener('keydown', handleKeyDown)
+  })
+
+  onUnmounted(() => {
+    globalThis.removeEventListener('keydown', handleKeyDown)
+  })
 
   const DAY_NAMES = [
     'Sunday',
@@ -88,6 +125,7 @@
   }
 
   const openAIMode = () => {
+    previouslyFocusedElement.value = globalThis.document.activeElement as HTMLElement
     aiMode.value = 'expanding'
     nextTick(() => {
       aiMode.value = 'expanded'
@@ -97,6 +135,8 @@
   const closeAIMode = () => {
     aiMode.value = 'idle'
     resetBookingState()
+    previouslyFocusedElement.value?.focus()
+    previouslyFocusedElement.value = null
   }
 
   const handleSuggestionClick = (info: EventClickArg): void => {
@@ -131,7 +171,11 @@
 
   const handleGetAISuggestions = async () => {
     if (!aiSubjectId.value || !aiBranchId.value || aiTimeSlots.value.length === 0) {
-      errorMessage.value = 'Please select a subject, branch, and add at least one time slot'
+      const missing = []
+      if (!aiSubjectId.value) missing.push('a subject')
+      if (!aiBranchId.value) missing.push('a branch')
+      if (aiTimeSlots.value.length === 0) missing.push('at least one time slot')
+      errorMessage.value = `To find teachers, please select ${missing.join(' and ')}`
       return
     }
 
@@ -151,16 +195,25 @@
 
       suggestions.value = response
       showDetailedResults.value = true
-      successMessage.value = `${response.results.length} booking option${response.results.length > 1 ? 's' : ''} found!`
-      setTimeout(() => (successMessage.value = ''), 4000)
+      activeTab.value = 'ai'
+      successMessage.value = `${response.results.length} teacher${response.results.length > 1 ? 's' : ''} available. Click a time slot on the calendar or a suggestion below to book.`
+      setTimeout(() => (successMessage.value = ''), 8000)
     } catch (error) {
-      errorMessage.value =
-        error instanceof Error
+      const isNetworkError =
+        error instanceof Error &&
+        (error.message.includes('fetch') || error.message.includes('network'))
+      errorMessage.value = isNetworkError
+        ? 'Network error. Check your connection and try again.'
+        : error instanceof Error
           ? error.message
-          : 'Unable to find available teachers. Please try different time slots.'
+          : 'No teachers available for those time slots. Try adding more time options or different days.'
     } finally {
       isEvaluating.value = false
     }
+  }
+
+  const retryAISearch = () => {
+    handleGetAISuggestions()
   }
 
   watch(aiSubjectId, async (newSubjectId) => {
@@ -302,7 +355,7 @@
                     class="field-select"
                     aria-label="Select teacher"
                   >
-                    <option :value="null">Any available</option>
+                    <option :value="null">Show all available teachers</option>
                     <option
                       v-for="teacher in filteredTeachers"
                       :key="teacher.id"
@@ -335,6 +388,9 @@
                   +{{ events.length - 3 }}
                 </div>
               </div>
+              <p v-if="events.length > 0" class="slots-guidance">
+                Select a teacher and branch, then add to cart
+              </p>
             </div>
 
             <!-- Action Button -->
@@ -383,7 +439,12 @@
         <div v-else class="control-panel control-panel--ai">
           <div class="panel-content panel-content--ai">
             <div class="ai-header">
-              <h3 class="ai-title">Smart Suggestions</h3>
+              <div>
+                <h3 class="ai-title">Smart Suggestions</h3>
+                <p class="ai-description">
+                  Tell us when you're free, and we'll find available teachers for those times.
+                </p>
+              </div>
               <button
                 type="button"
                 class="ai-close"
@@ -418,6 +479,9 @@
                 <label id="ai-slots-label" class="ai-label"
                   >Preferred Time Slots <span class="required">*</span></label
                 >
+                <p class="ai-hint">
+                  Add the days and times you're free. We'll match you with available teachers.
+                </p>
                 <div
                   class="slot-builder"
                   :class="{ 'slot-builder--disabled': !canAddTimeSlots }"
@@ -425,8 +489,9 @@
                   aria-labelledby="ai-slots-label"
                 >
                   <div v-if="!canAddTimeSlots" class="slot-disabled-msg">
-                    Select a subject above to add time slots
+                    Choose a subject first, then add your preferred times
                   </div>
+                  <div class="slot-controls-label">Add a time slot:</div>
                   <div
                     class="slot-controls"
                     :class="{ 'slot-controls--disabled': !canAddTimeSlots }"
@@ -435,26 +500,33 @@
                       v-model.number="aiNewSlotDay"
                       class="time-select"
                       :disabled="!canAddTimeSlots"
+                      aria-label="Day of week"
                     >
-                      <option value="0">SUN</option>
-                      <option value="1">MON</option>
-                      <option value="2">TUE</option>
-                      <option value="3">WED</option>
-                      <option value="4">THU</option>
-                      <option value="5">FRI</option>
-                      <option value="6">SAT</option>
+                      <option value="0">Sunday</option>
+                      <option value="1">Monday</option>
+                      <option value="2">Tuesday</option>
+                      <option value="3">Wednesday</option>
+                      <option value="4">Thursday</option>
+                      <option value="5">Friday</option>
+                      <option value="6">Saturday</option>
                     </select>
                     <select
                       v-model="aiNewSlotStart"
                       class="time-select"
                       :disabled="!canAddTimeSlots"
+                      aria-label="Start time"
                     >
                       <option v-for="time in TIME_OPTIONS" :key="time" :value="time">
                         {{ time }}
                       </option>
                     </select>
-                    <span class="time-separator">—</span>
-                    <select v-model="aiNewSlotEnd" class="time-select" :disabled="!canAddTimeSlots">
+                    <span class="time-separator">to</span>
+                    <select
+                      v-model="aiNewSlotEnd"
+                      class="time-select"
+                      :disabled="!canAddTimeSlots"
+                      aria-label="End time"
+                    >
                       <option v-for="time in TIME_OPTIONS" :key="time" :value="time">
                         {{ time }}
                       </option>
@@ -478,6 +550,7 @@
                   </div>
 
                   <div v-if="aiTimeSlots.length > 0" class="slot-list">
+                    <div class="slot-list-label">Your time slots:</div>
                     <div v-for="(slot, index) in aiTimeSlots" :key="index" class="slot-item">
                       <span class="slot-item-text"
                         >{{ getDayName(slot.day_of_week) }} {{ slot.start }} - {{ slot.end }}</span
@@ -532,7 +605,7 @@
                   :disabled="!aiSubjectId"
                   class="ai-select"
                 >
-                  <option :value="null">Any available</option>
+                  <option :value="null">Show all available teachers</option>
                   <option
                     v-for="teacher in aiFilteredTeachers"
                     :key="teacher.id"
@@ -544,13 +617,17 @@
               </div>
 
               <button
+                ref="aiSubmitButtonRef"
                 type="button"
                 class="ai-submit"
-                :disabled="!aiSubjectId || !aiBranchId || aiTimeSlots.length === 0"
+                :disabled="!aiSubjectId || !aiBranchId || aiTimeSlots.length === 0 || isEvaluating"
+                :aria-busy="isEvaluating"
                 @click="handleGetAISuggestions"
               >
-                <span>Find Available Teachers</span>
+                <span v-if="isEvaluating">Finding teachers...</span>
+                <span v-else>Find Available Teachers</span>
                 <svg
+                  v-if="!isEvaluating"
                   class="submit-icon"
                   viewBox="0 0 24 24"
                   fill="none"
@@ -562,6 +639,21 @@
                     stroke-linejoin="round"
                     stroke-width="1.5"
                     d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"
+                  />
+                </svg>
+                <svg
+                  v-else
+                  class="submit-icon submit-spinner"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"
                   />
                 </svg>
               </button>
@@ -612,10 +704,20 @@
             d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
           />
         </svg>
-        {{ errorMessage }}
-        <button class="toast-close" aria-label="Dismiss message" @click="errorMessage = ''">
-          ×
-        </button>
+        <span class="toast-message">{{ errorMessage }}</span>
+        <div class="toast-actions">
+          <button
+            v-if="errorMessage.includes('Network')"
+            class="toast-retry"
+            aria-label="Retry the request"
+            @click="retryAISearch"
+          >
+            Retry
+          </button>
+          <button class="toast-close" aria-label="Dismiss message" @click="errorMessage = ''">
+            ×
+          </button>
+        </div>
       </div>
     </div>
   </PageLayout>

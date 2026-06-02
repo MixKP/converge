@@ -23,7 +23,7 @@ const router = createRouter({
     },
     {
       path: '/',
-      redirect: '/form',
+      redirect: '/booking',
     },
   ],
 })

@@ -9,7 +9,6 @@ module.exports = [
   js.configs.recommended,
   ...ts.configs.recommended,
   ...vue.configs["flat/recommended"],
-  prettier,
 
   {
     files: ["**/*.vue", "**/*.ts", "**/*.tsx"],
@@ -49,6 +48,8 @@ module.exports = [
       "prefer-const": "error",
     },
   },
+
+  prettier,
 
   {
     ignores: ["dist/**", "node_modules/**", "*.config.js", "*.config.ts", "*.config.cjs"],

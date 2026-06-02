@@ -164,7 +164,7 @@
         <span
           :class="[
             'w-5 h-5 rounded-full border-2 text-xs flex items-center justify-center',
-            currentStep >= 3
+            currentStep >= 4
               ? 'bg-(--accent-terracotta) border-(--accent-terracotta) text-white'
               : 'border-(--border-strong) text-(--text-secondary)',
           ]"

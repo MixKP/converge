@@ -104,7 +104,8 @@ func (e *CLPEngine) generateCandidateSlots(req models.BookingRequest, availSlots
 		log.Printf("Warning: failed to load Asia/Bangkok timezone, falling back to UTC: %v", err)
 		loc = time.UTC
 	}
-	anchorDate := time.Date(2026, 6, 1, 0, 0, 0, 0, loc)
+	now := time.Now().In(loc)
+	anchorDate := now.Truncate(24 * time.Hour)
 	desiredWeekday := time.Weekday((window.DayOfWeek + 1) % 7)
 	for anchorDate.Weekday() != desiredWeekday {
 		anchorDate = anchorDate.Add(24 * time.Hour)

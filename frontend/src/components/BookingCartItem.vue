@@ -30,6 +30,12 @@
   }
 
   const dayName = computed(() => formatDate(props.item.start_time))
+  const durationMinutes = computed(() => {
+    const start = new Date(props.item.start_time)
+    const end = new Date(props.item.end_time)
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return 60
+    return Math.round((end.getTime() - start.getTime()) / (1000 * 60))
+  })
 </script>
 
 <template>
@@ -79,9 +85,9 @@
         <span
           class="inline-flex items-center px-2 py-0.5 bg-(--accent-terracotta-soft) text-(--accent-terracotta) text-xs font-medium rounded-full"
         >
-          60 min
+          {{ durationMinutes }} min
         </span>
-        <span class="text-(--text-secondary) text-sm">$50.00</span>
+        <span class="text-(--text-secondary) text-sm">$0.00</span>
       </div>
     </div>
   </div>

@@ -95,7 +95,9 @@
     const id = clickInfo.event.id
     if (!id) return
     const isSuggestionEvent =
-      id.startsWith('suggestion-') || !props.modelValue?.some((e) => e.id === id)
+      id.startsWith('suggestion-') ||
+      !Array.isArray(props.modelValue) ||
+      !props.modelValue.some((e) => e.id === id)
     if (isSuggestionEvent) {
       emit('event-click', clickInfo)
       return
@@ -132,7 +134,10 @@
     const headerDate = new Date(info.el.getAttribute('data-date') || '')
     const dayOfWeek = headerDate.getDay()
 
-    const hasAvailability = (props.businessHours || []).some((hour: BusinessHourItem) => {
+    const businessHoursArray = (
+      Array.isArray(props.businessHours) ? props.businessHours : []
+    ) as BusinessHourItem[]
+    const hasAvailability = businessHoursArray.some((hour: BusinessHourItem) => {
       if (Array.isArray(hour.daysOfWeek)) {
         return hour.daysOfWeek.includes(dayOfWeek)
       }
@@ -217,14 +222,17 @@
       if (api) {
         api.setOption('businessHours', newBusinessHours)
         // Update day header classes based on availability
-        const headerEls = api.el.querySelectorAll('.fc-col-header-cell')
-        headerEls.forEach((headerEl: HTMLElement) => {
+        const headerEls = api.el.querySelectorAll('.fc-col-header-cell') as NodeListOf<HTMLElement>
+        headerEls.forEach((headerEl) => {
           const dateStr = headerEl.getAttribute('data-date')
           if (!dateStr) return
           const headerDate = new Date(dateStr)
           const dayOfWeek = headerDate.getDay()
 
-          const hasAvailability = (newBusinessHours || []).some((hour: BusinessHourItem) => {
+          const businessHoursArray = (
+            Array.isArray(newBusinessHours) ? newBusinessHours : []
+          ) as BusinessHourItem[]
+          const hasAvailability = businessHoursArray.some((hour: BusinessHourItem) => {
             if (Array.isArray(hour.daysOfWeek)) {
               return hour.daysOfWeek.includes(dayOfWeek)
             }

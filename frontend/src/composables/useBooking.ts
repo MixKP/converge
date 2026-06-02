@@ -67,8 +67,10 @@ export function useBooking() {
     return events.value.map((e) => {
       const start = new Date(e.start as Date)
       const end = new Date(e.end as Date)
+      // Convert from Sunday-first (getDay) to Monday-first (0=Mon, 6=Sun)
+      const dayOfWeek = (start.getDay() + 6) % 7
       return {
-        day_of_week: start.getDay(),
+        day_of_week: dayOfWeek,
         start: start.toTimeString().slice(0, 5),
         end: end.toTimeString().slice(0, 5),
       }
