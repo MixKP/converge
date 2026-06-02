@@ -216,8 +216,13 @@
           class="confirm-dialog-overlay"
           @click.self="showClearConfirm = false"
         >
-          <div class="confirm-dialog">
-            <h3 class="confirm-title">Clear all sessions?</h3>
+          <div
+            class="confirm-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="clear-confirm-title"
+          >
+            <h3 id="clear-confirm-title" class="confirm-title">Clear all sessions?</h3>
             <p class="confirm-desc">
               This will remove all sessions from your cart. This action cannot be undone.
             </p>
