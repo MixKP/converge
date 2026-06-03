@@ -10,7 +10,7 @@ import type { EventInput, BusinessHoursInput } from '@fullcalendar/core'
 import type { WeeklySlot, Subject, BookingResponse, BookingAlternative } from '../types'
 import { transformBackendAvailability } from '../utils/availabilityTransform'
 import { useBookingCart } from './useBookingCart'
-const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
 export function useBooking() {
   const teacherStore = useTeacherStore()
   const { addToCart } = useBookingCart()
@@ -67,8 +67,8 @@ export function useBooking() {
     return events.value.map((e) => {
       const start = new Date(e.start as Date)
       const end = new Date(e.end as Date)
-      // Convert from Sunday-first (getDay) to Monday-first (0=Mon, 6=Sun)
-      const dayOfWeek = (start.getDay() + 6) % 7
+      // Use Sunday-first (0=Sun, 1=Mon, ..., 6=Sat) to match backend
+      const dayOfWeek = start.getDay()
       return {
         day_of_week: dayOfWeek,
         start: start.toTimeString().slice(0, 5),
@@ -278,11 +278,15 @@ export function useBooking() {
       )
       return
     }
+    const subject = subjects.value.find((s) => s.id === effectiveSubjectId)
+    const branch = branches.value.find((b) => b.id === effectiveBranchId)
     addToCart({
       teacher_id: teacherId,
       teacher_name: teacherName,
       branch_id: effectiveBranchId,
+      branch_name: branch?.name || '',
       subject_id: effectiveSubjectId,
+      subject_name: subject?.name || '',
       start_time: startTime,
       end_time: endTime,
       client_name: 'Guest',

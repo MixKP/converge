@@ -35,7 +35,7 @@
     removeManualSlot: [index: number]
   }>()
 
-  const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
   const getSlotLabel = (slot: WeeklySlot): string => {
     return `${DAY_NAMES[slot.day_of_week]} ${slot.start} - ${slot.end}`

@@ -1,12 +1,11 @@
 <script setup lang="ts">
-  import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+  import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
   import { useBooking } from '../composables/useBooking'
   import PageLayout from '../components/PageLayout.vue'
   import Calendar from '../components/Calendar.vue'
   import CalendarDisabledOverlay from '../components/CalendarDisabledOverlay.vue'
   import BookingResults from '../components/BookingResults.vue'
   import type { EventClickArg } from '@fullcalendar/core'
-  import type { Teacher } from '../types'
 
   const {
     calendarRef,
@@ -28,21 +27,45 @@
     initWatchers,
     addToCartDirectly,
     resetBookingState,
-    getTeachersBySubject,
   } = useBooking()
 
   const aiMode = ref<'idle' | 'expanding' | 'expanded'>('idle')
 
-  const aiSubjectId = ref<number | null>(null)
-  const aiBranchId = ref<number | null>(null)
-  const aiTeacherId = ref<number | null>(null)
-  const aiFilteredTeachers = ref<Teacher[]>([])
+  // Mobile step flow: 'selection' -> 'calendar'
+  const mobileStep = ref<'selection' | 'calendar'>('selection')
+  const isMobile = ref(false)
+
+  // AI-specific time slots (subject/branch/teacher now shared with manual form)
   const aiTimeSlots = ref<Array<{ day_of_week: number; start: string; end: string }>>([])
   const aiNewSlotDay = ref<number>(1)
   const aiNewSlotStart = ref<string>('09:00')
   const aiNewSlotEnd = ref<string>('10:00')
 
-  const canAddTimeSlots = computed(() => !!aiSubjectId.value)
+  const canAddTimeSlots = computed(() => !!selectedSubjectId.value)
+  const canProceedToCalendar = computed(() => !!selectedSubjectId.value && !!selectedBranchId.value)
+
+  // Detect mobile on mount and resize
+  const checkMobile = () => {
+    isMobile.value = globalThis.innerWidth <= 425
+  }
+
+  onMounted(() => {
+    checkMobile()
+    globalThis.addEventListener('resize', checkMobile)
+  })
+  onUnmounted(() => {
+    globalThis.removeEventListener('resize', checkMobile)
+  })
+
+  const proceedToCalendar = () => {
+    if (canProceedToCalendar.value) {
+      mobileStep.value = 'calendar'
+    }
+  }
+
+  const backToSelection = () => {
+    mobileStep.value = 'selection'
+  }
 
   // Focus management
   const aiSubmitButtonRef = ref<HTMLButtonElement | null>(null)
@@ -134,6 +157,7 @@
 
   const closeAIMode = () => {
     aiMode.value = 'idle'
+    aiTimeSlots.value = []
     resetBookingState()
     previouslyFocusedElement.value?.focus()
     previouslyFocusedElement.value = null
@@ -147,8 +171,8 @@
         props.teacherName,
         info.event.startStr,
         info.event.endStr,
-        aiSubjectId.value ?? undefined,
-        aiBranchId.value ?? undefined
+        selectedSubjectId.value ?? undefined,
+        selectedBranchId.value ?? undefined
       )
     }
   }
@@ -164,16 +188,16 @@
       teacherName,
       startTime,
       endTime,
-      aiSubjectId.value ?? undefined,
-      aiBranchId.value ?? undefined
+      selectedSubjectId.value ?? undefined,
+      selectedBranchId.value ?? undefined
     )
   }
 
   const handleGetAISuggestions = async () => {
-    if (!aiSubjectId.value || !aiBranchId.value || aiTimeSlots.value.length === 0) {
+    if (!selectedSubjectId.value || !selectedBranchId.value || aiTimeSlots.value.length === 0) {
       const missing = []
-      if (!aiSubjectId.value) missing.push('a subject')
-      if (!aiBranchId.value) missing.push('a branch')
+      if (!selectedSubjectId.value) missing.push('a subject')
+      if (!selectedBranchId.value) missing.push('a branch')
       if (aiTimeSlots.value.length === 0) missing.push('at least one time slot')
       errorMessage.value = `To find teachers, please select ${missing.join(' and ')}`
       return
@@ -186,11 +210,11 @@
     try {
       const { bookingApi } = await import('../services/bookingApi')
       const response = await bookingApi.evaluate({
-        subject_id: aiSubjectId.value!,
-        branch_id: aiBranchId.value!,
+        subject_id: selectedSubjectId.value!,
+        branch_id: selectedBranchId.value!,
         preferred_slots: aiTimeSlots.value,
         duration_minutes: 60,
-        preferred_teacher_id: aiTeacherId.value ?? undefined,
+        preferred_teacher_id: selectedTeacherId.value ?? undefined,
       })
 
       suggestions.value = response
@@ -216,21 +240,31 @@
     handleGetAISuggestions()
   }
 
-  watch(aiSubjectId, async (newSubjectId) => {
-    if (newSubjectId) {
-      aiFilteredTeachers.value = await getTeachersBySubject(newSubjectId)
-    } else {
-      aiFilteredTeachers.value = []
-    }
-    aiTeacherId.value = null
-  })
-
   initWatchers()
 </script>
 
 <template>
   <PageLayout title="Book a Session">
     <div class="booking-container">
+      <!-- Mobile Step Indicator -->
+      <div v-if="isMobile && aiMode === 'idle'" class="mobile-step-indicator">
+        <div
+          class="step-indicator"
+          :class="{ 'step-indicator--active': mobileStep === 'selection' }"
+        >
+          <span class="step-number">1</span>
+          <span class="step-label">Select</span>
+        </div>
+        <div class="step-connector"></div>
+        <div
+          class="step-indicator"
+          :class="{ 'step-indicator--active': mobileStep === 'calendar' }"
+        >
+          <span class="step-number">2</span>
+          <span class="step-label">Time</span>
+        </div>
+      </div>
+
       <!-- Technical watermark -->
       <div class="technical-watermark" aria-hidden="true">
         <div class="watermark-label">
@@ -242,41 +276,76 @@
 
       <div class="booking-layout" :class="{ 'booking-layout--split': aiMode !== 'idle' }">
         <!-- Calendar Section -->
-        <div class="calendar-section">
+        <div
+          class="calendar-section"
+          :class="{ 'calendar-section--hidden-mobile': isMobile && mobileStep === 'selection' }"
+        >
           <div class="section-header">
             <div class="header-title">
               <h2 class="title">Availability</h2>
               <p class="subtitle">Select your preferred time slot</p>
             </div>
-            <button
-              v-if="aiMode === 'idle'"
-              type="button"
-              class="ai-button"
-              aria-label="Open smart booking suggestions"
-              @click="openAIMode"
-            >
-              <span class="ai-button-text">Smart Suggestions</span>
-              <svg
-                class="ai-icon"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                aria-hidden="true"
+            <div class="header-actions">
+              <!-- Mobile: Edit Selection button -->
+              <button
+                v-if="isMobile && mobileStep === 'calendar' && aiMode === 'idle'"
+                type="button"
+                class="edit-selection-btn"
+                @click="backToSelection"
               >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="1.5"
-                  d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"
-                />
-              </svg>
-            </button>
+                <svg class="edit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
+                  />
+                </svg>
+                Edit Selection
+              </button>
+              <button
+                v-if="aiMode === 'idle' && (!isMobile || mobileStep === 'selection')"
+                type="button"
+                class="ai-button"
+                aria-label="Open smart booking suggestions"
+                @click="openAIMode"
+              >
+                <span class="ai-button-text">Smart Suggestions</span>
+                <svg
+                  class="ai-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.5"
+                    d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Mobile: Calendar hint -->
+          <div v-if="isMobile && mobileStep === 'calendar'" class="mobile-calendar-hint">
+            <svg class="hint-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"
+              />
+            </svg>
+            <span>Tap & drag on a time slot to select</span>
           </div>
 
           <div class="calendar-wrapper">
             <div class="calendar-inner">
               <Calendar
-                v-if="activeTab === 'manual' ? selectedSubjectId : aiSubjectId"
+                v-if="selectedSubjectId"
                 ref="calendarRef"
                 :model-value="events"
                 :additional-events="suggestionEvents"
@@ -293,10 +362,49 @@
               <CalendarDisabledOverlay v-else message="Select a subject to view availability" />
             </div>
           </div>
+
+          <!-- Mobile: Add to Cart section (shows after selecting time slots) -->
+          <div
+            v-if="isMobile && mobileStep === 'calendar' && events.length > 0"
+            class="mobile-add-to-cart"
+          >
+            <div class="mobile-slots-info">
+              <span class="mobile-slots-count">{{ events.length }}</span>
+              <span class="mobile-slots-label"
+                >slot{{ events.length > 1 ? 's' : '' }} selected</span
+              >
+            </div>
+            <button
+              type="button"
+              class="mobile-add-button"
+              :disabled="!selectedTeacherId"
+              @click="
+                events.forEach((e) => {
+                  const teacher = filteredTeachers.find((t) => t.id === selectedTeacherId)
+                  if (teacher) {
+                    addToCartDirectly(teacher.id, teacher.name, e.start as string, e.end as string)
+                  }
+                })
+              "
+            >
+              <svg class="mobile-add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 4.5v15m7.5-7.5h-15"
+                />
+              </svg>
+              <span>{{ selectedTeacherId ? 'Add to Cart' : 'Select a Teacher' }}</span>
+            </button>
+          </div>
         </div>
 
         <!-- Manual Booking Panel -->
-        <div v-if="aiMode === 'idle'" class="control-panel">
+        <div
+          v-if="aiMode === 'idle' && (!isMobile || mobileStep === 'selection')"
+          class="control-panel"
+        >
           <div class="panel-content">
             <!-- Selection Form -->
             <div class="selection-form">
@@ -365,6 +473,25 @@
                   </select>
                 </div>
               </div>
+
+              <!-- Mobile: View Availability button -->
+              <button
+                v-if="isMobile && mobileStep === 'selection'"
+                type="button"
+                class="view-availability-btn"
+                :disabled="!canProceedToCalendar"
+                @click="proceedToCalendar"
+              >
+                <span>View Availability</span>
+                <svg class="view-arrow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
+                  />
+                </svg>
+              </button>
             </div>
 
             <!-- Selected Slots Display -->
@@ -435,7 +562,7 @@
         </div>
 
         <!-- AI Panel (Split View) -->
-        <div v-else class="control-panel control-panel--ai">
+        <div v-if="aiMode !== 'idle'" class="control-panel control-panel--ai">
           <div class="panel-content panel-content--ai">
             <div class="ai-header">
               <div>
@@ -466,7 +593,7 @@
                 <label class="ai-label" for="ai-subject-select"
                   >Subject <span class="required">*</span></label
                 >
-                <select id="ai-subject-select" v-model="aiSubjectId" class="ai-select">
+                <select id="ai-subject-select" v-model="selectedSubjectId" class="ai-select">
                   <option :value="null">Select subject</option>
                   <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
                     {{ subject.name }}
@@ -585,8 +712,8 @@
                 >
                 <select
                   id="ai-branch-select"
-                  v-model="aiBranchId"
-                  :disabled="!aiSubjectId"
+                  v-model="selectedBranchId"
+                  :disabled="!selectedSubjectId"
                   class="ai-select"
                 >
                   <option :value="null">Select branch</option>
@@ -600,16 +727,12 @@
                 <label class="ai-label" for="ai-teacher-select">Teacher (Optional)</label>
                 <select
                   id="ai-teacher-select"
-                  v-model="aiTeacherId"
-                  :disabled="!aiSubjectId"
+                  v-model="selectedTeacherId"
+                  :disabled="!selectedSubjectId"
                   class="ai-select"
                 >
                   <option :value="null">Show all available teachers</option>
-                  <option
-                    v-for="teacher in aiFilteredTeachers"
-                    :key="teacher.id"
-                    :value="teacher.id"
-                  >
+                  <option v-for="teacher in filteredTeachers" :key="teacher.id" :value="teacher.id">
                     {{ teacher.name }}
                   </option>
                 </select>
@@ -619,7 +742,12 @@
                 ref="aiSubmitButtonRef"
                 type="button"
                 class="ai-submit"
-                :disabled="!aiSubjectId || !aiBranchId || aiTimeSlots.length === 0 || isEvaluating"
+                :disabled="
+                  !selectedSubjectId ||
+                  !selectedBranchId ||
+                  aiTimeSlots.length === 0 ||
+                  isEvaluating
+                "
                 :aria-busy="isEvaluating"
                 @click="handleGetAISuggestions"
               >

@@ -6,7 +6,9 @@ export interface CartItem {
   teacher_id: number
   teacher_name: string
   branch_id: number
+  branch_name: string
   subject_id: number
+  subject_name: string
   start_time: string
   end_time: string
   client_name: string

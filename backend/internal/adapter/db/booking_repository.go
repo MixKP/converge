@@ -23,40 +23,40 @@ func NewBookingRepository(database *sql.DB) *BookingRepo {
 }
 
 func (r *BookingRepo) FindExactMatch(ctx context.Context, subjectID, branchID int, slot models.WeeklySlot, durationMinutes int, teacherIDVal interface{}) (*ports.BookingMatch, error) {
+	loc, err := time.LoadLocation("Asia/Bangkok")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load timezone: %w", err)
+	}
+
 	duration := time.Duration(durationMinutes) * time.Minute
 
 	windowEnd := slot.End
 	if duration > 0 {
-		parsedStart, err := time.Parse("15:04", string(slot.Start))
+		parsedStart, err := time.ParseInLocation("15:04", string(slot.Start), loc)
 		if err != nil {
 			return nil, fmt.Errorf("invalid slot start time format: %w", err)
 		}
 		windowEnd = models.TimeHHMM(parsedStart.Add(duration).Format("15:04"))
 	}
-
-	loc, err := time.LoadLocation("Asia/Bangkok")
-	if err != nil {
-		return nil, fmt.Errorf("failed to load timezone: %w", err)
-	}
-	anchorDate := time.Date(2026, 6, 1, 0, 0, 0, 0, loc)
-	desiredWeekday := time.Weekday((slot.DayOfWeek + 1) % 7)
+	anchorDate := time.Now().In(loc).Truncate(24 * time.Hour)
+	desiredWeekday := time.Weekday(slot.DayOfWeek)
 	for anchorDate.Weekday() != desiredWeekday {
 		anchorDate = anchorDate.Add(24 * time.Hour)
 	}
-	parsedStart, err := time.Parse("15:04", string(slot.Start))
+	parsedStart, err := time.ParseInLocation("15:04", string(slot.Start), loc)
 	if err != nil {
 		return nil, fmt.Errorf("invalid slot start time format: %w", err)
 	}
-	startTS := anchorDate.Add(time.Duration(parsedStart.Hour())*time.Hour + time.Duration(parsedStart.Minute())*time.Minute)
+	startTS := time.Date(anchorDate.Year(), anchorDate.Month(), anchorDate.Day(), parsedStart.Hour(), parsedStart.Minute(), 0, 0, loc)
 	endTS := startTS
 	if duration > 0 {
 		endTS = endTS.Add(duration)
 	} else {
-		parsedEnd, err := time.Parse("15:04", string(slot.End))
+		parsedEnd, err := time.ParseInLocation("15:04", string(slot.End), loc)
 		if err != nil {
 			return nil, fmt.Errorf("invalid slot end time format: %w", err)
 		}
-		endTS = anchorDate.Add(time.Duration(parsedEnd.Hour())*time.Hour + time.Duration(parsedEnd.Minute())*time.Minute)
+		endTS = time.Date(anchorDate.Year(), anchorDate.Month(), anchorDate.Day(), parsedEnd.Hour(), parsedEnd.Minute(), 0, 0, loc)
 	}
 
 	row := r.DB.QueryRowContext(ctx, `
