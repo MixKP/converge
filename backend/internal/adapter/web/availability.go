@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -22,11 +23,12 @@ type teacherService interface {
 }
 
 type AvailabilityHandler struct {
-	svc teacherService
+	svc    teacherService
+	logger *slog.Logger
 }
 
-func NewAvailabilityHandler(svc teacherService) *AvailabilityHandler {
-	return &AvailabilityHandler{svc: svc}
+func NewAvailabilityHandler(svc teacherService, logger *slog.Logger) *AvailabilityHandler {
+	return &AvailabilityHandler{svc: svc, logger: logger}
 }
 
 // GetTeachers godoc
@@ -50,6 +52,7 @@ func (h *AvailabilityHandler) GetTeachers(c *gin.Context) {
 		}
 		teachers, err := h.svc.GetTeachersBySubject(c.Request.Context(), subjectID)
 		if err != nil {
+			h.logger.Error("get teachers by subject failed", "subject_id", subjectID, "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve teachers"})
 			return
 		}
@@ -59,6 +62,7 @@ func (h *AvailabilityHandler) GetTeachers(c *gin.Context) {
 
 	teachers, err := h.svc.GetActiveTeachers(c.Request.Context())
 	if err != nil {
+		h.logger.Error("get active teachers failed", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve teachers"})
 		return
 	}
@@ -77,6 +81,7 @@ func (h *AvailabilityHandler) GetTeachers(c *gin.Context) {
 func (h *AvailabilityHandler) GetAllAvailability(c *gin.Context) {
 	availability, err := h.svc.GetAllAvailability(c.Request.Context())
 	if err != nil {
+		h.logger.Error("get all availability failed", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve availability"})
 		return
 	}
@@ -95,6 +100,7 @@ func (h *AvailabilityHandler) GetAllAvailability(c *gin.Context) {
 func (h *AvailabilityHandler) GetBranches(c *gin.Context) {
 	branches, err := h.svc.GetBranches(c.Request.Context())
 	if err != nil {
+		h.logger.Error("get branches failed", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve branches"})
 		return
 	}
@@ -113,6 +119,7 @@ func (h *AvailabilityHandler) GetBranches(c *gin.Context) {
 func (h *AvailabilityHandler) GetSubjects(c *gin.Context) {
 	subjects, err := h.svc.GetSubjects(c.Request.Context())
 	if err != nil {
+		h.logger.Error("get subjects failed", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve subjects"})
 		return
 	}
@@ -146,6 +153,7 @@ func (h *AvailabilityHandler) SubmitWeeklyAvailability(c *gin.Context) {
 		if errors.As(err, &valErr) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		} else {
+			h.logger.Error("submit availability failed", "teacher_id", payload.TeacherID, "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save availability"})
 		}
 		return

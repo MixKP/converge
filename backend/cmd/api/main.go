@@ -6,7 +6,7 @@
 package main
 
 import (
-	"log"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -39,18 +39,21 @@ func corsConfig() cors.Config {
 }
 
 func main() {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+
 	database, err := db.InitDB()
 	if err != nil {
-		log.Fatalf("Database init failed: %v", err)
+		logger.Error("database init failed", "error", err)
+		os.Exit(1)
 	}
 	defer func() {
 		if err := db.CloseDB(database); err != nil {
-			log.Printf("Error closing database: %v", err)
+			logger.Error("closing database", "error", err)
 		}
 	}()
 
 	if err := db.AutoMigrate(database); err != nil {
-		log.Printf("Migration failed: %v", err)
+		logger.Error("auto migrate failed", "error", err)
 		return
 	}
 
@@ -58,13 +61,13 @@ func main() {
 	bookingRepo := db.NewBookingRepository(database)
 
 	scorer := scheduling.NewWeightedScorer()
-	clpEngine := scheduling.NewCLPEngine(bookingRepo, availRepo, scorer, &commute.Service{}, &room.Service{})
+	clpEngine := scheduling.NewCLPEngine(bookingRepo, availRepo, scorer, &commute.Service{}, &room.Service{}, logger)
 
 	schedulingSvc := scheduling.NewSchedulingService(bookingRepo, availRepo, clpEngine)
-	teacherSvc := teacher.NewService(availRepo)
+	teacherSvc := teacher.NewService(availRepo, logger)
 
-	availHandler := web.NewAvailabilityHandler(teacherSvc)
-	bookingHandler := web.NewBookingHandler(schedulingSvc)
+	availHandler := web.NewAvailabilityHandler(teacherSvc, logger)
+	bookingHandler := web.NewBookingHandler(schedulingSvc, logger)
 
 	r := gin.Default()
 	r.Use(cors.New(corsConfig()))
@@ -81,10 +84,8 @@ func main() {
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	log.Println("Server starting on :8080")
-	log.Println("API Documentation available on /swagger")
+	logger.Info("server starting", "addr", ":8080")
 	if err := r.Run(":8080"); err != nil {
-		log.Printf("Server failed: %v", err)
-		return
+		logger.Error("server failed", "error", err)
 	}
 }

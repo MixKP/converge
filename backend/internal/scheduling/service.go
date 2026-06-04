@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 
 	"github.com/RinZ5/converge/backend/internal/shared"
 )
@@ -60,8 +59,7 @@ func (s *SchedulingService) Evaluate(ctx context.Context, req BookingRequest) (*
 	for _, slot := range req.PreferredSlots {
 		match, err := s.bookingStore.FindExactMatch(ctx, req.SubjectID, req.BranchID, slot, req.DurationMinutes, teacherIDVal)
 		if err != nil {
-			log.Printf("SchedulingService.Evaluate: FindExactMatch error: %v", err)
-			return nil, err
+			return nil, fmt.Errorf("find exact match: %w", err)
 		}
 
 		if match != nil {
@@ -84,8 +82,7 @@ func (s *SchedulingService) Evaluate(ctx context.Context, req BookingRequest) (*
 
 		alternatives, err := s.engine.FindAlternativesForSlot(ctx, req, slot)
 		if err != nil {
-			log.Printf("SchedulingService.Evaluate: FindAlternatives error: %v", err)
-			return nil, err
+			return nil, fmt.Errorf("find alternatives for slot: %w", err)
 		}
 
 		msg := s.buildAlternativesMessage(alternatives)
@@ -131,7 +128,6 @@ func (s *SchedulingService) Confirm(ctx context.Context, req ConfirmBookingReque
 		if errors.Is(err, ErrBookingConflict) {
 			return nil, &ConflictError{Msg: "Teacher already has a booking in this time range"}
 		}
-		log.Printf("SchedulingService.Confirm: CreateBooking error: %v", err)
 		return nil, err
 	}
 	return booking, nil
@@ -146,8 +142,7 @@ func (s *SchedulingService) Cancel(ctx context.Context, bookingID int) error {
 		return &NotFoundError{Msg: fmt.Sprintf("booking %d not found", bookingID)}
 	}
 	if err != nil {
-		log.Printf("SchedulingService.Cancel: DeleteBooking error: %v", err)
-		return err
+		return fmt.Errorf("delete booking: %w", err)
 	}
 	return nil
 }
@@ -155,8 +150,7 @@ func (s *SchedulingService) Cancel(ctx context.Context, bookingID int) error {
 func (s *SchedulingService) ListAll(ctx context.Context) ([]Booking, error) {
 	bookings, err := s.bookingStore.FindAllBookings(ctx)
 	if err != nil {
-		log.Printf("SchedulingService.ListAll: error: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("find all bookings: %w", err)
 	}
 	return bookings, nil
 }

@@ -1,16 +1,6 @@
 basePath: /api
 definitions:
-  models.AvailabilityPayload:
-    properties:
-      teacher_id:
-        example: 42
-        type: integer
-      weekly:
-        items:
-          $ref: '#/definitions/models.WeeklySlot'
-        type: array
-    type: object
-  models.Booking:
+  scheduling.Booking:
     properties:
       branch_id:
         type: integer
@@ -29,7 +19,7 @@ definitions:
       teacher_id:
         type: integer
     type: object
-  models.BookingAlternative:
+  scheduling.BookingAlternative:
     properties:
       branch_id:
         type: integer
@@ -54,7 +44,7 @@ definitions:
       teacher_name:
         type: string
     type: object
-  models.BookingRequest:
+  scheduling.BookingRequest:
     properties:
       branch_id:
         example: 1
@@ -64,7 +54,7 @@ definitions:
         type: integer
       preferred_slots:
         items:
-          $ref: '#/definitions/models.WeeklySlot'
+          $ref: '#/definitions/shared.WeeklySlot'
         type: array
       preferred_teacher_id:
         example: 5
@@ -77,21 +67,14 @@ definitions:
     - preferred_slots
     - subject_id
     type: object
-  models.BookingResponse:
+  scheduling.BookingResponse:
     properties:
       results:
         items:
-          $ref: '#/definitions/models.SlotResult'
+          $ref: '#/definitions/scheduling.SlotResult'
         type: array
     type: object
-  models.Branch:
-    properties:
-      id:
-        type: integer
-      name:
-        type: string
-    type: object
-  models.ConfirmBookingRequest:
+  scheduling.ConfirmBookingRequest:
     properties:
       branch_id:
         example: 1
@@ -119,60 +102,46 @@ definitions:
     - subject_id
     - teacher_id
     type: object
-  models.ErrorResponse:
+  scheduling.ErrorResponse:
     properties:
       error:
         example: failed to retrieve teachers
         type: string
     type: object
-  models.MessageResponse:
+  scheduling.MessageResponse:
     properties:
       message:
         example: Availability saved successfully
         type: string
     type: object
-  models.SlotResult:
+  scheduling.SlotResult:
     properties:
       alternatives:
         items:
-          $ref: '#/definitions/models.BookingAlternative'
+          $ref: '#/definitions/scheduling.BookingAlternative'
         type: array
       exact_match:
-        $ref: '#/definitions/models.BookingAlternative'
+        $ref: '#/definitions/scheduling.BookingAlternative'
       message:
         type: string
       slot:
-        $ref: '#/definitions/models.WeeklySlot'
+        $ref: '#/definitions/shared.WeeklySlot'
     type: object
-  models.Subject:
+  shared.Branch:
     properties:
       id:
         type: integer
       name:
         type: string
     type: object
-  models.Teacher:
+  shared.Subject:
     properties:
-      email:
-        example: alice@example.com
-        type: string
       id:
-        example: 1
         type: integer
       name:
-        example: Alice
         type: string
     type: object
-  models.TeacherAvailability:
-    properties:
-      teacher:
-        $ref: '#/definitions/models.Teacher'
-      weekly:
-        items:
-          $ref: '#/definitions/models.WeeklySlot'
-        type: array
-    type: object
-  models.WeeklySlot:
+  shared.WeeklySlot:
     properties:
       day_of_week:
         description: 0=Monday ... 6=Sunday
@@ -184,6 +153,30 @@ definitions:
       start:
         example: "09:00"
         type: string
+    type: object
+  teacher.Teacher:
+    properties:
+      email:
+        example: alice@example.com
+        type: string
+      id:
+        example: 1
+        type: integer
+      name:
+        example: Alice
+        type: string
+      status:
+        example: active
+        type: string
+    type: object
+  teacher.TeacherAvailability:
+    properties:
+      teacher:
+        $ref: '#/definitions/teacher.Teacher'
+      weekly:
+        items:
+          $ref: '#/definitions/shared.WeeklySlot'
+        type: array
     type: object
 info:
   contact: {}
@@ -202,12 +195,12 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/models.TeacherAvailability'
+              $ref: '#/definitions/teacher.TeacherAvailability'
             type: array
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/models.ErrorResponse'
+            $ref: '#/definitions/scheduling.ErrorResponse'
       summary: Get all teacher availability
       tags:
       - availability
@@ -218,27 +211,28 @@ paths:
         weekly schedule (full replace, not merge). Rejects overlapping slots within
         the same day.
       parameters:
-      - description: 'Weekly availability payload. day_of_week: 0=Monday through 6=Sunday'
+      - description: Weekly availability payload
         in: body
         name: body
         required: true
         schema:
-          $ref: '#/definitions/models.AvailabilityPayload'
+          additionalProperties: true
+          type: object
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/models.MessageResponse'
+            $ref: '#/definitions/scheduling.MessageResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/models.ErrorResponse'
+            $ref: '#/definitions/scheduling.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/models.ErrorResponse'
+            $ref: '#/definitions/scheduling.ErrorResponse'
       summary: Submit weekly availability
       tags:
       - availability
@@ -252,12 +246,12 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/models.Booking'
+              $ref: '#/definitions/scheduling.Booking'
             type: array
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/models.ErrorResponse'
+            $ref: '#/definitions/scheduling.ErrorResponse'
       summary: List all confirmed bookings
       tags:
       - bookings
@@ -286,22 +280,22 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/models.BookingRequest'
+          $ref: '#/definitions/scheduling.BookingRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.BookingResponse'
+            $ref: '#/definitions/scheduling.BookingResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/models.ErrorResponse'
+            $ref: '#/definitions/scheduling.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/models.ErrorResponse'
+            $ref: '#/definitions/scheduling.ErrorResponse'
       summary: Evaluate a booking request
       tags:
       - bookings
@@ -318,19 +312,19 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.MessageResponse'
+            $ref: '#/definitions/scheduling.MessageResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/models.ErrorResponse'
+            $ref: '#/definitions/scheduling.ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/models.ErrorResponse'
+            $ref: '#/definitions/scheduling.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/models.ErrorResponse'
+            $ref: '#/definitions/scheduling.ErrorResponse'
       summary: Cancel a booking
       tags:
       - bookings
@@ -356,26 +350,26 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/models.ConfirmBookingRequest'
+          $ref: '#/definitions/scheduling.ConfirmBookingRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/models.Booking'
+            $ref: '#/definitions/scheduling.Booking'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/models.ErrorResponse'
+            $ref: '#/definitions/scheduling.ErrorResponse'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/models.ErrorResponse'
+            $ref: '#/definitions/scheduling.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/models.ErrorResponse'
+            $ref: '#/definitions/scheduling.ErrorResponse'
       summary: Confirm a booking
       tags:
       - bookings
@@ -389,12 +383,12 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/models.Branch'
+              $ref: '#/definitions/shared.Branch'
             type: array
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/models.ErrorResponse'
+            $ref: '#/definitions/scheduling.ErrorResponse'
       summary: List branches
       tags:
       - branches
@@ -408,12 +402,12 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/models.Subject'
+              $ref: '#/definitions/shared.Subject'
             type: array
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/models.ErrorResponse'
+            $ref: '#/definitions/scheduling.ErrorResponse'
       summary: List subjects
       tags:
       - subjects
@@ -433,16 +427,16 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/models.Teacher'
+              $ref: '#/definitions/teacher.Teacher'
             type: array
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/models.ErrorResponse'
+            $ref: '#/definitions/scheduling.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/models.ErrorResponse'
+            $ref: '#/definitions/scheduling.ErrorResponse'
       summary: List active teachers
       tags:
       - teachers

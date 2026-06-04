@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"log/slog"
 
 	"github.com/RinZ5/converge/backend/internal/shared"
 	"github.com/RinZ5/converge/backend/internal/teacher"
@@ -62,7 +63,7 @@ func TestGetTeachersSuccess(t *testing.T) {
 			{ID: 2, Name: "Bob", Email: "bob@test.com"},
 		},
 	}
-	handler := NewAvailabilityHandler(mock)
+	handler := NewAvailabilityHandler(mock, slog.Default())
 
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
@@ -83,7 +84,7 @@ func TestGetTeachersSuccess(t *testing.T) {
 
 func TestGetTeachersError(t *testing.T) {
 	mock := &mockService{getErr: assert.AnError}
-	handler := NewAvailabilityHandler(mock)
+	handler := NewAvailabilityHandler(mock, slog.Default())
 	r := gin.Default()
 	r.GET("/api/teachers", handler.GetTeachers)
 
@@ -95,7 +96,7 @@ func TestGetTeachersError(t *testing.T) {
 
 func TestSubmitWeeklyAvailabilitySuccess(t *testing.T) {
 	mock := &mockService{}
-	handler := NewAvailabilityHandler(mock)
+	handler := NewAvailabilityHandler(mock, slog.Default())
 
 	payload := map[string]interface{}{
 		"teacher_id": 42,
@@ -124,7 +125,7 @@ func TestSubmitWeeklyAvailabilityOverlap(t *testing.T) {
 			Msg: "overlapping slots on day 0: 09:00-11:00 and 10:30-12:00",
 		},
 	}
-	handler := NewAvailabilityHandler(mock)
+	handler := NewAvailabilityHandler(mock, slog.Default())
 
 	payload := map[string]interface{}{
 		"teacher_id": 1,
@@ -149,7 +150,7 @@ func TestSubmitWeeklyAvailabilityOverlap(t *testing.T) {
 
 func TestSubmitWeeklyAvailabilityInvalidJSON(t *testing.T) {
 	mock := &mockService{}
-	handler := NewAvailabilityHandler(mock)
+	handler := NewAvailabilityHandler(mock, slog.Default())
 	r := gin.Default()
 	r.POST("/api/availability", handler.SubmitWeeklyAvailability)
 
@@ -164,7 +165,7 @@ func TestSubmitWeeklyAvailabilityInvalidJSON(t *testing.T) {
 
 func TestSubmitWeeklyAvailabilityServiceError(t *testing.T) {
 	mock := &mockService{submitErr: assert.AnError}
-	handler := NewAvailabilityHandler(mock)
+	handler := NewAvailabilityHandler(mock, slog.Default())
 
 	payload := map[string]interface{}{
 		"teacher_id": 1,
@@ -189,7 +190,7 @@ func TestSubmitWeeklyAvailabilityServiceError(t *testing.T) {
 
 func TestSubmitWeeklyAvailabilityEmptyBody(t *testing.T) {
 	mock := &mockService{}
-	handler := NewAvailabilityHandler(mock)
+	handler := NewAvailabilityHandler(mock, slog.Default())
 
 	req := httptest.NewRequest(http.MethodPost, "/api/availability", bytes.NewReader([]byte{}))
 	req.Header.Set("Content-Type", "application/json")
@@ -208,7 +209,7 @@ func TestGetTeachersEmptyList(t *testing.T) {
 	mock := &mockService{
 		teachers: []teacher.Teacher{},
 	}
-	handler := NewAvailabilityHandler(mock)
+	handler := NewAvailabilityHandler(mock, slog.Default())
 
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
@@ -243,7 +244,7 @@ func TestGetAllAvailabilitySuccess(t *testing.T) {
 			},
 		},
 	}
-	handler := NewAvailabilityHandler(mock)
+	handler := NewAvailabilityHandler(mock, slog.Default())
 
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
@@ -266,7 +267,7 @@ func TestGetAllAvailabilitySuccess(t *testing.T) {
 
 func TestGetAllAvailabilityError(t *testing.T) {
 	mock := &mockService{availErr: assert.AnError}
-	handler := NewAvailabilityHandler(mock)
+	handler := NewAvailabilityHandler(mock, slog.Default())
 
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
@@ -284,7 +285,7 @@ func TestGetAllAvailabilityEmpty(t *testing.T) {
 	mock := &mockService{
 		availability: []teacher.TeacherAvailability{},
 	}
-	handler := NewAvailabilityHandler(mock)
+	handler := NewAvailabilityHandler(mock, slog.Default())
 
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
@@ -308,7 +309,7 @@ func TestGetTeachersBySubjectSuccess(t *testing.T) {
 			{ID: 3, Name: "Carol", Email: "carol@test.com"},
 		},
 	}
-	handler := NewAvailabilityHandler(mock)
+	handler := NewAvailabilityHandler(mock, slog.Default())
 
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
@@ -328,7 +329,7 @@ func TestGetTeachersBySubjectSuccess(t *testing.T) {
 
 func TestGetTeachersBySubjectInvalidID(t *testing.T) {
 	mock := &mockService{}
-	handler := NewAvailabilityHandler(mock)
+	handler := NewAvailabilityHandler(mock, slog.Default())
 
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
@@ -344,7 +345,7 @@ func TestGetTeachersBySubjectInvalidID(t *testing.T) {
 
 func TestGetTeachersBySubjectNegativeID(t *testing.T) {
 	mock := &mockService{}
-	handler := NewAvailabilityHandler(mock)
+	handler := NewAvailabilityHandler(mock, slog.Default())
 
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
@@ -360,7 +361,7 @@ func TestGetTeachersBySubjectNegativeID(t *testing.T) {
 
 func TestGetTeachersBySubjectError(t *testing.T) {
 	mock := &mockService{teachersBySubErr: assert.AnError}
-	handler := NewAvailabilityHandler(mock)
+	handler := NewAvailabilityHandler(mock, slog.Default())
 
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
@@ -381,7 +382,7 @@ func TestGetBranchesSuccess(t *testing.T) {
 			{ID: 2, Name: "Downtown"},
 		},
 	}
-	handler := NewAvailabilityHandler(mock)
+	handler := NewAvailabilityHandler(mock, slog.Default())
 
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
@@ -401,7 +402,7 @@ func TestGetBranchesSuccess(t *testing.T) {
 
 func TestGetBranchesError(t *testing.T) {
 	mock := &mockService{branchesErr: assert.AnError}
-	handler := NewAvailabilityHandler(mock)
+	handler := NewAvailabilityHandler(mock, slog.Default())
 
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
@@ -422,7 +423,7 @@ func TestGetSubjectsSuccess(t *testing.T) {
 			{ID: 2, Name: "Physics"},
 		},
 	}
-	handler := NewAvailabilityHandler(mock)
+	handler := NewAvailabilityHandler(mock, slog.Default())
 
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
@@ -442,7 +443,7 @@ func TestGetSubjectsSuccess(t *testing.T) {
 
 func TestGetSubjectsError(t *testing.T) {
 	mock := &mockService{subjectsErr: assert.AnError}
-	handler := NewAvailabilityHandler(mock)
+	handler := NewAvailabilityHandler(mock, slog.Default())
 
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()

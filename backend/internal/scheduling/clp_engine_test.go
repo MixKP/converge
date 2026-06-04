@@ -2,6 +2,7 @@ package scheduling
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -76,7 +77,7 @@ func TestCLPEngineTeacherWithoutSubjectReturnsEmpty(t *testing.T) {
 	bStore := new(mockCLPBookingStore)
 	tRoster := new(mockCLPTeacherRoster)
 	scorer := new(mockCLPScorer)
-	engine := NewCLPEngine(bStore, tRoster, scorer, nil, nil)
+	engine := NewCLPEngine(bStore, tRoster, scorer, nil, nil, slog.Default())
 
 	tRoster.On("TeachersBySubject", mock.Anything, 1).Return([]TeacherInfo{}, nil)
 
@@ -91,7 +92,7 @@ func TestCLPEngineTeacherWithConflictPruned(t *testing.T) {
 	bStore := new(mockCLPBookingStore)
 	tRoster := new(mockCLPTeacherRoster)
 	scorer := new(mockCLPScorer)
-	engine := NewCLPEngine(bStore, tRoster, scorer, nil, nil)
+	engine := NewCLPEngine(bStore, tRoster, scorer, nil, nil, slog.Default())
 
 	teacher := TeacherInfo{ID: 1, Name: "Alice"}
 	tRoster.On("TeachersBySubject", mock.Anything, 1).Return([]TeacherInfo{teacher}, nil)
@@ -114,7 +115,7 @@ func TestCLPEngineNoConflictCandidateScored(t *testing.T) {
 	bStore := new(mockCLPBookingStore)
 	tRoster := new(mockCLPTeacherRoster)
 	scorer := new(mockCLPScorer)
-	engine := NewCLPEngine(bStore, tRoster, scorer, nil, nil)
+	engine := NewCLPEngine(bStore, tRoster, scorer, nil, nil, slog.Default())
 
 	teacher := TeacherInfo{ID: 1, Name: "Alice"}
 	tRoster.On("TeachersBySubject", mock.Anything, 1).Return([]TeacherInfo{teacher}, nil)
@@ -141,7 +142,7 @@ func TestCLPEngineReturnsTop3ByScore(t *testing.T) {
 	bStore := new(mockCLPBookingStore)
 	tRoster := new(mockCLPTeacherRoster)
 	scorer := new(mockCLPScorer)
-	engine := NewCLPEngine(bStore, tRoster, scorer, nil, nil)
+	engine := NewCLPEngine(bStore, tRoster, scorer, nil, nil, slog.Default())
 
 	teachers := []TeacherInfo{
 		{ID: 1, Name: "Alice"},

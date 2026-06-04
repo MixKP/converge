@@ -57,8 +57,8 @@ func (s *WeightedScorer) scoreTimeProximity(candidate ScorableCandidate) (int, s
 
 	candStart := timeOfDay(candidate.StartTime)
 	candEnd := timeOfDay(candidate.EndTime)
-	winStart := parseTimeHHMM(matched.Start)
-	winEnd := parseTimeHHMM(matched.End)
+	winStart := shared.ParseTimeHHMM(matched.Start)
+	winEnd := shared.ParseTimeHHMM(matched.End)
 
 	if (candStart.Equal(winStart) || candStart.After(winStart)) && (candEnd.Equal(winEnd) || candEnd.Before(winEnd)) {
 		return s.TimeWeight, "Inside preferred window"
@@ -94,8 +94,8 @@ func (s *WeightedScorer) scoreAvailabilityFit(candidate ScorableCandidate) (int,
 			continue
 		}
 
-		availStart := parseTimeHHMM(slot.Start)
-		availEnd := parseTimeHHMM(slot.End)
+		availStart := shared.ParseTimeHHMM(slot.Start)
+		availEnd := shared.ParseTimeHHMM(slot.End)
 
 		if (proposedStart.Equal(availStart) || proposedStart.After(availStart)) && (proposedEnd.Equal(availEnd) || proposedEnd.Before(availEnd)) {
 			marginBefore := float64(proposedStart.Sub(availStart).Minutes())
@@ -122,22 +122,6 @@ func (s *WeightedScorer) scoreAvailabilityFit(candidate ScorableCandidate) (int,
 
 func timeOfDay(t time.Time) time.Time {
 	return time.Date(0, 1, 1, t.Hour(), t.Minute(), 0, 0, time.UTC)
-}
-
-func parseTimeHHMM(t shared.TimeHHMM) time.Time {
-	parsed, err := time.Parse("15:04", string(t))
-	if err != nil {
-		return time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC)
-	}
-	return time.Date(0, 1, 1, parsed.Hour(), parsed.Minute(), 0, 0, time.UTC)
-}
-
-func parseTimeHHMMInLocation(t models.TimeHHMM, loc *time.Location) time.Time {
-	parsed, err := time.ParseInLocation("15:04", string(t), loc)
-	if err != nil {
-		return time.Date(0, 1, 1, 0, 0, 0, 0, loc)
-	}
-	return parsed
 }
 
 func appendReason(reasons []string, reason string) []string {

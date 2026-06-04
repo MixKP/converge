@@ -31,14 +31,14 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/models.TeacherAvailability"
+                                "$ref": "#/definitions/teacher.TeacherAvailability"
                             }
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.ErrorResponse"
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
                         }
                     }
                 }
@@ -57,12 +57,13 @@ const docTemplate = `{
                 "summary": "Submit weekly availability",
                 "parameters": [
                     {
-                        "description": "Weekly availability payload. day_of_week: 0=Monday through 6=Sunday",
+                        "description": "Weekly availability payload",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.AvailabilityPayload"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 ],
@@ -70,19 +71,19 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/models.MessageResponse"
+                            "$ref": "#/definitions/scheduling.MessageResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.ErrorResponse"
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.ErrorResponse"
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
                         }
                     }
                 }
@@ -104,14 +105,14 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/models.Booking"
+                                "$ref": "#/definitions/scheduling.Booking"
                             }
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.ErrorResponse"
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
                         }
                     }
                 }
@@ -135,7 +136,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.BookingRequest"
+                            "$ref": "#/definitions/scheduling.BookingRequest"
                         }
                     }
                 ],
@@ -143,19 +144,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.BookingResponse"
+                            "$ref": "#/definitions/scheduling.BookingResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.ErrorResponse"
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.ErrorResponse"
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
                         }
                     }
                 }
@@ -181,7 +182,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.ConfirmBookingRequest"
+                            "$ref": "#/definitions/scheduling.ConfirmBookingRequest"
                         }
                     }
                 ],
@@ -189,25 +190,25 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/models.Booking"
+                            "$ref": "#/definitions/scheduling.Booking"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.ErrorResponse"
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/models.ErrorResponse"
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.ErrorResponse"
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
                         }
                     }
                 }
@@ -233,25 +234,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.MessageResponse"
+                            "$ref": "#/definitions/scheduling.MessageResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.ErrorResponse"
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/models.ErrorResponse"
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.ErrorResponse"
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
                         }
                     }
                 }
@@ -273,14 +274,14 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/models.Branch"
+                                "$ref": "#/definitions/shared.Branch"
                             }
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.ErrorResponse"
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
                         }
                     }
                 }
@@ -302,14 +303,14 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/models.Subject"
+                                "$ref": "#/definitions/shared.Subject"
                             }
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.ErrorResponse"
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
                         }
                     }
                 }
@@ -339,20 +340,20 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/models.Teacher"
+                                "$ref": "#/definitions/teacher.Teacher"
                             }
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/models.ErrorResponse"
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/models.ErrorResponse"
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
                         }
                     }
                 }
@@ -360,22 +361,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "models.AvailabilityPayload": {
-            "type": "object",
-            "properties": {
-                "teacher_id": {
-                    "type": "integer",
-                    "example": 42
-                },
-                "weekly": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.WeeklySlot"
-                    }
-                }
-            }
-        },
-        "models.Booking": {
+        "scheduling.Booking": {
             "type": "object",
             "properties": {
                 "branch_id": {
@@ -404,7 +390,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.BookingAlternative": {
+        "scheduling.BookingAlternative": {
             "type": "object",
             "properties": {
                 "branch_id": {
@@ -442,7 +428,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.BookingRequest": {
+        "scheduling.BookingRequest": {
             "type": "object",
             "required": [
                 "branch_id",
@@ -461,7 +447,7 @@ const docTemplate = `{
                 "preferred_slots": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.WeeklySlot"
+                        "$ref": "#/definitions/shared.WeeklySlot"
                     }
                 },
                 "preferred_teacher_id": {
@@ -474,29 +460,18 @@ const docTemplate = `{
                 }
             }
         },
-        "models.BookingResponse": {
+        "scheduling.BookingResponse": {
             "type": "object",
             "properties": {
                 "results": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.SlotResult"
+                        "$ref": "#/definitions/scheduling.SlotResult"
                     }
                 }
             }
         },
-        "models.Branch": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "integer"
-                },
-                "name": {
-                    "type": "string"
-                }
-            }
-        },
-        "models.ConfirmBookingRequest": {
+        "scheduling.ConfirmBookingRequest": {
             "type": "object",
             "required": [
                 "branch_id",
@@ -533,7 +508,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.ErrorResponse": {
+        "scheduling.ErrorResponse": {
             "type": "object",
             "properties": {
                 "error": {
@@ -542,7 +517,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.MessageResponse": {
+        "scheduling.MessageResponse": {
             "type": "object",
             "properties": {
                 "message": {
@@ -551,27 +526,27 @@ const docTemplate = `{
                 }
             }
         },
-        "models.SlotResult": {
+        "scheduling.SlotResult": {
             "type": "object",
             "properties": {
                 "alternatives": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.BookingAlternative"
+                        "$ref": "#/definitions/scheduling.BookingAlternative"
                     }
                 },
                 "exact_match": {
-                    "$ref": "#/definitions/models.BookingAlternative"
+                    "$ref": "#/definitions/scheduling.BookingAlternative"
                 },
                 "message": {
                     "type": "string"
                 },
                 "slot": {
-                    "$ref": "#/definitions/models.WeeklySlot"
+                    "$ref": "#/definitions/shared.WeeklySlot"
                 }
             }
         },
-        "models.Subject": {
+        "shared.Branch": {
             "type": "object",
             "properties": {
                 "id": {
@@ -582,38 +557,18 @@ const docTemplate = `{
                 }
             }
         },
-        "models.Teacher": {
+        "shared.Subject": {
             "type": "object",
             "properties": {
-                "email": {
-                    "type": "string",
-                    "example": "alice@example.com"
-                },
                 "id": {
-                    "type": "integer",
-                    "example": 1
+                    "type": "integer"
                 },
                 "name": {
-                    "type": "string",
-                    "example": "Alice"
+                    "type": "string"
                 }
             }
         },
-        "models.TeacherAvailability": {
-            "type": "object",
-            "properties": {
-                "teacher": {
-                    "$ref": "#/definitions/models.Teacher"
-                },
-                "weekly": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.WeeklySlot"
-                    }
-                }
-            }
-        },
-        "models.WeeklySlot": {
+        "shared.WeeklySlot": {
             "type": "object",
             "properties": {
                 "day_of_week": {
@@ -628,6 +583,41 @@ const docTemplate = `{
                 "start": {
                     "type": "string",
                     "example": "09:00"
+                }
+            }
+        },
+        "teacher.Teacher": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "alice@example.com"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Alice"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "active"
+                }
+            }
+        },
+        "teacher.TeacherAvailability": {
+            "type": "object",
+            "properties": {
+                "teacher": {
+                    "$ref": "#/definitions/teacher.Teacher"
+                },
+                "weekly": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/shared.WeeklySlot"
+                    }
                 }
             }
         }

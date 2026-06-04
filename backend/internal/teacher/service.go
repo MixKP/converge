@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"sort"
 	"strconv"
 
@@ -12,11 +12,12 @@ import (
 )
 
 type Service struct {
-	store Store
+	store  Store
+	logger *slog.Logger
 }
 
-func NewService(store Store) *Service {
-	return &Service{store: store}
+func NewService(store Store, logger *slog.Logger) *Service {
+	return &Service{store: store, logger: logger}
 }
 
 func (s *Service) AddTeacher(ctx context.Context, name, email string) (*Teacher, error) {
@@ -51,29 +52,26 @@ func (s *Service) SubmitWeeklyAvailability(ctx context.Context, teacherID int, s
 	if err := validateAvailabilityPayload(teacherID, slots); err != nil {
 		return err
 	}
+
+	if err := s.store.ReplaceWeeklyAvailability(ctx, teacherID, slots); err != nil {
+		return fmt.Errorf("replace availability: %w", err)
+	}
+
 	rawJSON, err := json.Marshal(map[string]interface{}{
 		"teacher_id": teacherID,
 		"weekly":     slots,
 	})
 	if err != nil {
-		log.Printf("Warning: failed to marshal payload for audit log: %v", err)
+		s.logger.Warn("failed to marshal audit payload", slog.Int("teacher_id", teacherID), slog.String("error", err.Error()))
+		return nil
 	}
-	if err := s.store.ReplaceWeeklyAvailability(ctx, teacherID, slots); err != nil {
-		return err
-	}
-	if rawJSON != nil {
-		if err := s.store.SaveRawSubmission(ctx, teacherID, rawJSON); err != nil {
-			log.Printf("Warning: failed to save submission audit log: %v", err)
-		}
+	if err := s.store.SaveRawSubmission(ctx, teacherID, rawJSON); err != nil {
+		s.logger.Warn("failed to save submission audit log", slog.Int("teacher_id", teacherID), slog.String("error", err.Error()))
 	}
 	return nil
 }
 
-type ValidationError struct {
-	Msg string
-}
-
-func (e *ValidationError) Error() string { return e.Msg }
+type ValidationError = shared.ValidationError
 
 func validateAvailabilityPayload(teacherID int, slots []shared.WeeklySlot) error {
 	if teacherID <= 0 {

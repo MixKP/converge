@@ -67,9 +67,9 @@ func TestScorerNearWindowReturnsNearScore(t *testing.T) {
 	candidate.StartTime = candidate.StartTime.Add(10 * time.Minute)
 	candidate.EndTime = candidate.EndTime.Add(10 * time.Minute)
 
-	scorer.Score(context.Background(), candidate)
-
-	assert.Contains(t, candidate.MatchedSlot.Start, "1") // just basic assertion
+	result := scorer.Score(context.Background(), candidate)
+	assert.Less(t, result.Score, 100)
+	assert.Contains(t, result.Reasons[1], "Near window")
 }
 
 func TestScorerFarFromWindowReturnsFarScore(t *testing.T) {
@@ -81,7 +81,8 @@ func TestScorerFarFromWindowReturnsFarScore(t *testing.T) {
 	candidate.StartTime = candidate.StartTime.Add(5 * time.Hour)
 	candidate.EndTime = candidate.EndTime.Add(5 * time.Hour)
 
-	scorer.Score(context.Background(), candidate)
+	result := scorer.Score(context.Background(), candidate)
+	assert.Less(t, result.Score, 50)
 }
 
 func TestScorerWideAvailabilityFitHighFitScore(t *testing.T) {

@@ -3,7 +3,7 @@ package web
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -20,11 +20,12 @@ type bookingService interface {
 }
 
 type BookingHandler struct {
-	svc bookingService
+	svc    bookingService
+	logger *slog.Logger
 }
 
-func NewBookingHandler(svc bookingService) *BookingHandler {
-	return &BookingHandler{svc: svc}
+func NewBookingHandler(svc bookingService, logger *slog.Logger) *BookingHandler {
+	return &BookingHandler{svc: svc, logger: logger}
 }
 
 // CreateBooking godoc
@@ -66,7 +67,7 @@ func (h *BookingHandler) CreateBooking(c *gin.Context) {
 		if errors.As(err, &valErr) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		} else {
-			log.Printf("BookingHandler.CreateBooking: Evaluate error: %v", err)
+			h.logger.Error("booking evaluate failed", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to evaluate booking"})
 		}
 		return
@@ -114,7 +115,7 @@ func (h *BookingHandler) ConfirmBooking(c *gin.Context) {
 		} else if errors.As(err, &confErr) {
 			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 		} else {
-			log.Printf("BookingHandler.ConfirmBooking: Confirm error: %v", err)
+			h.logger.Error("booking confirm failed", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to confirm booking"})
 		}
 		return
@@ -150,7 +151,7 @@ func (h *BookingHandler) CancelBooking(c *gin.Context) {
 		} else if errors.As(err, &notFoundErr) {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		} else {
-			log.Printf("BookingHandler.CancelBooking: Cancel error: %v", err)
+			h.logger.Error("booking cancel failed", "booking_id", id, "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to cancel booking"})
 		}
 		return
@@ -171,7 +172,7 @@ func (h *BookingHandler) CancelBooking(c *gin.Context) {
 func (h *BookingHandler) ListBookings(c *gin.Context) {
 	bookings, err := h.svc.ListAll(c.Request.Context())
 	if err != nil {
-		log.Printf("BookingHandler.ListBookings: error: %v", err)
+		h.logger.Error("list bookings failed", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list bookings"})
 		return
 	}

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"log/slog"
 	"time"
 
 	"github.com/RinZ5/converge/backend/internal/scheduling"
@@ -64,7 +65,7 @@ func TestCreateBookingExactMatch(t *testing.T) {
 			}},
 		},
 	}
-	handler := NewBookingHandler(mock)
+	handler := NewBookingHandler(mock, slog.Default())
 
 	payload := scheduling.BookingRequest{
 		SubjectID:       3,
@@ -114,7 +115,7 @@ func TestCreateBookingAlternatives(t *testing.T) {
 			}},
 		},
 	}
-	handler := NewBookingHandler(mock)
+	handler := NewBookingHandler(mock, slog.Default())
 
 	payload := scheduling.BookingRequest{
 		SubjectID:       3,
@@ -152,7 +153,7 @@ func TestCreateBookingEmptyAlternatives(t *testing.T) {
 			}},
 		},
 	}
-	handler := NewBookingHandler(mock)
+	handler := NewBookingHandler(mock, slog.Default())
 
 	payload := scheduling.BookingRequest{
 		SubjectID:       3,
@@ -179,7 +180,7 @@ func TestCreateBookingValidationError(t *testing.T) {
 	mock := &mockBookingSvc{
 		evalErr: &scheduling.ValidationError{Msg: "preferred_slots must not be empty"},
 	}
-	handler := NewBookingHandler(mock)
+	handler := NewBookingHandler(mock, slog.Default())
 
 	payload := scheduling.BookingRequest{
 		SubjectID: 0,
@@ -201,7 +202,7 @@ func TestCreateBookingValidationError(t *testing.T) {
 
 func TestCreateBookingInvalidJSON(t *testing.T) {
 	mock := &mockBookingSvc{}
-	handler := NewBookingHandler(mock)
+	handler := NewBookingHandler(mock, slog.Default())
 
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
@@ -217,7 +218,7 @@ func TestCreateBookingInvalidJSON(t *testing.T) {
 
 func TestCreateBookingServiceError(t *testing.T) {
 	mock := &mockBookingSvc{evalErr: assert.AnError}
-	handler := NewBookingHandler(mock)
+	handler := NewBookingHandler(mock, slog.Default())
 
 	payload := scheduling.BookingRequest{
 		SubjectID:       3,
@@ -259,7 +260,7 @@ func TestCreateBookingOptionalPreferredTeacher(t *testing.T) {
 			}},
 		},
 	}
-	handler := NewBookingHandler(mock)
+	handler := NewBookingHandler(mock, slog.Default())
 
 	preferredTeacher := 5
 	payload := scheduling.BookingRequest{
@@ -299,7 +300,7 @@ func TestConfirmBookingSuccess(t *testing.T) {
 			ClientName: "John Doe",
 		},
 	}
-	handler := NewBookingHandler(mock)
+	handler := NewBookingHandler(mock, slog.Default())
 
 	payload := scheduling.ConfirmBookingRequest{
 		TeacherID:  1,
@@ -333,7 +334,7 @@ func TestConfirmBookingValidationError(t *testing.T) {
 	mock := &mockBookingSvc{
 		confErr: &scheduling.ValidationError{Msg: "client_name must not be empty"},
 	}
-	handler := NewBookingHandler(mock)
+	handler := NewBookingHandler(mock, slog.Default())
 
 	payload := scheduling.ConfirmBookingRequest{
 		TeacherID: 1,
@@ -358,7 +359,7 @@ func TestConfirmBookingValidationError(t *testing.T) {
 
 func TestConfirmBookingServiceError(t *testing.T) {
 	mock := &mockBookingSvc{confErr: assert.AnError}
-	handler := NewBookingHandler(mock)
+	handler := NewBookingHandler(mock, slog.Default())
 
 	payload := scheduling.ConfirmBookingRequest{
 		TeacherID:  1,
@@ -385,7 +386,7 @@ func TestConfirmBookingServiceError(t *testing.T) {
 
 func TestCancelBookingSuccess(t *testing.T) {
 	mock := &mockBookingSvc{}
-	handler := NewBookingHandler(mock)
+	handler := NewBookingHandler(mock, slog.Default())
 
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
@@ -403,7 +404,7 @@ func TestCancelBookingNotFound(t *testing.T) {
 	mock := &mockBookingSvc{
 		cancelErr: &scheduling.NotFoundError{Msg: "booking 999 not found"},
 	}
-	handler := NewBookingHandler(mock)
+	handler := NewBookingHandler(mock, slog.Default())
 
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
@@ -419,7 +420,7 @@ func TestCancelBookingNotFound(t *testing.T) {
 
 func TestCancelBookingInvalidID(t *testing.T) {
 	mock := &mockBookingSvc{}
-	handler := NewBookingHandler(mock)
+	handler := NewBookingHandler(mock, slog.Default())
 
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
@@ -435,7 +436,7 @@ func TestCancelBookingInvalidID(t *testing.T) {
 
 func TestCancelBookingServiceError(t *testing.T) {
 	mock := &mockBookingSvc{cancelErr: assert.AnError}
-	handler := NewBookingHandler(mock)
+	handler := NewBookingHandler(mock, slog.Default())
 
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
@@ -456,7 +457,7 @@ func TestListBookingsSuccess(t *testing.T) {
 			{ID: 2, TeacherID: 2, ClientName: "Jane Doe", StartTime: time.Date(2026, 6, 2, 10, 0, 0, 0, time.UTC), EndTime: time.Date(2026, 6, 2, 11, 0, 0, 0, time.UTC)},
 		},
 	}
-	handler := NewBookingHandler(mock)
+	handler := NewBookingHandler(mock, slog.Default())
 
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
@@ -477,7 +478,7 @@ func TestListBookingsSuccess(t *testing.T) {
 
 func TestListBookingsEmpty(t *testing.T) {
 	mock := &mockBookingSvc{listAll: []scheduling.Booking{}}
-	handler := NewBookingHandler(mock)
+	handler := NewBookingHandler(mock, slog.Default())
 
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
@@ -493,7 +494,7 @@ func TestListBookingsEmpty(t *testing.T) {
 
 func TestListBookingsServiceError(t *testing.T) {
 	mock := &mockBookingSvc{listErr: assert.AnError}
-	handler := NewBookingHandler(mock)
+	handler := NewBookingHandler(mock, slog.Default())
 
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()

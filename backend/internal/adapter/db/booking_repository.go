@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-var ErrBookingConflict = errors.New("booking conflict: teacher already has a booking in this time range")
+const pgExclusionViolation = "23P01"
 
 type BookingRepo struct {
 	DB *sql.DB
@@ -33,13 +33,13 @@ func (r *BookingRepo) FindExactMatch(ctx context.Context, subjectID, branchID in
 		}
 		windowEnd = shared.TimeHHMM(parsedStart.Add(duration).Format("15:04"))
 	}
-	now := time.Now().In(loc)
-	anchorDate := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
-	desiredWeekday := time.Weekday(slot.DayOfWeek)
-	for anchorDate.Weekday() != desiredWeekday {
-		anchorDate = anchorDate.Add(24 * time.Hour)
+
+	loc, err := time.LoadLocation("Asia/Bangkok")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load timezone: %w", err)
 	}
-	parsedStart, err := time.ParseInLocation("15:04", string(slot.Start), loc)
+	anchorDate := shared.AnchorDateForDay(slot.DayOfWeek, loc)
+	parsedStart, err := time.Parse("15:04", string(slot.Start))
 	if err != nil {
 		return nil, fmt.Errorf("invalid slot start time format: %w", err)
 	}
@@ -88,30 +88,6 @@ func (r *BookingRepo) FindExactMatch(ctx context.Context, subjectID, branchID in
 
 	booking.ID = bid
 	return &scheduling.BookingMatch{Booking: booking, TeacherName: name}, nil
-}
-
-func (r *BookingRepo) FindTeachersBySubject(ctx context.Context, subjectID int) ([]scheduling.TeacherInfo, error) {
-	rows, err := r.DB.QueryContext(ctx, `
-		SELECT t.id, t.name, t.email
-		FROM teachers t
-		JOIN teacher_subjects ts ON t.id = ts.teacher_id
-		WHERE ts.subject_id = $1 AND t.status = 'active'
-		ORDER BY t.name`, subjectID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var teachers []scheduling.TeacherInfo
-	for rows.Next() {
-		var tc scheduling.TeacherInfo
-		var email string
-		if err := rows.Scan(&tc.ID, &tc.Name, &email); err != nil {
-			return nil, err
-		}
-		teachers = append(teachers, tc)
-	}
-	return teachers, rows.Err()
 }
 
 func (r *BookingRepo) FindConflictingBookings(ctx context.Context, teacherID int, startTime, endTime time.Time) ([]scheduling.Booking, error) {
@@ -172,8 +148,8 @@ func (r *BookingRepo) CreateBooking(ctx context.Context, req scheduling.ConfirmB
 	if err := row.Scan(&b.ID, &b.TeacherID, &b.BranchID, &b.SubjectID,
 		&b.StartTime, &b.EndTime, &b.ClientName, &b.CreatedAt); err != nil {
 		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23P01" {
-			return nil, ErrBookingConflict
+		if errors.As(err, &pgErr) && pgErr.Code == pgExclusionViolation {
+			return nil, scheduling.ErrBookingConflict
 		}
 		return nil, err
 	}
