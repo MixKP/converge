@@ -1,61 +1,15 @@
-package models
+package scheduling
 
 import (
-	"encoding/json"
-	"fmt"
 	"time"
+
+	"github.com/RinZ5/converge/backend/internal/shared"
 )
 
-type TimeHHMM string
-
-func (t *TimeHHMM) UnmarshalJSON(b []byte) error {
-	var s string
-	if err := json.Unmarshal(b, &s); err != nil {
-		return err
-	}
-	parsed, err := time.Parse("15:04", s)
-	if err != nil {
-		return fmt.Errorf("invalid time format %q, expected HH:MM", s)
-	}
-	*t = TimeHHMM(parsed.Format("15:04"))
-	return nil
-}
-
-func (t TimeHHMM) MarshalJSON() ([]byte, error) {
-	return json.Marshal(string(t))
-}
-
-type Teacher struct {
-	ID    int    `json:"id"    example:"1"`
-	Name  string `json:"name"  example:"Alice"`
-	Email string `json:"email" example:"alice@example.com"`
-}
-
-type TeacherAvailability struct {
-	Teacher Teacher      `json:"teacher"`
-	Weekly  []WeeklySlot `json:"weekly"`
-}
-
-type WeeklySlot struct {
-	DayOfWeek int      `json:"day_of_week" example:"0"` // 0=Monday ... 6=Sunday
-	Start     TimeHHMM `json:"start"       example:"09:00"`
-	End       TimeHHMM `json:"end"         example:"10:00"`
-}
-
-type AvailabilityPayload struct {
-	TeacherID int          `json:"teacher_id" example:"42"`
-	Weekly    []WeeklySlot `json:"weekly"`
-}
-
-type Subject struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
-}
-
-type Branch struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
-}
+type TimeHHMM = shared.TimeHHMM
+type WeeklySlot = shared.WeeklySlot
+type Branch = shared.Branch
+type Subject = shared.Subject
 
 type Booking struct {
 	ID         int       `json:"id"`
@@ -69,11 +23,11 @@ type Booking struct {
 }
 
 type BookingRequest struct {
-	SubjectID          int          `json:"subject_id"          binding:"required" example:"1"`
-	BranchID           int          `json:"branch_id"           binding:"required" example:"1"`
-	PreferredSlots     []WeeklySlot `json:"preferred_slots"     binding:"required"`
-	DurationMinutes    int          `json:"duration_minutes,omitempty" example:"60"`
-	PreferredTeacherID *int         `json:"preferred_teacher_id,omitempty" example:"5"`
+	SubjectID          int                 `json:"subject_id"          binding:"required" example:"1"`
+	BranchID           int                 `json:"branch_id"           binding:"required" example:"1"`
+	PreferredSlots     []shared.WeeklySlot `json:"preferred_slots"     binding:"required"`
+	DurationMinutes    int                 `json:"duration_minutes,omitempty" example:"60"`
+	PreferredTeacherID *int                `json:"preferred_teacher_id,omitempty" example:"5"`
 }
 
 type ConfirmBookingRequest struct {
@@ -99,7 +53,7 @@ type BookingAlternative struct {
 }
 
 type SlotResult struct {
-	Slot         WeeklySlot           `json:"slot"`
+	Slot         shared.WeeklySlot    `json:"slot"`
 	ExactMatch   *BookingAlternative  `json:"exact_match,omitempty"`
 	Alternatives []BookingAlternative `json:"alternatives,omitempty"`
 	Message      string               `json:"message"`
@@ -107,6 +61,30 @@ type SlotResult struct {
 
 type BookingResponse struct {
 	Results []SlotResult `json:"results"`
+}
+
+type BookingMatch struct {
+	Booking     Booking
+	TeacherName string
+}
+
+type ScorableCandidate struct {
+	Teacher           TeacherInfo
+	StartTime         time.Time
+	EndTime           time.Time
+	Request           BookingRequest
+	AvailabilitySlots []shared.WeeklySlot
+	MatchedSlot       shared.WeeklySlot
+}
+
+type ScoreResult struct {
+	Score   int
+	Reasons []string
+}
+
+type TeacherInfo struct {
+	ID   int
+	Name string
 }
 
 type MessageResponse struct {

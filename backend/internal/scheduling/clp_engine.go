@@ -1,4 +1,4 @@
-package service
+package scheduling
 
 import (
 	"context"
@@ -6,36 +6,37 @@ import (
 	"sort"
 	"time"
 
-	"github.com/RinZ5/converge/backend/internal/core/models"
-	"github.com/RinZ5/converge/backend/internal/core/ports"
+	"github.com/RinZ5/converge/backend/internal/shared"
 )
 
 type CLPEngine struct {
-	repo            ports.BookingRepository
-	scorer          ports.Scorer
-	resourceChecker ports.ResourceChecker
-	commuteCalc     ports.CommuteCalculator
+	bookingStore BookingStore
+	teacherRoster TeacherRoster
+	scorer       Scorer
+	commute      CommuteEstimate
+	room         RoomCheck
 }
 
-func NewCLPEngine(repo ports.BookingRepository, scorer ports.Scorer, rc ports.ResourceChecker, cc ports.CommuteCalculator) *CLPEngine {
+func NewCLPEngine(bookingStore BookingStore, teacherRoster TeacherRoster, scorer Scorer, commute CommuteEstimate, room RoomCheck) *CLPEngine {
 	return &CLPEngine{
-		repo:            repo,
-		scorer:          scorer,
-		resourceChecker: rc,
-		commuteCalc:     cc,
+		bookingStore:  bookingStore,
+		teacherRoster: teacherRoster,
+		scorer:        scorer,
+		commute:       commute,
+		room:          room,
 	}
 }
 
-func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req models.BookingRequest, window models.WeeklySlot) ([]models.BookingAlternative, error) {
-	teachers, err := e.repo.FindTeachersBySubject(ctx, req.SubjectID)
+func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req BookingRequest, window shared.WeeklySlot) ([]BookingAlternative, error) {
+	teachers, err := e.teacherRoster.TeachersBySubject(ctx, req.SubjectID)
 	if err != nil {
 		return nil, err
 	}
 
-	var windowCandidates []models.BookingAlternative
+	var windowCandidates []BookingAlternative
 
 	for _, teacher := range teachers {
-		availSlots, err := e.repo.FindTeacherAvailability(ctx, teacher.ID)
+		availSlots, err := e.teacherRoster.TeacherAvailability(ctx, teacher.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -50,7 +51,7 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req models.Book
 				continue
 			}
 
-			result := e.scorer.Score(ctx, ports.ScorableCandidate{
+			result := e.scorer.Score(ctx, ScorableCandidate{
 				Teacher:           teacher,
 				StartTime:         slot.startTime,
 				EndTime:           slot.endTime,
@@ -59,7 +60,7 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req models.Book
 				MatchedSlot:       window,
 			})
 
-			alt := models.BookingAlternative{
+			alt := BookingAlternative{
 				TeacherID:   teacher.ID,
 				TeacherName: teacher.Name,
 				BranchID:    req.BranchID,
@@ -68,6 +69,21 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req models.Book
 				EndTime:     slot.endTime,
 				Score:       result.Score,
 				Reasons:     result.Reasons,
+			}
+
+			if e.commute != nil {
+				commuteDur, err := e.commute.Estimate(ctx, req.BranchID, req.BranchID, slot.startTime)
+				if err == nil && commuteDur > 0 {
+					mins := int(commuteDur.Minutes())
+					alt.CommuteMinutes = &mins
+				}
+			}
+
+			if e.room != nil {
+				available, err := e.room.CheckAvailability(ctx, req.BranchID, slot.startTime, slot.endTime)
+				if err == nil {
+					alt.RoomAvailable = &available
+				}
 			}
 
 			windowCandidates = append(windowCandidates, alt)
@@ -90,7 +106,7 @@ type candidateSlot struct {
 	endTime   time.Time
 }
 
-func (e *CLPEngine) generateCandidateSlots(req models.BookingRequest, availSlots []models.WeeklySlot, window models.WeeklySlot) []candidateSlot {
+func (e *CLPEngine) generateCandidateSlots(req BookingRequest, availSlots []shared.WeeklySlot, window shared.WeeklySlot) []candidateSlot {
 	duration := time.Duration(req.DurationMinutes) * time.Minute
 	if duration == 0 {
 		winStart := parseTimeHHMM(window.Start)
@@ -143,16 +159,16 @@ func (e *CLPEngine) generateCandidateSlots(req models.BookingRequest, availSlots
 }
 
 func (e *CLPEngine) hasConflict(ctx context.Context, teacherID int, startTime, endTime time.Time) (bool, error) {
-	conflicts, err := e.repo.FindConflictingBookings(ctx, teacherID, startTime, endTime)
+	conflicts, err := e.bookingStore.FindConflictingBookings(ctx, teacherID, startTime, endTime)
 	if err != nil {
 		return false, err
 	}
 	return len(conflicts) > 0, nil
 }
 
-func deduplicateByTeacher(alternatives []models.BookingAlternative) []models.BookingAlternative {
+func deduplicateByTeacher(alternatives []BookingAlternative) []BookingAlternative {
 	seen := make(map[int]bool)
-	var result []models.BookingAlternative
+	var result []BookingAlternative
 	for _, a := range alternatives {
 		if seen[a.TeacherID] {
 			continue
@@ -162,7 +178,3 @@ func deduplicateByTeacher(alternatives []models.BookingAlternative) []models.Boo
 	}
 	return result
 }
-
-func (e *CLPEngine) HasResourceChecker() bool { return e.resourceChecker != nil }
-
-func (e *CLPEngine) HasCommuteCalc() bool { return e.commuteCalc != nil }

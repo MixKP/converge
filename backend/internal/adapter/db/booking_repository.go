@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/RinZ5/converge/backend/internal/core/models"
-	"github.com/RinZ5/converge/backend/internal/core/ports"
+	"github.com/RinZ5/converge/backend/internal/scheduling"
+	"github.com/RinZ5/converge/backend/internal/shared"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -22,12 +22,7 @@ func NewBookingRepository(database *sql.DB) *BookingRepo {
 	return &BookingRepo{DB: database}
 }
 
-func (r *BookingRepo) FindExactMatch(ctx context.Context, subjectID, branchID int, slot models.WeeklySlot, durationMinutes int, teacherIDVal interface{}) (*ports.BookingMatch, error) {
-	loc, err := time.LoadLocation("Asia/Bangkok")
-	if err != nil {
-		return nil, fmt.Errorf("failed to load timezone: %w", err)
-	}
-
+func (r *BookingRepo) FindExactMatch(ctx context.Context, subjectID, branchID int, slot shared.WeeklySlot, durationMinutes int, teacherIDVal interface{}) (*scheduling.BookingMatch, error) {
 	duration := time.Duration(durationMinutes) * time.Minute
 
 	windowEnd := slot.End
@@ -36,7 +31,7 @@ func (r *BookingRepo) FindExactMatch(ctx context.Context, subjectID, branchID in
 		if err != nil {
 			return nil, fmt.Errorf("invalid slot start time format: %w", err)
 		}
-		windowEnd = models.TimeHHMM(parsedStart.Add(duration).Format("15:04"))
+		windowEnd = shared.TimeHHMM(parsedStart.Add(duration).Format("15:04"))
 	}
 	now := time.Now().In(loc)
 	anchorDate := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
@@ -80,7 +75,7 @@ func (r *BookingRepo) FindExactMatch(ctx context.Context, subjectID, branchID in
 		subjectID, branchID, slot.DayOfWeek, string(slot.Start), startTS, endTS, string(windowEnd), teacherIDVal,
 	)
 
-	var booking models.Booking
+	var booking scheduling.Booking
 	var name string
 	var bid int
 	if err := row.Scan(&bid, &booking.TeacherID, &booking.BranchID, &booking.SubjectID,
@@ -92,10 +87,10 @@ func (r *BookingRepo) FindExactMatch(ctx context.Context, subjectID, branchID in
 	}
 
 	booking.ID = bid
-	return &ports.BookingMatch{Booking: booking, TeacherName: name}, nil
+	return &scheduling.BookingMatch{Booking: booking, TeacherName: name}, nil
 }
 
-func (r *BookingRepo) FindTeachersBySubject(ctx context.Context, subjectID int) ([]models.Teacher, error) {
+func (r *BookingRepo) FindTeachersBySubject(ctx context.Context, subjectID int) ([]scheduling.TeacherInfo, error) {
 	rows, err := r.DB.QueryContext(ctx, `
 		SELECT t.id, t.name, t.email
 		FROM teachers t
@@ -107,10 +102,11 @@ func (r *BookingRepo) FindTeachersBySubject(ctx context.Context, subjectID int) 
 	}
 	defer rows.Close()
 
-	var teachers []models.Teacher
+	var teachers []scheduling.TeacherInfo
 	for rows.Next() {
-		var tc models.Teacher
-		if err := rows.Scan(&tc.ID, &tc.Name, &tc.Email); err != nil {
+		var tc scheduling.TeacherInfo
+		var email string
+		if err := rows.Scan(&tc.ID, &tc.Name, &email); err != nil {
 			return nil, err
 		}
 		teachers = append(teachers, tc)
@@ -118,7 +114,7 @@ func (r *BookingRepo) FindTeachersBySubject(ctx context.Context, subjectID int) 
 	return teachers, rows.Err()
 }
 
-func (r *BookingRepo) FindConflictingBookings(ctx context.Context, teacherID int, startTime, endTime time.Time) ([]models.Booking, error) {
+func (r *BookingRepo) FindConflictingBookings(ctx context.Context, teacherID int, startTime, endTime time.Time) ([]scheduling.Booking, error) {
 	rows, err := r.DB.QueryContext(ctx, `
 		SELECT id, teacher_id, branch_id, subject_id, start_time, end_time
 		FROM bookings
@@ -130,9 +126,9 @@ func (r *BookingRepo) FindConflictingBookings(ctx context.Context, teacherID int
 	}
 	defer rows.Close()
 
-	var bookings []models.Booking
+	var bookings []scheduling.Booking
 	for rows.Next() {
-		var b models.Booking
+		var b scheduling.Booking
 		if err := rows.Scan(&b.ID, &b.TeacherID, &b.BranchID, &b.SubjectID,
 			&b.StartTime, &b.EndTime); err != nil {
 			return nil, err
@@ -142,7 +138,7 @@ func (r *BookingRepo) FindConflictingBookings(ctx context.Context, teacherID int
 	return bookings, rows.Err()
 }
 
-func (r *BookingRepo) FindTeacherAvailability(ctx context.Context, teacherID int) ([]models.WeeklySlot, error) {
+func (r *BookingRepo) FindTeacherAvailability(ctx context.Context, teacherID int) ([]shared.WeeklySlot, error) {
 	rows, err := r.DB.QueryContext(ctx, `
 		SELECT day_of_week, to_char(start_time, 'HH24:MI') AS start_time, to_char(end_time, 'HH24:MI') AS end_time
 		FROM teacher_availability
@@ -153,9 +149,9 @@ func (r *BookingRepo) FindTeacherAvailability(ctx context.Context, teacherID int
 	}
 	defer rows.Close()
 
-	var slots []models.WeeklySlot
+	var slots []shared.WeeklySlot
 	for rows.Next() {
-		var s models.WeeklySlot
+		var s shared.WeeklySlot
 		if err := rows.Scan(&s.DayOfWeek, &s.Start, &s.End); err != nil {
 			return nil, err
 		}
@@ -164,7 +160,7 @@ func (r *BookingRepo) FindTeacherAvailability(ctx context.Context, teacherID int
 	return slots, rows.Err()
 }
 
-func (r *BookingRepo) CreateBooking(ctx context.Context, req models.ConfirmBookingRequest) (*models.Booking, error) {
+func (r *BookingRepo) CreateBooking(ctx context.Context, req scheduling.ConfirmBookingRequest) (*scheduling.Booking, error) {
 	row := r.DB.QueryRowContext(ctx, `
 		INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time, client_name)
 		VALUES ($1, $2, $3, $4, $5, $6)
@@ -172,7 +168,7 @@ func (r *BookingRepo) CreateBooking(ctx context.Context, req models.ConfirmBooki
 		req.TeacherID, req.BranchID, req.SubjectID, req.StartTime, req.EndTime, req.ClientName,
 	)
 
-	var b models.Booking
+	var b scheduling.Booking
 	if err := row.Scan(&b.ID, &b.TeacherID, &b.BranchID, &b.SubjectID,
 		&b.StartTime, &b.EndTime, &b.ClientName, &b.CreatedAt); err != nil {
 		var pgErr *pgconn.PgError
@@ -199,7 +195,7 @@ func (r *BookingRepo) DeleteBooking(ctx context.Context, bookingID int) error {
 	return nil
 }
 
-func (r *BookingRepo) FindAllBookings(ctx context.Context) ([]models.Booking, error) {
+func (r *BookingRepo) FindAllBookings(ctx context.Context) ([]scheduling.Booking, error) {
 	rows, err := r.DB.QueryContext(ctx, `
 		SELECT id, teacher_id, branch_id, subject_id, start_time, end_time, client_name, created_at
 		FROM bookings
@@ -209,9 +205,9 @@ func (r *BookingRepo) FindAllBookings(ctx context.Context) ([]models.Booking, er
 	}
 	defer rows.Close()
 
-	var bookings []models.Booking
+	var bookings []scheduling.Booking
 	for rows.Next() {
-		var b models.Booking
+		var b scheduling.Booking
 		if err := rows.Scan(&b.ID, &b.TeacherID, &b.BranchID, &b.SubjectID,
 			&b.StartTime, &b.EndTime, &b.ClientName, &b.CreatedAt); err != nil {
 			return nil, err

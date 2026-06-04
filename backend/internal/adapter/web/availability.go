@@ -6,26 +6,26 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/RinZ5/converge/backend/internal/core/models"
-	"github.com/RinZ5/converge/backend/internal/core/service"
+	"github.com/RinZ5/converge/backend/internal/shared"
+	"github.com/RinZ5/converge/backend/internal/teacher"
 
 	"github.com/gin-gonic/gin"
 )
 
-type availabilityService interface {
-	GetActiveTeachers(ctx context.Context) ([]models.Teacher, error)
-	GetTeachersBySubject(ctx context.Context, subjectID int) ([]models.Teacher, error)
-	GetAllAvailability(ctx context.Context) ([]models.TeacherAvailability, error)
-	GetBranches(ctx context.Context) ([]models.Branch, error)
-	GetSubjects(ctx context.Context) ([]models.Subject, error)
-	SubmitWeeklyAvailability(ctx context.Context, payload models.AvailabilityPayload) error
+type teacherService interface {
+	GetActiveTeachers(ctx context.Context) ([]teacher.Teacher, error)
+	GetTeachersBySubject(ctx context.Context, subjectID int) ([]teacher.Teacher, error)
+	GetAllAvailability(ctx context.Context) ([]teacher.TeacherAvailability, error)
+	GetBranches(ctx context.Context) ([]shared.Branch, error)
+	GetSubjects(ctx context.Context) ([]shared.Subject, error)
+	SubmitWeeklyAvailability(ctx context.Context, teacherID int, slots []shared.WeeklySlot) error
 }
 
 type AvailabilityHandler struct {
-	svc availabilityService
+	svc teacherService
 }
 
-func NewAvailabilityHandler(svc availabilityService) *AvailabilityHandler {
+func NewAvailabilityHandler(svc teacherService) *AvailabilityHandler {
 	return &AvailabilityHandler{svc: svc}
 }
 
@@ -36,9 +36,9 @@ func NewAvailabilityHandler(svc availabilityService) *AvailabilityHandler {
 //	@Tags			teachers
 //	@Produce		json
 //	@Param			subject_id	query		int		false	"Filter by subject ID"
-//	@Success		200			{array}		models.Teacher
-//	@Failure		400			{object}	models.ErrorResponse
-//	@Failure		500			{object}	models.ErrorResponse
+//	@Success		200			{array}		teacher.Teacher
+//	@Failure		400			{object}	scheduling.ErrorResponse
+//	@Failure		500			{object}	scheduling.ErrorResponse
 //	@Router			/teachers [get]
 func (h *AvailabilityHandler) GetTeachers(c *gin.Context) {
 	subjectIDStr := c.Query("subject_id")
@@ -71,8 +71,8 @@ func (h *AvailabilityHandler) GetTeachers(c *gin.Context) {
 //	@Description	Returns all active teachers with their weekly availability slots, grouped by teacher
 //	@Tags			availability
 //	@Produce		json
-//	@Success		200	{array}		models.TeacherAvailability
-//	@Failure		500	{object}	models.ErrorResponse
+//	@Success		200	{array}		teacher.TeacherAvailability
+//	@Failure		500	{object}	scheduling.ErrorResponse
 //	@Router			/availability [get]
 func (h *AvailabilityHandler) GetAllAvailability(c *gin.Context) {
 	availability, err := h.svc.GetAllAvailability(c.Request.Context())
@@ -89,8 +89,8 @@ func (h *AvailabilityHandler) GetAllAvailability(c *gin.Context) {
 //	@Description	Returns all branches ordered by id
 //	@Tags			branches
 //	@Produce		json
-//	@Success		200	{array}		models.Branch
-//	@Failure		500	{object}	models.ErrorResponse
+//	@Success		200	{array}		shared.Branch
+//	@Failure		500	{object}	scheduling.ErrorResponse
 //	@Router			/branches [get]
 func (h *AvailabilityHandler) GetBranches(c *gin.Context) {
 	branches, err := h.svc.GetBranches(c.Request.Context())
@@ -107,8 +107,8 @@ func (h *AvailabilityHandler) GetBranches(c *gin.Context) {
 //	@Description	Returns all subjects ordered by id
 //	@Tags			subjects
 //	@Produce		json
-//	@Success		200	{array}		models.Subject
-//	@Failure		500	{object}	models.ErrorResponse
+//	@Success		200	{array}		shared.Subject
+//	@Failure		500	{object}	scheduling.ErrorResponse
 //	@Router			/subjects [get]
 func (h *AvailabilityHandler) GetSubjects(c *gin.Context) {
 	subjects, err := h.svc.GetSubjects(c.Request.Context())
@@ -126,20 +126,23 @@ func (h *AvailabilityHandler) GetSubjects(c *gin.Context) {
 //	@Tags			availability
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	body		models.AvailabilityPayload	true	"Weekly availability payload. day_of_week: 0=Monday through 6=Sunday"
-//	@Success		201		{object}	models.MessageResponse
-//	@Failure		400		{object}	models.ErrorResponse
-//	@Failure		500		{object}	models.ErrorResponse
+//	@Param			body	body		map[string]interface{}	true	"Weekly availability payload"
+//	@Success		201		{object}	scheduling.MessageResponse
+//	@Failure		400		{object}	scheduling.ErrorResponse
+//	@Failure		500		{object}	scheduling.ErrorResponse
 //	@Router			/availability [post]
 func (h *AvailabilityHandler) SubmitWeeklyAvailability(c *gin.Context) {
-	var payload models.AvailabilityPayload
+	var payload struct {
+		TeacherID int                 `json:"teacher_id"`
+		Weekly    []shared.WeeklySlot `json:"weekly"`
+	}
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if err := h.svc.SubmitWeeklyAvailability(c.Request.Context(), payload); err != nil {
-		var valErr *service.ValidationError
+	var valErr *teacher.ValidationError
+	if err := h.svc.SubmitWeeklyAvailability(c.Request.Context(), payload.TeacherID, payload.Weekly); err != nil {
 		if errors.As(err, &valErr) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		} else {

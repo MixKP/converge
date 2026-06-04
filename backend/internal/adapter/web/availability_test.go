@@ -8,56 +8,56 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/RinZ5/converge/backend/internal/core/models"
-	"github.com/RinZ5/converge/backend/internal/core/service"
+	"github.com/RinZ5/converge/backend/internal/shared"
+	"github.com/RinZ5/converge/backend/internal/teacher"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 type mockService struct {
-	teachers         []models.Teacher
+	teachers         []teacher.Teacher
 	getErr           error
-	teachersBySub    []models.Teacher
+	teachersBySub    []teacher.Teacher
 	teachersBySubErr error
-	branches         []models.Branch
+	branches         []shared.Branch
 	branchesErr      error
-	subjects         []models.Subject
+	subjects         []shared.Subject
 	subjectsErr      error
-	availability     []models.TeacherAvailability
+	availability     []teacher.TeacherAvailability
 	availErr         error
 	submitErr        error
 	submitCalled     bool
 }
 
-func (m *mockService) GetActiveTeachers(ctx context.Context) ([]models.Teacher, error) {
+func (m *mockService) GetActiveTeachers(ctx context.Context) ([]teacher.Teacher, error) {
 	return m.teachers, m.getErr
 }
 
-func (m *mockService) GetTeachersBySubject(ctx context.Context, subjectID int) ([]models.Teacher, error) {
+func (m *mockService) GetTeachersBySubject(ctx context.Context, subjectID int) ([]teacher.Teacher, error) {
 	return m.teachersBySub, m.teachersBySubErr
 }
 
-func (m *mockService) GetBranches(ctx context.Context) ([]models.Branch, error) {
+func (m *mockService) GetBranches(ctx context.Context) ([]shared.Branch, error) {
 	return m.branches, m.branchesErr
 }
 
-func (m *mockService) GetSubjects(ctx context.Context) ([]models.Subject, error) {
+func (m *mockService) GetSubjects(ctx context.Context) ([]shared.Subject, error) {
 	return m.subjects, m.subjectsErr
 }
 
-func (m *mockService) GetAllAvailability(ctx context.Context) ([]models.TeacherAvailability, error) {
+func (m *mockService) GetAllAvailability(ctx context.Context) ([]teacher.TeacherAvailability, error) {
 	return m.availability, m.availErr
 }
 
-func (m *mockService) SubmitWeeklyAvailability(ctx context.Context, payload models.AvailabilityPayload) error {
+func (m *mockService) SubmitWeeklyAvailability(ctx context.Context, teacherID int, slots []shared.WeeklySlot) error {
 	m.submitCalled = true
 	return m.submitErr
 }
 
 func TestGetTeachersSuccess(t *testing.T) {
 	mock := &mockService{
-		teachers: []models.Teacher{
+		teachers: []teacher.Teacher{
 			{ID: 1, Name: "Alice", Email: "alice@test.com"},
 			{ID: 2, Name: "Bob", Email: "bob@test.com"},
 		},
@@ -73,7 +73,7 @@ func TestGetTeachersSuccess(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	var teachers []models.Teacher
+	var teachers []teacher.Teacher
 	err := json.Unmarshal(w.Body.Bytes(), &teachers)
 	require.NoError(t, err)
 	assert.Len(t, teachers, 2)
@@ -97,11 +97,11 @@ func TestSubmitWeeklyAvailabilitySuccess(t *testing.T) {
 	mock := &mockService{}
 	handler := NewAvailabilityHandler(mock)
 
-	payload := models.AvailabilityPayload{
-		TeacherID: 42,
-		Weekly: []models.WeeklySlot{
-			{DayOfWeek: 0, Start: models.TimeHHMM("09:00"), End: models.TimeHHMM("10:00")},
-			{DayOfWeek: 0, Start: models.TimeHHMM("11:00"), End: models.TimeHHMM("12:00")},
+	payload := map[string]interface{}{
+		"teacher_id": 42,
+		"weekly": []map[string]interface{}{
+			{"day_of_week": 0, "start": "09:00", "end": "10:00"},
+			{"day_of_week": 0, "start": "11:00", "end": "12:00"},
 		},
 	}
 	body, _ := json.Marshal(payload)
@@ -120,17 +120,17 @@ func TestSubmitWeeklyAvailabilitySuccess(t *testing.T) {
 
 func TestSubmitWeeklyAvailabilityOverlap(t *testing.T) {
 	mock := &mockService{
-		submitErr: &service.ValidationError{
+		submitErr: &teacher.ValidationError{
 			Msg: "overlapping slots on day 0: 09:00-11:00 and 10:30-12:00",
 		},
 	}
 	handler := NewAvailabilityHandler(mock)
 
-	payload := models.AvailabilityPayload{
-		TeacherID: 1,
-		Weekly: []models.WeeklySlot{
-			{DayOfWeek: 0, Start: models.TimeHHMM("09:00"), End: models.TimeHHMM("11:00")},
-			{DayOfWeek: 0, Start: models.TimeHHMM("10:30"), End: models.TimeHHMM("12:00")},
+	payload := map[string]interface{}{
+		"teacher_id": 1,
+		"weekly": []map[string]interface{}{
+			{"day_of_week": 0, "start": "09:00", "end": "11:00"},
+			{"day_of_week": 0, "start": "10:30", "end": "12:00"},
 		},
 	}
 	body, _ := json.Marshal(payload)
@@ -166,10 +166,10 @@ func TestSubmitWeeklyAvailabilityServiceError(t *testing.T) {
 	mock := &mockService{submitErr: assert.AnError}
 	handler := NewAvailabilityHandler(mock)
 
-	payload := models.AvailabilityPayload{
-		TeacherID: 1,
-		Weekly: []models.WeeklySlot{
-			{DayOfWeek: 0, Start: models.TimeHHMM("09:00"), End: models.TimeHHMM("10:00")},
+	payload := map[string]interface{}{
+		"teacher_id": 1,
+		"weekly": []map[string]interface{}{
+			{"day_of_week": 0, "start": "09:00", "end": "10:00"},
 		},
 	}
 	body, _ := json.Marshal(payload)
@@ -206,7 +206,7 @@ func TestSubmitWeeklyAvailabilityEmptyBody(t *testing.T) {
 
 func TestGetTeachersEmptyList(t *testing.T) {
 	mock := &mockService{
-		teachers: []models.Teacher{},
+		teachers: []teacher.Teacher{},
 	}
 	handler := NewAvailabilityHandler(mock)
 
@@ -219,7 +219,7 @@ func TestGetTeachersEmptyList(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	var teachers []models.Teacher
+	var teachers []teacher.Teacher
 	err := json.Unmarshal(w.Body.Bytes(), &teachers)
 	require.NoError(t, err)
 	assert.Len(t, teachers, 0)
@@ -227,18 +227,18 @@ func TestGetTeachersEmptyList(t *testing.T) {
 
 func TestGetAllAvailabilitySuccess(t *testing.T) {
 	mock := &mockService{
-		availability: []models.TeacherAvailability{
+		availability: []teacher.TeacherAvailability{
 			{
-				Teacher: models.Teacher{ID: 1, Name: "Alice", Email: "alice@test.com"},
-				Weekly: []models.WeeklySlot{
-					{DayOfWeek: 0, Start: models.TimeHHMM("09:00"), End: models.TimeHHMM("12:00")},
-					{DayOfWeek: 2, Start: models.TimeHHMM("09:00"), End: models.TimeHHMM("12:00")},
+				Teacher: teacher.Teacher{ID: 1, Name: "Alice"},
+				Weekly: []shared.WeeklySlot{
+					{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("12:00")},
+					{DayOfWeek: 2, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("12:00")},
 				},
 			},
 			{
-				Teacher: models.Teacher{ID: 2, Name: "Bob", Email: "bob@test.com"},
-				Weekly: []models.WeeklySlot{
-					{DayOfWeek: 1, Start: models.TimeHHMM("10:00"), End: models.TimeHHMM("15:00")},
+				Teacher: teacher.Teacher{ID: 2, Name: "Bob"},
+				Weekly: []shared.WeeklySlot{
+					{DayOfWeek: 1, Start: shared.TimeHHMM("10:00"), End: shared.TimeHHMM("15:00")},
 				},
 			},
 		},
@@ -254,7 +254,7 @@ func TestGetAllAvailabilitySuccess(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	var availability []models.TeacherAvailability
+	var availability []teacher.TeacherAvailability
 	err := json.Unmarshal(w.Body.Bytes(), &availability)
 	require.NoError(t, err)
 	assert.Len(t, availability, 2)
@@ -282,7 +282,7 @@ func TestGetAllAvailabilityError(t *testing.T) {
 
 func TestGetAllAvailabilityEmpty(t *testing.T) {
 	mock := &mockService{
-		availability: []models.TeacherAvailability{},
+		availability: []teacher.TeacherAvailability{},
 	}
 	handler := NewAvailabilityHandler(mock)
 
@@ -295,7 +295,7 @@ func TestGetAllAvailabilityEmpty(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	var availability []models.TeacherAvailability
+	var availability []teacher.TeacherAvailability
 	err := json.Unmarshal(w.Body.Bytes(), &availability)
 	require.NoError(t, err)
 	assert.Len(t, availability, 0)
@@ -303,7 +303,7 @@ func TestGetAllAvailabilityEmpty(t *testing.T) {
 
 func TestGetTeachersBySubjectSuccess(t *testing.T) {
 	mock := &mockService{
-		teachersBySub: []models.Teacher{
+		teachersBySub: []teacher.Teacher{
 			{ID: 1, Name: "Alice", Email: "alice@test.com"},
 			{ID: 3, Name: "Carol", Email: "carol@test.com"},
 		},
@@ -319,7 +319,7 @@ func TestGetTeachersBySubjectSuccess(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	var teachers []models.Teacher
+	var teachers []teacher.Teacher
 	err := json.Unmarshal(w.Body.Bytes(), &teachers)
 	require.NoError(t, err)
 	assert.Len(t, teachers, 2)
@@ -376,7 +376,7 @@ func TestGetTeachersBySubjectError(t *testing.T) {
 
 func TestGetBranchesSuccess(t *testing.T) {
 	mock := &mockService{
-		branches: []models.Branch{
+		branches: []shared.Branch{
 			{ID: 1, Name: "Main Campus"},
 			{ID: 2, Name: "Downtown"},
 		},
@@ -392,7 +392,7 @@ func TestGetBranchesSuccess(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	var branches []models.Branch
+	var branches []shared.Branch
 	err := json.Unmarshal(w.Body.Bytes(), &branches)
 	require.NoError(t, err)
 	assert.Len(t, branches, 2)
@@ -417,7 +417,7 @@ func TestGetBranchesError(t *testing.T) {
 
 func TestGetSubjectsSuccess(t *testing.T) {
 	mock := &mockService{
-		subjects: []models.Subject{
+		subjects: []shared.Subject{
 			{ID: 1, Name: "Mathematics"},
 			{ID: 2, Name: "Physics"},
 		},
@@ -433,7 +433,7 @@ func TestGetSubjectsSuccess(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	var subjects []models.Subject
+	var subjects []shared.Subject
 	err := json.Unmarshal(w.Body.Bytes(), &subjects)
 	require.NoError(t, err)
 	assert.Len(t, subjects, 2)

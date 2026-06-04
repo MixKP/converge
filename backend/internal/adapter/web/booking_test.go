@@ -9,28 +9,27 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RinZ5/converge/backend/internal/core/models"
-	"github.com/RinZ5/converge/backend/internal/core/service"
+	"github.com/RinZ5/converge/backend/internal/scheduling"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 type mockBookingSvc struct {
-	result    *models.BookingResponse
+	result    *scheduling.BookingResponse
 	evalErr   error
-	confirm   *models.Booking
+	confirm   *scheduling.Booking
 	confErr   error
 	cancelErr error
-	listAll   []models.Booking
+	listAll   []scheduling.Booking
 	listErr   error
 }
 
-func (m *mockBookingSvc) Evaluate(ctx context.Context, req models.BookingRequest) (*models.BookingResponse, error) {
+func (m *mockBookingSvc) Evaluate(ctx context.Context, req scheduling.BookingRequest) (*scheduling.BookingResponse, error) {
 	return m.result, m.evalErr
 }
 
-func (m *mockBookingSvc) Confirm(ctx context.Context, req models.ConfirmBookingRequest) (*models.Booking, error) {
+func (m *mockBookingSvc) Confirm(ctx context.Context, req scheduling.ConfirmBookingRequest) (*scheduling.Booking, error) {
 	return m.confirm, m.confErr
 }
 
@@ -38,20 +37,20 @@ func (m *mockBookingSvc) Cancel(ctx context.Context, bookingID int) error {
 	return m.cancelErr
 }
 
-func (m *mockBookingSvc) ListAll(ctx context.Context) ([]models.Booking, error) {
+func (m *mockBookingSvc) ListAll(ctx context.Context) ([]scheduling.Booking, error) {
 	return m.listAll, m.listErr
 }
 
-func slot(day int, start, end string) models.WeeklySlot {
-	return models.WeeklySlot{DayOfWeek: day, Start: models.TimeHHMM(start), End: models.TimeHHMM(end)}
+func slot(day int, start, end string) scheduling.WeeklySlot {
+	return scheduling.WeeklySlot{DayOfWeek: day, Start: scheduling.TimeHHMM(start), End: scheduling.TimeHHMM(end)}
 }
 
 func TestCreateBookingExactMatch(t *testing.T) {
 	mock := &mockBookingSvc{
-		result: &models.BookingResponse{
-			Results: []models.SlotResult{{
+		result: &scheduling.BookingResponse{
+			Results: []scheduling.SlotResult{{
 				Slot: slot(0, "09:00", "10:00"),
-				ExactMatch: &models.BookingAlternative{
+				ExactMatch: &scheduling.BookingAlternative{
 					TeacherID:   1,
 					TeacherName: "Alice",
 					BranchID:    2,
@@ -67,10 +66,10 @@ func TestCreateBookingExactMatch(t *testing.T) {
 	}
 	handler := NewBookingHandler(mock)
 
-	payload := models.BookingRequest{
+	payload := scheduling.BookingRequest{
 		SubjectID:       3,
 		BranchID:        2,
-		PreferredSlots:  []models.WeeklySlot{slot(0, "09:00", "10:00")},
+		PreferredSlots:  []scheduling.WeeklySlot{slot(0, "09:00", "10:00")},
 		DurationMinutes: 60,
 	}
 	body, _ := json.Marshal(payload)
@@ -86,7 +85,7 @@ func TestCreateBookingExactMatch(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var response models.BookingResponse
+	var response scheduling.BookingResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	require.NoError(t, err)
 	assert.Len(t, response.Results, 1)
@@ -98,10 +97,10 @@ func TestCreateBookingExactMatch(t *testing.T) {
 
 func TestCreateBookingAlternatives(t *testing.T) {
 	mock := &mockBookingSvc{
-		result: &models.BookingResponse{
-			Results: []models.SlotResult{{
+		result: &scheduling.BookingResponse{
+			Results: []scheduling.SlotResult{{
 				Slot: slot(0, "09:00", "10:00"),
-				Alternatives: []models.BookingAlternative{{
+				Alternatives: []scheduling.BookingAlternative{{
 					TeacherID:   2,
 					TeacherName: "Bob",
 					BranchID:    2,
@@ -117,10 +116,10 @@ func TestCreateBookingAlternatives(t *testing.T) {
 	}
 	handler := NewBookingHandler(mock)
 
-	payload := models.BookingRequest{
+	payload := scheduling.BookingRequest{
 		SubjectID:       3,
 		BranchID:        2,
-		PreferredSlots:  []models.WeeklySlot{slot(0, "09:00", "10:00")},
+		PreferredSlots:  []scheduling.WeeklySlot{slot(0, "09:00", "10:00")},
 		DurationMinutes: 60,
 	}
 	body, _ := json.Marshal(payload)
@@ -136,7 +135,7 @@ func TestCreateBookingAlternatives(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var response models.BookingResponse
+	var response scheduling.BookingResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	require.NoError(t, err)
 	assert.Len(t, response.Results, 1)
@@ -146,8 +145,8 @@ func TestCreateBookingAlternatives(t *testing.T) {
 
 func TestCreateBookingEmptyAlternatives(t *testing.T) {
 	mock := &mockBookingSvc{
-		result: &models.BookingResponse{
-			Results: []models.SlotResult{{
+		result: &scheduling.BookingResponse{
+			Results: []scheduling.SlotResult{{
 				Slot:    slot(0, "09:00", "10:00"),
 				Message: "No exact match found. No alternatives available.",
 			}},
@@ -155,10 +154,10 @@ func TestCreateBookingEmptyAlternatives(t *testing.T) {
 	}
 	handler := NewBookingHandler(mock)
 
-	payload := models.BookingRequest{
+	payload := scheduling.BookingRequest{
 		SubjectID:       3,
 		BranchID:        2,
-		PreferredSlots:  []models.WeeklySlot{slot(0, "09:00", "10:00")},
+		PreferredSlots:  []scheduling.WeeklySlot{slot(0, "09:00", "10:00")},
 		DurationMinutes: 60,
 	}
 	body, _ := json.Marshal(payload)
@@ -178,11 +177,11 @@ func TestCreateBookingEmptyAlternatives(t *testing.T) {
 
 func TestCreateBookingValidationError(t *testing.T) {
 	mock := &mockBookingSvc{
-		evalErr: &service.ValidationError{Msg: "preferred_slots must not be empty"},
+		evalErr: &scheduling.ValidationError{Msg: "preferred_slots must not be empty"},
 	}
 	handler := NewBookingHandler(mock)
 
-	payload := models.BookingRequest{
+	payload := scheduling.BookingRequest{
 		SubjectID: 0,
 		BranchID:  2,
 	}
@@ -197,7 +196,6 @@ func TestCreateBookingValidationError(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusBadRequest, w.Code)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
@@ -221,10 +219,10 @@ func TestCreateBookingServiceError(t *testing.T) {
 	mock := &mockBookingSvc{evalErr: assert.AnError}
 	handler := NewBookingHandler(mock)
 
-	payload := models.BookingRequest{
+	payload := scheduling.BookingRequest{
 		SubjectID:       3,
 		BranchID:        2,
-		PreferredSlots:  []models.WeeklySlot{slot(0, "09:00", "10:00")},
+		PreferredSlots:  []scheduling.WeeklySlot{slot(0, "09:00", "10:00")},
 		DurationMinutes: 60,
 	}
 	body, _ := json.Marshal(payload)
@@ -244,10 +242,10 @@ func TestCreateBookingServiceError(t *testing.T) {
 
 func TestCreateBookingOptionalPreferredTeacher(t *testing.T) {
 	mock := &mockBookingSvc{
-		result: &models.BookingResponse{
-			Results: []models.SlotResult{{
+		result: &scheduling.BookingResponse{
+			Results: []scheduling.SlotResult{{
 				Slot: slot(0, "09:00", "10:00"),
-				Alternatives: []models.BookingAlternative{{
+				Alternatives: []scheduling.BookingAlternative{{
 					TeacherID:   1,
 					TeacherName: "Alice",
 					BranchID:    2,
@@ -264,10 +262,10 @@ func TestCreateBookingOptionalPreferredTeacher(t *testing.T) {
 	handler := NewBookingHandler(mock)
 
 	preferredTeacher := 5
-	payload := models.BookingRequest{
+	payload := scheduling.BookingRequest{
 		SubjectID:          3,
 		BranchID:           2,
-		PreferredSlots:     []models.WeeklySlot{slot(0, "09:00", "10:00")},
+		PreferredSlots:     []scheduling.WeeklySlot{slot(0, "09:00", "10:00")},
 		DurationMinutes:    60,
 		PreferredTeacherID: &preferredTeacher,
 	}
@@ -283,7 +281,7 @@ func TestCreateBookingOptionalPreferredTeacher(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	var response models.BookingResponse
+	var response scheduling.BookingResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	require.NoError(t, err)
 	assert.Len(t, response.Results, 1)
@@ -291,7 +289,7 @@ func TestCreateBookingOptionalPreferredTeacher(t *testing.T) {
 
 func TestConfirmBookingSuccess(t *testing.T) {
 	mock := &mockBookingSvc{
-		confirm: &models.Booking{
+		confirm: &scheduling.Booking{
 			ID:         10,
 			TeacherID:  1,
 			BranchID:   2,
@@ -303,7 +301,7 @@ func TestConfirmBookingSuccess(t *testing.T) {
 	}
 	handler := NewBookingHandler(mock)
 
-	payload := models.ConfirmBookingRequest{
+	payload := scheduling.ConfirmBookingRequest{
 		TeacherID:  1,
 		BranchID:   2,
 		SubjectID:  3,
@@ -324,7 +322,7 @@ func TestConfirmBookingSuccess(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 
-	var response models.Booking
+	var response scheduling.Booking
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	require.NoError(t, err)
 	assert.Equal(t, 10, response.ID)
@@ -333,11 +331,11 @@ func TestConfirmBookingSuccess(t *testing.T) {
 
 func TestConfirmBookingValidationError(t *testing.T) {
 	mock := &mockBookingSvc{
-		confErr: &service.ValidationError{Msg: "client_name must not be empty"},
+		confErr: &scheduling.ValidationError{Msg: "client_name must not be empty"},
 	}
 	handler := NewBookingHandler(mock)
 
-	payload := models.ConfirmBookingRequest{
+	payload := scheduling.ConfirmBookingRequest{
 		TeacherID: 1,
 		BranchID:  2,
 		SubjectID: 3,
@@ -356,14 +354,13 @@ func TestConfirmBookingValidationError(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestConfirmBookingServiceError(t *testing.T) {
 	mock := &mockBookingSvc{confErr: assert.AnError}
 	handler := NewBookingHandler(mock)
 
-	payload := models.ConfirmBookingRequest{
+	payload := scheduling.ConfirmBookingRequest{
 		TeacherID:  1,
 		BranchID:   2,
 		SubjectID:  3,
@@ -404,7 +401,7 @@ func TestCancelBookingSuccess(t *testing.T) {
 
 func TestCancelBookingNotFound(t *testing.T) {
 	mock := &mockBookingSvc{
-		cancelErr: &service.NotFoundError{Msg: "booking 999 not found"},
+		cancelErr: &scheduling.NotFoundError{Msg: "booking 999 not found"},
 	}
 	handler := NewBookingHandler(mock)
 
@@ -454,7 +451,7 @@ func TestCancelBookingServiceError(t *testing.T) {
 
 func TestListBookingsSuccess(t *testing.T) {
 	mock := &mockBookingSvc{
-		listAll: []models.Booking{
+		listAll: []scheduling.Booking{
 			{ID: 1, TeacherID: 1, ClientName: "John Doe", StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC), EndTime: time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)},
 			{ID: 2, TeacherID: 2, ClientName: "Jane Doe", StartTime: time.Date(2026, 6, 2, 10, 0, 0, 0, time.UTC), EndTime: time.Date(2026, 6, 2, 11, 0, 0, 0, time.UTC)},
 		},
@@ -471,7 +468,7 @@ func TestListBookingsSuccess(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var bookings []models.Booking
+	var bookings []scheduling.Booking
 	err := json.Unmarshal(w.Body.Bytes(), &bookings)
 	require.NoError(t, err)
 	assert.Len(t, bookings, 2)
@@ -479,7 +476,7 @@ func TestListBookingsSuccess(t *testing.T) {
 }
 
 func TestListBookingsEmpty(t *testing.T) {
-	mock := &mockBookingSvc{listAll: []models.Booking{}}
+	mock := &mockBookingSvc{listAll: []scheduling.Booking{}}
 	handler := NewBookingHandler(mock)
 
 	gin.SetMode(gin.TestMode)

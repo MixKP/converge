@@ -1,4 +1,4 @@
-package service
+package scheduling
 
 import (
 	"context"
@@ -6,8 +6,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/RinZ5/converge/backend/internal/core/models"
-	"github.com/RinZ5/converge/backend/internal/core/ports"
+	"github.com/RinZ5/converge/backend/internal/shared"
 )
 
 type WeightedScorer struct {
@@ -20,7 +19,7 @@ func NewWeightedScorer() *WeightedScorer {
 	return &WeightedScorer{TeacherWeight: 40, TimeWeight: 30, FitWeight: 30}
 }
 
-func (s *WeightedScorer) Score(ctx context.Context, candidate ports.ScorableCandidate) ports.ScoreResult {
+func (s *WeightedScorer) Score(ctx context.Context, candidate ScorableCandidate) ScoreResult {
 	var reasons []string
 
 	teacherScore, teacherReason := s.scoreTeacherPreference(candidate)
@@ -34,13 +33,13 @@ func (s *WeightedScorer) Score(ctx context.Context, candidate ports.ScorableCand
 
 	total := teacherScore + timeScore + fitScore
 
-	return ports.ScoreResult{
+	return ScoreResult{
 		Score:   total,
 		Reasons: reasons,
 	}
 }
 
-func (s *WeightedScorer) scoreTeacherPreference(candidate ports.ScorableCandidate) (int, string) {
+func (s *WeightedScorer) scoreTeacherPreference(candidate ScorableCandidate) (int, string) {
 	if candidate.Request.PreferredTeacherID == nil {
 		return 20, ""
 	}
@@ -50,7 +49,7 @@ func (s *WeightedScorer) scoreTeacherPreference(candidate ports.ScorableCandidat
 	return 0, "Different teacher"
 }
 
-func (s *WeightedScorer) scoreTimeProximity(candidate ports.ScorableCandidate) (int, string) {
+func (s *WeightedScorer) scoreTimeProximity(candidate ScorableCandidate) (int, string) {
 	matched := candidate.MatchedSlot
 	if matched.Start == "" || matched.End == "" {
 		return 15, ""
@@ -81,7 +80,7 @@ func (s *WeightedScorer) scoreTimeProximity(candidate ports.ScorableCandidate) (
 	}
 }
 
-func (s *WeightedScorer) scoreAvailabilityFit(candidate ports.ScorableCandidate) (int, string) {
+func (s *WeightedScorer) scoreAvailabilityFit(candidate ScorableCandidate) (int, string) {
 	if len(candidate.AvailabilitySlots) == 0 {
 		return s.FitWeight / 2, ""
 	}
@@ -125,7 +124,7 @@ func timeOfDay(t time.Time) time.Time {
 	return time.Date(0, 1, 1, t.Hour(), t.Minute(), 0, 0, time.UTC)
 }
 
-func parseTimeHHMM(t models.TimeHHMM) time.Time {
+func parseTimeHHMM(t shared.TimeHHMM) time.Time {
 	parsed, err := time.Parse("15:04", string(t))
 	if err != nil {
 		return time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC)

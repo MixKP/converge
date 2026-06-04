@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/RinZ5/converge/backend/internal/core/models"
+	"github.com/RinZ5/converge/backend/internal/shared"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -39,15 +39,14 @@ func TestPostgresRepoGetActiveTeachers(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, teachers, 1)
 	assert.Equal(t, "Test Teacher", teachers[0].Name)
-	assert.Equal(t, "test@teacher.com", teachers[0].Email)
 }
 
 func TestPostgresRepoReplaceWeeklyAvailability(t *testing.T) {
 	repo := setupTestDB(t)
 
-	slots := []models.WeeklySlot{
-		{DayOfWeek: 0, Start: models.TimeHHMM("09:00"), End: models.TimeHHMM("10:00")},
-		{DayOfWeek: 0, Start: models.TimeHHMM("11:00"), End: models.TimeHHMM("12:00")},
+	slots := []shared.WeeklySlot{
+		{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("10:00")},
+		{DayOfWeek: 0, Start: shared.TimeHHMM("11:00"), End: shared.TimeHHMM("12:00")},
 	}
 	err := repo.ReplaceWeeklyAvailability(context.Background(), 1, slots)
 	require.NoError(t, err)
@@ -58,8 +57,8 @@ func TestPostgresRepoReplaceWeeklyAvailability(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, count)
 
-	replaced := []models.WeeklySlot{
-		{DayOfWeek: 2, Start: models.TimeHHMM("14:00"), End: models.TimeHHMM("16:00")},
+	replaced := []shared.WeeklySlot{
+		{DayOfWeek: 2, Start: shared.TimeHHMM("14:00"), End: shared.TimeHHMM("16:00")},
 	}
 	err = repo.ReplaceWeeklyAvailability(context.Background(), 1, replaced)
 	require.NoError(t, err)

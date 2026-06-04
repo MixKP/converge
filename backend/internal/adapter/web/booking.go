@@ -7,17 +7,16 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/RinZ5/converge/backend/internal/core/models"
-	"github.com/RinZ5/converge/backend/internal/core/service"
+	"github.com/RinZ5/converge/backend/internal/scheduling"
 
 	"github.com/gin-gonic/gin"
 )
 
 type bookingService interface {
-	Evaluate(ctx context.Context, req models.BookingRequest) (*models.BookingResponse, error)
-	Confirm(ctx context.Context, req models.ConfirmBookingRequest) (*models.Booking, error)
+	Evaluate(ctx context.Context, req scheduling.BookingRequest) (*scheduling.BookingResponse, error)
+	Confirm(ctx context.Context, req scheduling.ConfirmBookingRequest) (*scheduling.Booking, error)
 	Cancel(ctx context.Context, bookingID int) error
-	ListAll(ctx context.Context) ([]models.Booking, error)
+	ListAll(ctx context.Context) ([]scheduling.Booking, error)
 }
 
 type BookingHandler struct {
@@ -49,13 +48,13 @@ func NewBookingHandler(svc bookingService) *BookingHandler {
 //	@Tags			bookings
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	body		models.BookingRequest	true	"Booking request"
-//	@Success		200		{object}	models.BookingResponse
-//	@Failure		400		{object}	models.ErrorResponse
-//	@Failure		500		{object}	models.ErrorResponse
+//	@Param			body	body		scheduling.BookingRequest	true	"Booking request"
+//	@Success		200		{object}	scheduling.BookingResponse
+//	@Failure		400		{object}	scheduling.ErrorResponse
+//	@Failure		500		{object}	scheduling.ErrorResponse
 //	@Router			/bookings [post]
 func (h *BookingHandler) CreateBooking(c *gin.Context) {
-	var req models.BookingRequest
+	var req scheduling.BookingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -63,7 +62,7 @@ func (h *BookingHandler) CreateBooking(c *gin.Context) {
 
 	result, err := h.svc.Evaluate(c.Request.Context(), req)
 	if err != nil {
-		var valErr *service.ValidationError
+		var valErr *scheduling.ValidationError
 		if errors.As(err, &valErr) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		} else {
@@ -93,14 +92,14 @@ func (h *BookingHandler) CreateBooking(c *gin.Context) {
 //	@Tags			bookings
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	body		models.ConfirmBookingRequest	true	"Booking confirmation"
-//	@Success		201		{object}	models.Booking
-//	@Failure		400		{object}	models.ErrorResponse
-//	@Failure		409		{object}	models.ErrorResponse
-//	@Failure		500		{object}	models.ErrorResponse
+//	@Param			body	body		scheduling.ConfirmBookingRequest	true	"Booking confirmation"
+//	@Success		201		{object}	scheduling.Booking
+//	@Failure		400		{object}	scheduling.ErrorResponse
+//	@Failure		409		{object}	scheduling.ErrorResponse
+//	@Failure		500		{object}	scheduling.ErrorResponse
 //	@Router			/bookings/confirm [post]
 func (h *BookingHandler) ConfirmBooking(c *gin.Context) {
-	var req models.ConfirmBookingRequest
+	var req scheduling.ConfirmBookingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -108,8 +107,8 @@ func (h *BookingHandler) ConfirmBooking(c *gin.Context) {
 
 	result, err := h.svc.Confirm(c.Request.Context(), req)
 	if err != nil {
-		var valErr *service.ValidationError
-		var confErr *service.ConflictError
+		var valErr *scheduling.ValidationError
+		var confErr *scheduling.ConflictError
 		if errors.As(err, &valErr) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		} else if errors.As(err, &confErr) {
@@ -130,10 +129,10 @@ func (h *BookingHandler) ConfirmBooking(c *gin.Context) {
 //	@Description	Deletes a confirmed booking by ID. Returns 404 if not found.
 //	@Tags			bookings
 //	@Param			id	path	int	true	"Booking ID"
-//	@Success		200	{object}	models.MessageResponse
-//	@Failure		400	{object}	models.ErrorResponse
-//	@Failure		404	{object}	models.ErrorResponse
-//	@Failure		500	{object}	models.ErrorResponse
+//	@Success		200	{object}	scheduling.MessageResponse
+//	@Failure		400	{object}	scheduling.ErrorResponse
+//	@Failure		404	{object}	scheduling.ErrorResponse
+//	@Failure		500	{object}	scheduling.ErrorResponse
 //	@Router			/bookings/{id} [delete]
 func (h *BookingHandler) CancelBooking(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
@@ -144,8 +143,8 @@ func (h *BookingHandler) CancelBooking(c *gin.Context) {
 
 	err = h.svc.Cancel(c.Request.Context(), id)
 	if err != nil {
-		var valErr *service.ValidationError
-		var notFoundErr *service.NotFoundError
+		var valErr *scheduling.ValidationError
+		var notFoundErr *scheduling.NotFoundError
 		if errors.As(err, &valErr) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		} else if errors.As(err, &notFoundErr) {
@@ -166,8 +165,8 @@ func (h *BookingHandler) CancelBooking(c *gin.Context) {
 //	@Description	Returns all bookings sorted by creation date descending.
 //	@Tags			bookings
 //	@Produce		json
-//	@Success		200	{array}		models.Booking
-//	@Failure		500	{object}	models.ErrorResponse
+//	@Success		200	{array}		scheduling.Booking
+//	@Failure		500	{object}	scheduling.ErrorResponse
 //	@Router			/bookings [get]
 func (h *BookingHandler) ListBookings(c *gin.Context) {
 	bookings, err := h.svc.ListAll(c.Request.Context())

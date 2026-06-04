@@ -13,7 +13,10 @@ import (
 	_ "github.com/RinZ5/converge/backend/docs"
 	"github.com/RinZ5/converge/backend/internal/adapter/db"
 	"github.com/RinZ5/converge/backend/internal/adapter/web"
-	"github.com/RinZ5/converge/backend/internal/core/service"
+	"github.com/RinZ5/converge/backend/internal/commute"
+	"github.com/RinZ5/converge/backend/internal/room"
+	"github.com/RinZ5/converge/backend/internal/scheduling"
+	"github.com/RinZ5/converge/backend/internal/teacher"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -51,16 +54,17 @@ func main() {
 		return
 	}
 
-	repo := db.NewPostgresRepo(database)
-	availSvc := service.NewAvailabilityService(repo)
-
+	availRepo := db.NewPostgresRepo(database)
 	bookingRepo := db.NewBookingRepository(database)
-	scorer := service.NewWeightedScorer()
-	clpEngine := service.NewCLPEngine(bookingRepo, scorer, nil, nil)
-	bookingSvc := service.NewBookingService(bookingRepo, clpEngine)
 
-	availHandler := web.NewAvailabilityHandler(availSvc)
-	bookingHandler := web.NewBookingHandler(bookingSvc)
+	scorer := scheduling.NewWeightedScorer()
+	clpEngine := scheduling.NewCLPEngine(bookingRepo, availRepo, scorer, &commute.Service{}, &room.Service{})
+
+	schedulingSvc := scheduling.NewSchedulingService(bookingRepo, availRepo, clpEngine)
+	teacherSvc := teacher.NewService(availRepo)
+
+	availHandler := web.NewAvailabilityHandler(teacherSvc)
+	bookingHandler := web.NewBookingHandler(schedulingSvc)
 
 	r := gin.Default()
 	r.Use(cors.New(corsConfig()))

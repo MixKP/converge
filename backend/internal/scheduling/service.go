@@ -1,4 +1,4 @@
-package service
+package scheduling
 
 import (
 	"context"
@@ -7,27 +7,28 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/RinZ5/converge/backend/internal/adapter/db"
-	"github.com/RinZ5/converge/backend/internal/core/models"
-	"github.com/RinZ5/converge/backend/internal/core/ports"
+	"github.com/RinZ5/converge/backend/internal/shared"
 )
 
+type SchedulingService struct {
+	bookingStore BookingStore
+	refStore     ReferenceStore
+	engine       bookingEngine
+}
+
 type bookingEngine interface {
-	FindAlternativesForSlot(ctx context.Context, req models.BookingRequest, window models.WeeklySlot) ([]models.BookingAlternative, error)
-	HasResourceChecker() bool
-	HasCommuteCalc() bool
+	FindAlternativesForSlot(ctx context.Context, req BookingRequest, window shared.WeeklySlot) ([]BookingAlternative, error)
 }
 
-type BookingService struct {
-	repo   ports.BookingRepository
-	engine bookingEngine
+func NewSchedulingService(bookingStore BookingStore, refStore ReferenceStore, engine bookingEngine) *SchedulingService {
+	return &SchedulingService{
+		bookingStore: bookingStore,
+		refStore:     refStore,
+		engine:       engine,
+	}
 }
 
-func NewBookingService(repo ports.BookingRepository, engine bookingEngine) *BookingService {
-	return &BookingService{repo: repo, engine: engine}
-}
-
-func (s *BookingService) Evaluate(ctx context.Context, req models.BookingRequest) (*models.BookingResponse, error) {
+func (s *SchedulingService) Evaluate(ctx context.Context, req BookingRequest) (*BookingResponse, error) {
 	if req.SubjectID <= 0 {
 		return nil, &ValidationError{Msg: "subject_id must be positive"}
 	}
@@ -54,19 +55,19 @@ func (s *BookingService) Evaluate(ctx context.Context, req models.BookingRequest
 		teacherIDVal = *req.PreferredTeacherID
 	}
 
-	var results []models.SlotResult
+	var results []SlotResult
 
 	for _, slot := range req.PreferredSlots {
-		match, err := s.repo.FindExactMatch(ctx, req.SubjectID, req.BranchID, slot, req.DurationMinutes, teacherIDVal)
+		match, err := s.bookingStore.FindExactMatch(ctx, req.SubjectID, req.BranchID, slot, req.DurationMinutes, teacherIDVal)
 		if err != nil {
-			log.Printf("BookingService.Evaluate: FindExactMatch error: %v", err)
+			log.Printf("SchedulingService.Evaluate: FindExactMatch error: %v", err)
 			return nil, err
 		}
 
 		if match != nil {
-			results = append(results, models.SlotResult{
+			results = append(results, SlotResult{
 				Slot: slot,
-				ExactMatch: &models.BookingAlternative{
+				ExactMatch: &BookingAlternative{
 					TeacherID:   match.Booking.TeacherID,
 					TeacherName: match.TeacherName,
 					BranchID:    match.Booking.BranchID,
@@ -83,47 +84,29 @@ func (s *BookingService) Evaluate(ctx context.Context, req models.BookingRequest
 
 		alternatives, err := s.engine.FindAlternativesForSlot(ctx, req, slot)
 		if err != nil {
-			log.Printf("BookingService.Evaluate: FindAlternatives error: %v", err)
+			log.Printf("SchedulingService.Evaluate: FindAlternatives error: %v", err)
 			return nil, err
 		}
 
-		results = append(results, models.SlotResult{
+		msg := s.buildAlternativesMessage(alternatives)
+		results = append(results, SlotResult{
 			Slot:         slot,
 			Alternatives: alternatives,
-			Message:      s.buildMessage(alternatives),
+			Message:      msg,
 		})
 	}
 
-	return &models.BookingResponse{Results: results}, nil
+	return &BookingResponse{Results: results}, nil
 }
 
-func (s *BookingService) buildMessage(alternatives []models.BookingAlternative) string {
+func (s *SchedulingService) buildAlternativesMessage(alternatives []BookingAlternative) string {
 	if len(alternatives) == 0 {
 		return "No exact match found. No alternatives available."
 	}
-
-	checked := s.checkedResources()
-	if checked == "" {
-		return fmt.Sprintf("No exact match found. %d alternative(s) returned. Room availability not checked.", len(alternatives))
-	}
-	return fmt.Sprintf("No exact match found. %d alternative(s) returned. %s", len(alternatives), checked)
+	return fmt.Sprintf("No exact match found. %d alternative(s) returned.", len(alternatives))
 }
 
-func (s *BookingService) checkedResources() string {
-	var parts []string
-	if s.engine.HasResourceChecker() {
-		parts = append(parts, "room checked")
-	}
-	if s.engine.HasCommuteCalc() {
-		parts = append(parts, "commute calculated")
-	}
-	if len(parts) == 0 {
-		return ""
-	}
-	return fmt.Sprintf("%s.", joinParts(parts))
-}
-
-func (s *BookingService) Confirm(ctx context.Context, req models.ConfirmBookingRequest) (*models.Booking, error) {
+func (s *SchedulingService) Confirm(ctx context.Context, req ConfirmBookingRequest) (*Booking, error) {
 	if req.TeacherID <= 0 {
 		return nil, &ValidationError{Msg: "teacher_id must be positive"}
 	}
@@ -143,45 +126,45 @@ func (s *BookingService) Confirm(ctx context.Context, req models.ConfirmBookingR
 		return nil, &ValidationError{Msg: "client_name must not be empty"}
 	}
 
-	booking, err := s.repo.CreateBooking(ctx, req)
+	booking, err := s.bookingStore.CreateBooking(ctx, req)
 	if err != nil {
-		if errors.Is(err, db.ErrBookingConflict) {
+		if errors.Is(err, ErrBookingConflict) {
 			return nil, &ConflictError{Msg: "Teacher already has a booking in this time range"}
 		}
-		log.Printf("BookingService.Confirm: CreateBooking error: %v", err)
+		log.Printf("SchedulingService.Confirm: CreateBooking error: %v", err)
 		return nil, err
 	}
 	return booking, nil
 }
 
-func (s *BookingService) Cancel(ctx context.Context, bookingID int) error {
+func (s *SchedulingService) Cancel(ctx context.Context, bookingID int) error {
 	if bookingID <= 0 {
 		return &ValidationError{Msg: "booking_id must be positive"}
 	}
-	err := s.repo.DeleteBooking(ctx, bookingID)
+	err := s.bookingStore.DeleteBooking(ctx, bookingID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return &NotFoundError{Msg: fmt.Sprintf("booking %d not found", bookingID)}
 	}
 	if err != nil {
-		log.Printf("BookingService.Cancel: DeleteBooking error: %v", err)
+		log.Printf("SchedulingService.Cancel: DeleteBooking error: %v", err)
 		return err
 	}
 	return nil
 }
 
-func (s *BookingService) ListAll(ctx context.Context) ([]models.Booking, error) {
-	bookings, err := s.repo.FindAllBookings(ctx)
+func (s *SchedulingService) ListAll(ctx context.Context) ([]Booking, error) {
+	bookings, err := s.bookingStore.FindAllBookings(ctx)
 	if err != nil {
-		log.Printf("BookingService.ListAll: error: %v", err)
+		log.Printf("SchedulingService.ListAll: error: %v", err)
 		return nil, err
 	}
 	return bookings, nil
 }
 
-func joinParts(parts []string) string {
-	result := parts[0]
-	for i := 1; i < len(parts); i++ {
-		result += " and " + parts[i]
-	}
-	return result
+func (s *SchedulingService) GetBranches(ctx context.Context) ([]Branch, error) {
+	return s.refStore.GetBranches(ctx)
+}
+
+func (s *SchedulingService) GetSubjects(ctx context.Context) ([]Subject, error) {
+	return s.refStore.GetSubjects(ctx)
 }
