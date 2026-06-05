@@ -39,6 +39,9 @@
   // AI-specific time slots (subject/branch/teacher now shared with manual form)
   const aiTimeSlots = ref<Array<{ day_of_week: number; start: string; end: string }>>([])
 
+  // Request token to guard against stale AI responses after panel is closed
+  const currentAiRequestId = ref<string | null>(null)
+
   const canProceedToCalendar = computed(() => !!selectedSubjectId.value && !!selectedBranchId.value)
 
   // Detect mobile on mount and resize
@@ -110,9 +113,14 @@
   const closeAIMode = () => {
     aiMode.value = 'idle'
     aiTimeSlots.value = []
+    currentAiRequestId.value = null // Invalidate any in-flight AI requests
     resetBookingState()
     previouslyFocusedElement.value?.focus()
     previouslyFocusedElement.value = null
+  }
+
+  const handleResetAIResults = () => {
+    showDetailedResults.value = false
   }
 
   const handleSuggestionClick = (info: EventClickArg): void => {
@@ -160,12 +168,24 @@
       const [hour, minute] = timeStr.split(':').map(Number)
       return hour * 60 + minute
     }
-    const firstSlot = aiTimeSlots.value[0]
-    const aiDuration = toMinutes(firstSlot.end) - toMinutes(firstSlot.start)
+
+    // Validate all slots have the same duration
+    const durations = new Set(
+      aiTimeSlots.value.map((slot) => toMinutes(slot.end) - toMinutes(slot.start))
+    )
+    if (durations.size !== 1) {
+      errorMessage.value = 'All AI time slots must use the same duration.'
+      return
+    }
+    const aiDuration = [...durations][0]
 
     isEvaluating.value = true
     errorMessage.value = ''
     successMessage.value = ''
+
+    // Generate unique request ID to guard against stale responses
+    const requestId = Math.random().toString(36).substring(7)
+    currentAiRequestId.value = requestId
 
     try {
       const { bookingApi } = await import('../services/bookingApi')
@@ -176,6 +196,11 @@
         duration_minutes: aiDuration,
         preferred_teacher_id: selectedTeacherId.value ?? undefined,
       })
+
+      // Only apply results if this is still the current request
+      if (currentAiRequestId.value !== requestId) {
+        return // Request was cancelled/invalidated by closing the panel
+      }
 
       suggestions.value = response
       showDetailedResults.value = true
@@ -355,6 +380,7 @@
           @update:selected-teacher-id="(v) => (selectedTeacherId = v)"
           @submit="handleGetAISuggestions"
           @close="closeAIMode"
+          @reset="handleResetAIResults"
           @confirm-booking="handleAIBooking"
         />
       </div>
@@ -510,6 +536,7 @@
           @update:selected-teacher-id="(v) => (selectedTeacherId = v)"
           @submit="handleGetAISuggestions"
           @close="closeAIMode"
+          @reset="handleResetAIResults"
           @confirm-booking="handleAIBooking"
         />
       </div>
@@ -808,6 +835,7 @@
             @update:selected-teacher-id="(v) => (selectedTeacherId = v)"
             @submit="handleGetAISuggestions"
             @close="closeAIMode"
+            @reset="handleResetAIResults"
             @confirm-booking="handleAIBooking"
           />
         </div>

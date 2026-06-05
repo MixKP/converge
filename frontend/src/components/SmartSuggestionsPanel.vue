@@ -37,6 +37,7 @@
     'update:selectedTeacherId': [value: number | null]
     submit: []
     close: []
+    reset: []
     'confirm-booking': [teacherId: number, teacherName: string, startTime: string, endTime: string]
   }>()
 
@@ -117,6 +118,10 @@
 
   const handleClose = () => {
     emit('close')
+  }
+
+  const handleReset = () => {
+    emit('reset')
   }
 
   const handleConfirmBooking = (
@@ -341,7 +346,7 @@
         :show-detailed-results="showDetailedResults"
         :is-evaluating="isEvaluating"
         @confirm-booking="handleConfirmBooking"
-        @reset="handleClose"
+        @reset="handleReset"
       />
     </div>
   </div>

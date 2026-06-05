@@ -18,7 +18,7 @@
   flex-direction: column;
   gap: 0.875rem;
   padding: 1rem;
-  padding-bottom: 72px;
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
   max-width: 100%;
   overflow-x: hidden;
 }
@@ -228,7 +228,7 @@
 
 .mobile-calendar-wrapper :deep(.fc) {
   height: 100% !important;
-  font-size: 0.5rem;
+  font-size: 0.75rem;
   touch-action: pan-y pinch-zoom;
 }
 
@@ -301,7 +301,7 @@
 }
 
 .mobile-calendar-wrapper :deep(.fc .fc-toolbar-title) {
-  font-size: 0.5rem !important;
+  font-size: 0.75rem !important;
   font-weight: 600 !important;
   margin: 0 !important;
   line-height: 1.2 !important;
@@ -312,10 +312,12 @@
 }
 
 .mobile-calendar-wrapper :deep(.fc .fc-button) {
-  padding: 0.1em !important;
+  min-width: 2rem;
+  min-height: 2rem;
+  padding: 0.25rem !important;
   background: transparent !important;
   border: none !important;
-  font-size: 0.75em !important;
+  font-size: 0.875rem !important;
 }
 
 .mobile-calendar-wrapper :deep(.fc-icon) {
@@ -324,14 +326,14 @@
 
 .mobile-sticky-add-btn {
   position: fixed;
-  bottom: 0;
+  bottom: env(safe-area-inset-bottom);
   left: 0;
   right: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 1rem;
+  padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom));
   font-size: 0.9375rem;
   font-weight: 500;
   color: white;
@@ -545,7 +547,7 @@
 
 .tablet-calendar-wrapper :deep(.fc) {
   height: 100% !important;
-  font-size: 0.625rem;
+  font-size: 0.875rem;
   touch-action: pan-y pinch-zoom;
 }
 
@@ -598,7 +600,7 @@
 }
 
 .tablet-calendar-wrapper :deep(.fc .fc-toolbar-title) {
-  font-size: 0.625rem !important;
+  font-size: 0.875rem !important;
   font-weight: 600 !important;
   margin: 0 !important;
   line-height: 1.2 !important;
@@ -609,10 +611,12 @@
 }
 
 .tablet-calendar-wrapper :deep(.fc .fc-button) {
-  padding: 0.1em !important;
+  min-width: 2rem;
+  min-height: 2rem;
+  padding: 0.25rem !important;
   background: transparent !important;
   border: none !important;
-  font-size: 0.75em !important;
+  font-size: 0.875rem !important;
 }
 
 .tablet-calendar-wrapper :deep(.fc-icon) {
@@ -687,14 +691,14 @@
 
 .tablet-sticky-add-btn {
   position: fixed;
-  bottom: 0;
+  bottom: env(safe-area-inset-bottom);
   left: 0;
   right: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 1rem;
+  padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom));
   font-size: 0.9375rem;
   font-weight: 500;
   color: white;
