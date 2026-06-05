@@ -152,13 +152,6 @@
     <div :class="getCls('header')">
       <div>
         <h3 :class="getCls('title')">Smart Suggestions</h3>
-        <p :class="getCls('subtitle')">
-          {{
-            layout === 'mobile'
-              ? 'Find available teachers for your preferred times'
-              : "Tell us when you're free, and we'll find available teachers for those times."
-          }}
-        </p>
       </div>
       <button
         type="button"
@@ -197,10 +190,6 @@
         <label :class="getCls('label')">
           Preferred Time Slots <span :class="getCls('required')">*</span>
         </label>
-        <p v-if="layout === 'desktop'" :class="getCls('hint')">
-          Add the days and times you're free. We'll match you with available teachers.
-        </p>
-        <p v-else :class="getCls('hint')">Add the days and times you're free</p>
 
         <div :class="getCls('slot-controls')">
           <select
@@ -931,11 +920,15 @@
 
   /* Desktop */
   .smart-suggestions-panel--desktop {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
     background: transparent;
     border: none;
     border-radius: 0;
     box-shadow: none;
-    overflow: hidden;
   }
 
   .smart-suggestions-panel--desktop__header {
@@ -988,7 +981,7 @@
   .smart-suggestions-panel--desktop__form {
     display: flex;
     flex-direction: column;
-    padding: 0 1rem 1rem;
+    padding: 1rem;
     gap: 1rem;
   }
 
@@ -1024,7 +1017,7 @@
     padding: 0.625rem 0.875rem;
     font-size: 0.8125rem;
     color: var(--text-primary);
-    background: var(--bg-cream);
+    background: var(--bg-card);
     border: 1px solid var(--border-medium);
     border-radius: 6px;
     cursor: pointer;
@@ -1044,8 +1037,9 @@
   }
 
   .smart-suggestions-panel--desktop__select:disabled {
-    opacity: 0.5;
+    opacity: 0.6;
     cursor: not-allowed;
+    background: var(--bg-card);
   }
 
   .smart-suggestions-panel--desktop__slot-controls {
@@ -1171,6 +1165,8 @@
     box-shadow: 0 2px 8px rgba(62, 76, 122, 0.2);
     font-family: 'IBM Plex Sans', sans-serif;
     touch-action: manipulation;
+    flex-shrink: 0;
+    max-height: 44px;
   }
 
   .smart-suggestions-panel--desktop__submit:hover:not(:disabled) {
@@ -1180,15 +1176,18 @@
   }
 
   .smart-suggestions-panel--desktop__submit:disabled {
-    opacity: 0.4;
+    opacity: 1;
     cursor: not-allowed;
     transform: none;
-    background: #9ca3af;
+    background: #e2e8f0;
+    color: #475569;
+    box-shadow: none;
   }
 
   .smart-suggestions-panel--desktop__submit-icon {
     width: 1rem;
     height: 1rem;
+    flex-shrink: 0;
   }
 
   .smart-suggestions-panel--desktop__results {

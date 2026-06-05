@@ -507,7 +507,7 @@
       </div>
 
       <!-- Desktop Layout (>768px) -->
-      <div v-else class="booking-layout" :class="{ 'booking-layout--split': aiMode !== 'idle' }">
+      <div v-else class="booking-layout">
         <!-- Calendar Section -->
         <div
           class="calendar-section"
@@ -536,6 +536,7 @@
                 </svg>
                 Edit Selection
               </button>
+              <!-- Smart Suggestions button -->
               <button
                 v-if="aiMode === 'idle' && (!isMobile || mobileStep === 'selection')"
                 type="button"
@@ -804,6 +805,7 @@
         </div>
       </div>
 
+      <!-- Desktop AI Panel Overlay (remove this, now using swap) -->
       <!-- Mobile Sticky Bottom Button -->
       <button
         v-if="isMobile"

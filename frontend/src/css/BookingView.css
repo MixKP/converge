@@ -2,6 +2,14 @@
   position: relative;
   height: 100%;
   overflow: hidden;
+  padding: 0 1.5rem;
+}
+
+/* Desktop */
+@media (min-width: 1024px) {
+  .booking-container {
+    padding: 0 2rem;
+  }
 }
 
 /* Mobile Layout */
@@ -721,27 +729,32 @@
 /* Desktop Layout */
 .booking-layout {
   position: relative;
-  display: grid;
-  grid-template-columns: 1fr 340px;
+  display: flex;
   gap: 1.5rem;
-  height: 100%;
   z-index: 1;
-  transition: grid-template-columns 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+  padding: 0.5rem;
 }
 
-.booking-layout--split {
-  grid-template-columns: minmax(0, 2fr) 380px;
+@media (min-width: 1024px) {
+  .booking-layout {
+    flex-direction: row;
+  }
+
+  .calendar-section {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .control-panel {
+    width: 340px;
+    flex-shrink: 0;
+  }
 }
 
 @media (max-width: 1023px) {
   .booking-layout {
-    grid-template-columns: 1fr;
-    grid-template-rows: 1fr auto;
+    flex-direction: column;
     gap: 1.25rem;
-  }
-
-  .booking-layout--split {
-    grid-template-rows: 1fr auto;
   }
 
   .control-panel {
@@ -756,6 +769,12 @@
   transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
   position: relative;
   z-index: 1;
+}
+
+@media (min-width: 1024px) {
+  .calendar-section {
+    max-width: 100%;
+  }
 }
 
 .section-header {
@@ -824,10 +843,15 @@
 }
 
 .calendar-wrapper {
-  flex: 1;
-  min-height: 0;
   position: relative;
   z-index: 1;
+}
+
+/* Desktop - fixed calendar height */
+@media (min-width: 1024px) {
+  .calendar-wrapper {
+    height: 620px;
+  }
 }
 
 .calendar-inner {
@@ -869,29 +893,18 @@
   flex-direction: column;
   background: var(--bg-card);
   border-radius: 16px;
-  border: none;
+  border: 1px solid var(--border-medium);
   box-shadow:
     0 1px 3px rgba(0, 0, 0, 0.04),
     0 4px 12px rgba(0, 0, 0, 0.03);
   overflow: hidden;
   transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+  max-height: calc(100vh - 150px);
 }
 
 .control-panel--ai {
-  border: 1px solid var(--primary-indigo);
+  border-color: var(--primary-indigo);
   box-shadow: var(--shadow-card);
-  animation: panel-slide-in 0.35s cubic-bezier(0.25, 1, 0.5, 1);
-}
-
-@keyframes panel-slide-in {
-  from {
-    opacity: 0;
-    transform: translateX(20px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0) scale(1);
-  }
 }
 
 .panel-content,
@@ -902,6 +915,7 @@
   gap: 1rem;
   height: 100%;
   overflow-y: auto;
+  min-height: 0;
 }
 
 .panel-content--ai {
@@ -1207,6 +1221,24 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* Desktop AI Panel (swap with control panel) */
+@media (min-width: 1024px) {
+  .control-panel--ai {
+    animation: panel-fade-in 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+  }
+}
+
+@keyframes panel-fade-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 

@@ -40,13 +40,6 @@
 
 <template>
   <div class="results-container">
-    <div v-if="!showDetailedResults && !isEvaluating" class="results-intro">
-      <p>
-        Choose your subject, branch, and when you'd like to learn. We'll find available teachers for
-        your preferred times.
-      </p>
-    </div>
-
     <div v-if="isEvaluating" class="results-loading">
       <div class="loading-spinner">
         <div class="spinner-ring"></div>
