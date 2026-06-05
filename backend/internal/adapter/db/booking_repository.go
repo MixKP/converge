@@ -23,6 +23,7 @@ func NewBookingRepository(database *sql.DB) *BookingRepo {
 }
 
 func (r *BookingRepo) FindExactMatch(ctx context.Context, subjectID, branchID int, slot shared.WeeklySlot, durationMinutes int, teacherID *int) (*scheduling.BookingMatch, error) {
+	loc := shared.LoadLocation()
 	duration := time.Duration(durationMinutes) * time.Minute
 
 	windowEnd := slot.End
@@ -34,7 +35,6 @@ func (r *BookingRepo) FindExactMatch(ctx context.Context, subjectID, branchID in
 		windowEnd = shared.TimeHHMM(parsedStart.Add(duration).Format("15:04"))
 	}
 
-	loc := shared.LoadLocation()
 	anchorDate := shared.AnchorDateForDay(slot.DayOfWeek, loc)
 	parsedStart, err := time.Parse("15:04", string(slot.Start))
 	if err != nil {
