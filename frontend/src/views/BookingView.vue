@@ -49,7 +49,7 @@
   const checkMobile = () => {
     const width = globalThis.innerWidth
     isMobile.value = width <= 425
-    isTablet.value = width > 425 && width <= 768
+    isTablet.value = width > 425 && width < 1024
   }
 
   onMounted(() => {
@@ -259,11 +259,7 @@
               <span class="mobile-label-dot"></span>
               <span>SUBJECT</span>
             </label>
-            <select
-              v-model="selectedSubjectId"
-              class="mobile-select"
-              aria-label="Select subject"
-            >
+            <select v-model="selectedSubjectId" class="mobile-select" aria-label="Select subject">
               <option :value="null">Select subject</option>
               <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
                 {{ subject.name }}
@@ -302,11 +298,7 @@
                 aria-label="Select teacher"
               >
                 <option :value="null">All teachers</option>
-                <option
-                  v-for="teacher in filteredTeachers"
-                  :key="teacher.id"
-                  :value="teacher.id"
-                >
+                <option v-for="teacher in filteredTeachers" :key="teacher.id" :value="teacher.id">
                   {{ teacher.name }}
                 </option>
               </select>
@@ -354,9 +346,7 @@
                 d="M15.042 21.672L13.684 16.6m0 0l-2.51 2.225.569-9.47 5.227 7.917-3.286-.672zM12 2.25V4.5m5.834.166l-1.591 1.591M20.25 10.5H18M7.757 14.743l-1.59 1.59M6 10.5H3.75m4.007-4.243l-1.59-1.59"
               />
             </svg>
-            <button class="mobile-empty-btn" disabled>
-              Select a subject to view availability
-            </button>
+            <button class="mobile-empty-btn" disabled>Select a subject to view availability</button>
           </div>
 
           <!-- Calendar -->
@@ -383,7 +373,9 @@
           <div class="mobile-ai-panel-header">
             <div>
               <h3 class="mobile-ai-panel-title">Smart Suggestions</h3>
-              <p class="mobile-ai-panel-subtitle">Find available teachers for your preferred times</p>
+              <p class="mobile-ai-panel-subtitle">
+                Find available teachers for your preferred times
+              </p>
             </div>
             <button
               type="button"
@@ -407,7 +399,11 @@
               <label class="mobile-ai-label" for="mobile-ai-subject-select"
                 >Subject <span class="mobile-ai-required">*</span></label
               >
-              <select id="mobile-ai-subject-select" v-model="selectedSubjectId" class="mobile-ai-select">
+              <select
+                id="mobile-ai-subject-select"
+                v-model="selectedSubjectId"
+                class="mobile-ai-select"
+              >
                 <option :value="null">Select subject</option>
                 <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
                   {{ subject.name }}
@@ -416,7 +412,9 @@
             </div>
 
             <div class="mobile-ai-field">
-              <label class="mobile-ai-label">Preferred Time Slots <span class="mobile-ai-required">*</span></label>
+              <label class="mobile-ai-label"
+                >Preferred Time Slots <span class="mobile-ai-required">*</span></label
+              >
               <p class="mobile-ai-hint">Add the days and times you're free</p>
 
               <div class="mobile-slot-controls">
@@ -474,12 +472,10 @@
               </div>
 
               <div v-if="aiTimeSlots.length > 0" class="mobile-ai-slot-list">
-                <div
-                  v-for="(slot, index) in aiTimeSlots"
-                  :key="index"
-                  class="mobile-ai-slot-item"
-                >
-                  <span class="mobile-ai-slot-text">{{ getDayName(slot.day_of_week) }} {{ slot.start }} - {{ slot.end }}</span>
+                <div v-for="(slot, index) in aiTimeSlots" :key="index" class="mobile-ai-slot-item">
+                  <span class="mobile-ai-slot-text"
+                    >{{ getDayName(slot.day_of_week) }} {{ slot.start }} - {{ slot.end }}</span
+                  >
                   <button
                     type="button"
                     class="mobile-ai-slot-remove"
@@ -501,7 +497,8 @@
 
             <div class="mobile-ai-field">
               <label class="mobile-ai-label" for="mobile-ai-branch-select"
-                >Branch <span class="mobile-ai-required">*</span></label>
+                >Branch <span class="mobile-ai-required">*</span></label
+              >
               <select
                 id="mobile-ai-branch-select"
                 v-model="selectedBranchId"
@@ -519,10 +516,7 @@
               type="button"
               class="mobile-ai-submit-btn"
               :disabled="
-                !selectedSubjectId ||
-                !selectedBranchId ||
-                aiTimeSlots.length === 0 ||
-                isEvaluating
+                !selectedSubjectId || !selectedBranchId || aiTimeSlots.length === 0 || isEvaluating
               "
               :aria-busy="isEvaluating"
               @click="handleGetAISuggestions"
@@ -564,11 +558,7 @@
           <div class="tablet-form-row">
             <div class="tablet-form-field">
               <label class="tablet-label">Subject</label>
-              <select
-                v-model="selectedSubjectId"
-                class="tablet-select"
-                aria-label="Select subject"
-              >
+              <select v-model="selectedSubjectId" class="tablet-select" aria-label="Select subject">
                 <option :value="null">Select subject</option>
                 <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
                   {{ subject.name }}
@@ -598,11 +588,7 @@
                 aria-label="Select teacher"
               >
                 <option :value="null">All teachers</option>
-                <option
-                  v-for="teacher in filteredTeachers"
-                  :key="teacher.id"
-                  :value="teacher.id"
-                >
+                <option v-for="teacher in filteredTeachers" :key="teacher.id" :value="teacher.id">
                   {{ teacher.name }}
                 </option>
               </select>
@@ -733,7 +719,11 @@
               <label class="tablet-ai-label" for="tablet-ai-subject-select"
                 >Subject <span class="tablet-ai-required">*</span></label
               >
-              <select id="tablet-ai-subject-select" v-model="selectedSubjectId" class="tablet-ai-select">
+              <select
+                id="tablet-ai-subject-select"
+                v-model="selectedSubjectId"
+                class="tablet-ai-select"
+              >
                 <option :value="null">Select subject</option>
                 <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
                   {{ subject.name }}
@@ -742,7 +732,9 @@
             </div>
 
             <div class="tablet-ai-field">
-              <label class="tablet-ai-label">Preferred Time Slots <span class="tablet-ai-required">*</span></label>
+              <label class="tablet-ai-label"
+                >Preferred Time Slots <span class="tablet-ai-required">*</span></label
+              >
               <div class="tablet-slot-controls">
                 <select
                   v-model.number="aiNewSlotDay"
@@ -798,12 +790,10 @@
               </div>
 
               <div v-if="aiTimeSlots.length > 0" class="tablet-ai-slot-list">
-                <div
-                  v-for="(slot, index) in aiTimeSlots"
-                  :key="index"
-                  class="tablet-ai-slot-item"
-                >
-                  <span class="tablet-ai-slot-text">{{ getDayName(slot.day_of_week) }} {{ slot.start }} - {{ slot.end }}</span>
+                <div v-for="(slot, index) in aiTimeSlots" :key="index" class="tablet-ai-slot-item">
+                  <span class="tablet-ai-slot-text"
+                    >{{ getDayName(slot.day_of_week) }} {{ slot.start }} - {{ slot.end }}</span
+                  >
                   <button
                     type="button"
                     class="tablet-ai-slot-remove"
@@ -825,7 +815,8 @@
 
             <div class="tablet-ai-field">
               <label class="tablet-ai-label" for="tablet-ai-branch-select"
-                >Branch <span class="tablet-ai-required">*</span></label>
+                >Branch <span class="tablet-ai-required">*</span></label
+              >
               <select
                 id="tablet-ai-branch-select"
                 v-model="selectedBranchId"
@@ -840,7 +831,9 @@
             </div>
 
             <div class="tablet-ai-field">
-              <label class="tablet-ai-label" for="tablet-ai-teacher-select">Teacher (Optional)</label>
+              <label class="tablet-ai-label" for="tablet-ai-teacher-select"
+                >Teacher (Optional)</label
+              >
               <select
                 id="tablet-ai-teacher-select"
                 v-model="selectedTeacherId"
@@ -858,10 +851,7 @@
               type="button"
               class="tablet-ai-submit"
               :disabled="
-                !selectedSubjectId ||
-                !selectedBranchId ||
-                aiTimeSlots.length === 0 ||
-                isEvaluating
+                !selectedSubjectId || !selectedBranchId || aiTimeSlots.length === 0 || isEvaluating
               "
               :aria-busy="isEvaluating"
               @click="handleGetAISuggestions"
@@ -1411,10 +1401,7 @@
         type="button"
         class="mobile-sticky-add-btn"
         :disabled="
-          !selectedSubjectId ||
-          !selectedBranchId ||
-          !selectedTeacherId ||
-          events.length === 0
+          !selectedSubjectId || !selectedBranchId || !selectedTeacherId || events.length === 0
         "
         @click="
           events.forEach((e) => {
@@ -1442,10 +1429,7 @@
         type="button"
         class="tablet-sticky-add-btn"
         :disabled="
-          !selectedSubjectId ||
-          !selectedBranchId ||
-          !selectedTeacherId ||
-          events.length === 0
+          !selectedSubjectId || !selectedBranchId || !selectedTeacherId || events.length === 0
         "
         @click="
           events.forEach((e) => {

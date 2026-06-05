@@ -52,9 +52,7 @@
     globalThis.removeEventListener('resize', updateScreenWidth)
   })
   const dayHeaderFormat = computed(() => {
-    if (screenWidth.value < 640) {
-      return { weekday: 'narrow' as const }
-    } else if (screenWidth.value < 768) {
+    if (screenWidth.value < 1024) {
       return { weekday: 'short' as const }
     }
     return { weekday: 'long' as const }
@@ -152,9 +150,9 @@
   const CALENDAR_DEFAULT_OPTIONS = {
     initialView: 'timeGridWeek',
     headerToolbar: {
-      left: 'prev,next',
+      left: 'prev',
       center: 'title',
-      right: '',
+      right: 'next',
     },
     height: '100%',
     weekends: true,
