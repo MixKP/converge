@@ -224,7 +224,7 @@
 /* Mobile Calendar Touch Optimizations */
 .mobile-calendar-wrapper :deep(.fc) {
   height: 100% !important;
-  font-size: 0.6875rem;
+  font-size: 0.5rem;
   touch-action: pan-y pinch-zoom;
 }
 
@@ -353,6 +353,688 @@
 .mobile-add-icon {
   width: 1.125rem;
   height: 1.125rem;
+}
+
+/* Tablet Layout (426px - 768px) */
+.tablet-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.5rem;
+  padding-bottom: 1.5rem;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Tablet Form Section */
+.tablet-form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.tablet-form-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.tablet-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.tablet-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+
+.tablet-select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 0.9375rem;
+  font-weight: 400;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'IBM Plex Sans', sans-serif;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%23585863' viewBox='0 0 24 24'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M8 10l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1rem;
+  padding-right: 2.5rem;
+}
+
+.tablet-select:hover {
+  border-color: var(--primary-indigo);
+}
+
+.tablet-select:focus {
+  outline: none;
+  border-color: var(--primary-indigo);
+  box-shadow: 0 0 0 3px rgba(62, 76, 122, 0.1);
+}
+
+.tablet-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: var(--bg-subtle);
+}
+
+/* Tablet Availability Section */
+.tablet-availability-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.tablet-availability-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.tablet-availability-titles {
+  flex: 1;
+}
+
+.tablet-section-title {
+  font-size: 1.375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  font-family: 'Instrument Sans', sans-serif;
+}
+
+.tablet-section-subtitle {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0.25rem 0 0 0;
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+
+/* Tablet AI Button */
+.tablet-ai-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  background: rgba(62, 76, 122, 0.08);
+  border: 1px solid var(--primary-indigo);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+
+.tablet-ai-button:hover {
+  background: rgba(62, 76, 122, 0.15);
+  transform: translateY(-1px);
+}
+
+.tablet-ai-button:active {
+  transform: translateY(0);
+}
+
+.tablet-ai-text {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--primary-indigo);
+}
+
+.tablet-ai-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  color: var(--primary-indigo);
+}
+
+/* Tablet Empty State */
+.tablet-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  min-height: 280px;
+  border: 2px dashed var(--border-medium);
+  border-radius: 12px;
+  background: var(--bg-subtle);
+  padding: 2rem;
+}
+
+.tablet-empty-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  color: var(--accent-coral);
+  opacity: 0.8;
+}
+
+.tablet-empty-text {
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  margin: 0;
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+
+/* Tablet Calendar Wrapper */
+.tablet-calendar-wrapper {
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-card);
+  height: 420px;
+  display: flex;
+  flex-direction: column;
+  touch-action: pan-y pinch-zoom;
+}
+
+.tablet-calendar-wrapper :deep(.fc) {
+  height: 100% !important;
+  font-size: 0.625rem;
+  touch-action: pan-y pinch-zoom;
+}
+
+.tablet-calendar-wrapper :deep(.fc-view-harness) {
+  touch-action: pan-y pinch-zoom;
+}
+
+.tablet-calendar-wrapper :deep(.fc-view) {
+  touch-action: pan-y pinch-zoom;
+}
+
+.tablet-calendar-wrapper :deep(.fc-timegrid) {
+  touch-action: pan-y pinch-zoom;
+}
+
+.tablet-calendar-wrapper :deep(.fc-timegrid-body) {
+  touch-action: pan-y pinch-zoom;
+}
+
+.tablet-calendar-wrapper :deep(.fc-timegrid-slots) {
+  touch-action: pan-y pinch-zoom;
+}
+
+.tablet-calendar-wrapper :deep(.fc-col-header-cell) {
+  padding: 0.5rem 0.25rem !important;
+  height: 32px !important;
+  touch-action: manipulation;
+}
+
+.tablet-calendar-wrapper :deep(.fc-col-header-cell-cushion) {
+  font-size: 0.625rem !important;
+  padding: 0 0.25rem !important;
+  font-weight: 600 !important;
+}
+
+.tablet-calendar-wrapper :deep(.fc-timegrid-axis) {
+  width: 32px !important;
+  touch-action: pan-y;
+}
+
+.tablet-calendar-wrapper :deep(.fc-timegrid-slot-label) {
+  font-size: 0.625rem !important;
+}
+
+.tablet-calendar-wrapper :deep(.fc-timegrid-slot) {
+  min-height: 40px;
+  touch-action: pan-y;
+}
+
+.tablet-calendar-wrapper :deep(.fc-timegrid-slot-lane) {
+  touch-action: pan-y;
+}
+
+/* Tablet Calendar Header Toolbar - make it smaller */
+.tablet-calendar-wrapper :deep(.fc-header-toolbar) {
+  padding: 0.25rem 0.5rem !important;
+  gap: 0.25rem;
+}
+
+.tablet-calendar-wrapper :deep(.fc-toolbar-chunk) {
+  margin: 0 !important;
+}
+
+.tablet-calendar-wrapper :deep(.fc .fc-toolbar-title) {
+  font-size: 0.625rem !important;
+  font-weight: 600 !important;
+  margin: 0 !important;
+  line-height: 1.2 !important;
+}
+
+.tablet-calendar-wrapper :deep(.fc-button-group) {
+  gap: 0.125rem;
+}
+
+.tablet-calendar-wrapper :deep(.fc .fc-button) {
+  padding: 0.1em !important;
+  background: transparent !important;
+  border: none !important;
+  font-size: 0.75em !important;
+}
+
+.tablet-calendar-wrapper :deep(.fc-icon) {
+  font-size: 1em !important;
+}
+
+/* Mobile Calendar Header Toolbar - make it smaller */
+.mobile-calendar-wrapper :deep(.fc-header-toolbar) {
+  padding: 0.125rem 0.375rem !important;
+  gap: 0.125rem;
+}
+
+.mobile-calendar-wrapper :deep(.fc-toolbar-chunk) {
+  margin: 0 !important;
+}
+
+.mobile-calendar-wrapper :deep(.fc .fc-toolbar-title) {
+  font-size: 0.5rem !important;
+  font-weight: 600 !important;
+  margin: 0 !important;
+  line-height: 1.2 !important;
+}
+
+.mobile-calendar-wrapper :deep(.fc-button-group) {
+  gap: 0.0625rem;
+}
+
+.mobile-calendar-wrapper :deep(.fc .fc-button) {
+  padding: 0.1em !important;
+  background: transparent !important;
+  border: none !important;
+  font-size: 0.75em !important;
+}
+
+.mobile-calendar-wrapper :deep(.fc-icon) {
+  font-size: 1em !important;
+}
+
+/* Tablet Action Section */
+.tablet-action-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+}
+
+.tablet-slots-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tablet-slots-count {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--primary-indigo);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.tablet-slots-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+
+.tablet-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: white;
+  background: var(--primary-indigo);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+
+.tablet-add-btn:hover:not(:disabled) {
+  background: var(--primary-indigo-deep);
+  transform: translateY(-1px);
+}
+
+.tablet-add-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.tablet-add-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tablet-add-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+/* Tablet AI Panel */
+.tablet-ai-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg-cream);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 5rem 1.5rem 1.5rem;
+}
+
+.tablet-ai-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border-medium);
+}
+
+.tablet-ai-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  font-family: 'Instrument Sans', sans-serif;
+}
+
+.tablet-ai-subtitle {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0.25rem 0 0 0;
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+
+.tablet-ai-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-medium);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tablet-ai-close:hover {
+  background: var(--bg-card);
+  border-color: var(--border-strong);
+}
+
+.tablet-ai-close svg {
+  width: 1.125rem;
+  height: 1.125rem;
+  color: var(--text-primary);
+}
+
+.tablet-ai-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding-top: 1.5rem;
+}
+
+.tablet-ai-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.tablet-ai-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+
+.tablet-ai-required {
+  color: var(--accent-coral);
+}
+
+.tablet-ai-select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 0.9375rem;
+  font-weight: 400;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'IBM Plex Sans', sans-serif;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%23585863' viewBox='0 0 24 24'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M8 10l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1rem;
+  padding-right: 2.5rem;
+}
+
+.tablet-ai-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: var(--bg-subtle);
+}
+
+.tablet-slot-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.tablet-ai-time-select {
+  flex: 1;
+  min-width: 80px;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'IBM Plex Sans', sans-serif;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%23585863' viewBox='0 0 24 24'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19.5 8.25l-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.625rem center;
+  background-size: 0.875rem;
+  padding-right: 1.75rem;
+}
+
+.tablet-ai-time-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tablet-ai-separator {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+
+.tablet-ai-add-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  background: var(--primary-indigo);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tablet-ai-add-slot:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tablet-ai-add-slot:not(:disabled):hover {
+  background: var(--primary-indigo-deep);
+}
+
+.tablet-ai-add-slot svg {
+  width: 1rem;
+  height: 1rem;
+  color: white;
+}
+
+.tablet-ai-slot-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  margin-top: 0.625rem;
+}
+
+.tablet-ai-slot-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.625rem 0.875rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+
+.tablet-ai-slot-text {
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+
+.tablet-ai-slot-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.tablet-ai-slot-remove:hover {
+  background: var(--bg-subtle);
+}
+
+.tablet-ai-slot-remove svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.tablet-ai-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  width: 100%;
+  padding: 0.875rem 1.25rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: white;
+  background: var(--primary-indigo);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+
+.tablet-ai-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tablet-ai-submit:not(:disabled):hover {
+  background: var(--primary-indigo-deep);
+  transform: translateY(-1px);
+}
+
+.tablet-ai-submit:not(:disabled):active {
+  transform: translateY(0);
+}
+
+/* Tablet Sticky Bottom Button */
+.tablet-sticky-add-btn {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  padding: 1rem 1.5rem;
+  background: var(--primary-indigo);
+  border: none;
+  cursor: pointer;
+  z-index: 10;
+  font-family: 'IBM Plex Sans', sans-serif;
+  transition: all 0.2s ease;
+}
+
+.tablet-sticky-add-btn:hover:not(:disabled) {
+  background: var(--primary-indigo-deep);
+}
+
+.tablet-sticky-add-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.tablet-sticky-add-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tablet-sticky-add-btn svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: white;
+}
+
+.tablet-sticky-add-btn span {
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+}
+
+.tablet-sticky-add-icon {
+  width: 1.25rem;
+  height: 1.25rem;
 }
 
 /* Technical Watermark */

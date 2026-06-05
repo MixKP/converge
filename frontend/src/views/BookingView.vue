@@ -34,6 +34,7 @@
   // Mobile step flow: 'selection' -> 'calendar'
   const mobileStep = ref<'selection' | 'calendar'>('selection')
   const isMobile = ref(false)
+  const isTablet = ref(false)
 
   // AI-specific time slots (subject/branch/teacher now shared with manual form)
   const aiTimeSlots = ref<Array<{ day_of_week: number; start: string; end: string }>>([])
@@ -46,7 +47,9 @@
 
   // Detect mobile on mount and resize
   const checkMobile = () => {
-    isMobile.value = globalThis.innerWidth <= 425
+    const width = globalThis.innerWidth
+    isMobile.value = width <= 425
+    isTablet.value = width > 425 && width <= 768
   }
 
   onMounted(() => {
@@ -554,7 +557,331 @@
         </div>
       </div>
 
-      <!-- Desktop Layout (>425px) -->
+      <!-- Tablet Layout (426px - 768px) -->
+      <div v-else-if="isTablet" class="tablet-layout">
+        <!-- Form Section -->
+        <div class="tablet-form-section">
+          <div class="tablet-form-row">
+            <div class="tablet-form-field">
+              <label class="tablet-label">Subject</label>
+              <select
+                v-model="selectedSubjectId"
+                class="tablet-select"
+                aria-label="Select subject"
+              >
+                <option :value="null">Select subject</option>
+                <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
+                  {{ subject.name }}
+                </option>
+              </select>
+            </div>
+            <div class="tablet-form-field">
+              <label class="tablet-label">Branch</label>
+              <select
+                v-model="selectedBranchId"
+                :disabled="!selectedSubjectId"
+                class="tablet-select"
+                aria-label="Select branch"
+              >
+                <option :value="null">Select branch</option>
+                <option v-for="branch in branches" :key="branch.id" :value="branch.id">
+                  {{ branch.name }}
+                </option>
+              </select>
+            </div>
+            <div class="tablet-form-field">
+              <label class="tablet-label">Teacher</label>
+              <select
+                v-model="selectedTeacherId"
+                :disabled="!selectedSubjectId"
+                class="tablet-select"
+                aria-label="Select teacher"
+              >
+                <option :value="null">All teachers</option>
+                <option
+                  v-for="teacher in filteredTeachers"
+                  :key="teacher.id"
+                  :value="teacher.id"
+                >
+                  {{ teacher.name }}
+                </option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Availability Section -->
+        <div class="tablet-availability-section">
+          <div class="tablet-availability-header">
+            <div class="tablet-availability-titles">
+              <h2 class="tablet-section-title">Availability</h2>
+              <p class="tablet-section-subtitle">Select your preferred time slot</p>
+            </div>
+            <button
+              type="button"
+              class="tablet-ai-button"
+              aria-label="Open smart booking suggestions"
+              @click="openAIMode"
+            >
+              <span class="tablet-ai-text">Smart Suggestions</span>
+              <svg
+                class="tablet-ai-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.5"
+                  d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Empty State -->
+          <div v-if="!selectedSubjectId" class="tablet-empty-state">
+            <svg class="tablet-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.5"
+                d="M15.042 21.672L13.684 16.6m0 0l-2.51 2.225.569-9.47 5.227 7.917-3.286-.672zM12 2.25V4.5m5.834.166l-1.591 1.591M20.25 10.5H18M7.757 14.743l-1.59 1.59M6 10.5H3.75m4.007-4.243l-1.59-1.59"
+              />
+            </svg>
+            <p class="tablet-empty-text">Select a subject to view availability</p>
+          </div>
+
+          <!-- Calendar -->
+          <div v-else class="tablet-calendar-wrapper">
+            <Calendar
+              ref="calendarRef"
+              :model-value="events"
+              :additional-events="suggestionEvents"
+              :editable="true"
+              :business-hours="businessHours"
+              constraint="businessHours"
+              @update:model-value="events = $event"
+              @event-click="handleSuggestionClick"
+              @update:options="
+                (e: { dayHeaderFormat: string }) =>
+                  calendarRef?.setOption('dayHeaderFormat', e.dayHeaderFormat)
+              "
+            />
+          </div>
+        </div>
+
+        <!-- Selected Slots & Add Button -->
+        <div v-if="events.length > 0" class="tablet-action-section">
+          <div class="tablet-slots-info">
+            <span class="tablet-slots-count">{{ events.length }}</span>
+            <span class="tablet-slots-label">slot{{ events.length > 1 ? 's' : '' }} selected</span>
+          </div>
+          <button
+            type="button"
+            class="tablet-add-btn"
+            :disabled="!selectedTeacherId"
+            @click="
+              events.forEach((e) => {
+                const teacher = filteredTeachers.find((t) => t.id === selectedTeacherId)
+                if (teacher) {
+                  addToCartDirectly(teacher.id, teacher.name, e.start as string, e.end as string)
+                }
+              })
+            "
+          >
+            <svg class="tablet-add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 4.5v15m7.5-7.5h-15"
+              />
+            </svg>
+            <span>{{ selectedTeacherId ? 'Add to Cart' : 'Select a Teacher' }}</span>
+          </button>
+        </div>
+
+        <!-- Tablet AI Panel -->
+        <div v-if="aiMode !== 'idle'" class="tablet-ai-panel">
+          <div class="tablet-ai-panel-header">
+            <div>
+              <h3 class="tablet-ai-title">Smart Suggestions</h3>
+              <p class="tablet-ai-subtitle">Find available teachers for your preferred times</p>
+            </div>
+            <button
+              type="button"
+              class="tablet-ai-close"
+              aria-label="Close suggestions"
+              @click="closeAIMode"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <div v-if="!showDetailedResults && !isEvaluating" class="tablet-ai-form">
+            <div class="tablet-ai-field">
+              <label class="tablet-ai-label" for="tablet-ai-subject-select"
+                >Subject <span class="tablet-ai-required">*</span></label
+              >
+              <select id="tablet-ai-subject-select" v-model="selectedSubjectId" class="tablet-ai-select">
+                <option :value="null">Select subject</option>
+                <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
+                  {{ subject.name }}
+                </option>
+              </select>
+            </div>
+
+            <div class="tablet-ai-field">
+              <label class="tablet-ai-label">Preferred Time Slots <span class="tablet-ai-required">*</span></label>
+              <div class="tablet-slot-controls">
+                <select
+                  v-model.number="aiNewSlotDay"
+                  class="tablet-ai-time-select"
+                  :disabled="!canAddTimeSlots"
+                  aria-label="Day of week"
+                >
+                  <option value="0">Sunday</option>
+                  <option value="1">Monday</option>
+                  <option value="2">Tuesday</option>
+                  <option value="3">Wednesday</option>
+                  <option value="4">Thursday</option>
+                  <option value="5">Friday</option>
+                  <option value="6">Saturday</option>
+                </select>
+                <select
+                  v-model="aiNewSlotStart"
+                  class="tablet-ai-time-select"
+                  :disabled="!canAddTimeSlots"
+                  aria-label="Start time"
+                >
+                  <option v-for="time in TIME_OPTIONS" :key="time" :value="time">
+                    {{ time }}
+                  </option>
+                </select>
+                <span class="tablet-ai-separator">to</span>
+                <select
+                  v-model="aiNewSlotEnd"
+                  class="tablet-ai-time-select"
+                  :disabled="!canAddTimeSlots"
+                  aria-label="End time"
+                >
+                  <option v-for="time in TIME_OPTIONS" :key="time" :value="time">
+                    {{ time }}
+                  </option>
+                </select>
+                <button
+                  type="button"
+                  class="tablet-ai-add-slot"
+                  :disabled="!canAddTimeSlots"
+                  aria-label="Add time slot"
+                  @click="addAiTimeSlot"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M12 4.5v15m7.5-7.5h-15"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              <div v-if="aiTimeSlots.length > 0" class="tablet-ai-slot-list">
+                <div
+                  v-for="(slot, index) in aiTimeSlots"
+                  :key="index"
+                  class="tablet-ai-slot-item"
+                >
+                  <span class="tablet-ai-slot-text">{{ getDayName(slot.day_of_week) }} {{ slot.start }} - {{ slot.end }}</span>
+                  <button
+                    type="button"
+                    class="tablet-ai-slot-remove"
+                    :aria-label="`Remove ${getDayName(slot.day_of_week)} ${slot.start} - ${slot.end}`"
+                    @click="removeAiTimeSlot(index)"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="tablet-ai-field">
+              <label class="tablet-ai-label" for="tablet-ai-branch-select"
+                >Branch <span class="tablet-ai-required">*</span></label>
+              <select
+                id="tablet-ai-branch-select"
+                v-model="selectedBranchId"
+                :disabled="!selectedSubjectId"
+                class="tablet-ai-select"
+              >
+                <option :value="null">Select branch</option>
+                <option v-for="branch in branches" :key="branch.id" :value="branch.id">
+                  {{ branch.name }}
+                </option>
+              </select>
+            </div>
+
+            <div class="tablet-ai-field">
+              <label class="tablet-ai-label" for="tablet-ai-teacher-select">Teacher (Optional)</label>
+              <select
+                id="tablet-ai-teacher-select"
+                v-model="selectedTeacherId"
+                :disabled="!selectedSubjectId"
+                class="tablet-ai-select"
+              >
+                <option :value="null">Show all available teachers</option>
+                <option v-for="teacher in filteredTeachers" :key="teacher.id" :value="teacher.id">
+                  {{ teacher.name }}
+                </option>
+              </select>
+            </div>
+
+            <button
+              type="button"
+              class="tablet-ai-submit"
+              :disabled="
+                !selectedSubjectId ||
+                !selectedBranchId ||
+                aiTimeSlots.length === 0 ||
+                isEvaluating
+              "
+              :aria-busy="isEvaluating"
+              @click="handleGetAISuggestions"
+            >
+              <span v-if="isEvaluating">Finding teachers...</span>
+              <span v-else>Find Available Teachers</span>
+            </button>
+          </div>
+
+          <BookingResults
+            :suggestions="suggestions"
+            :show-detailed-results="showDetailedResults"
+            :is-evaluating="isEvaluating"
+            @confirm-booking="handleAIBooking"
+            @reset="closeAIMode"
+          />
+        </div>
+      </div>
+
+      <!-- Desktop Layout (>768px) -->
       <div v-else class="booking-layout" :class="{ 'booking-layout--split': aiMode !== 'idle' }">
         <!-- Calendar Section -->
         <div
@@ -1099,6 +1426,37 @@
         "
       >
         <svg class="mobile-add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M12 4.5v15m7.5-7.5h-15"
+          />
+        </svg>
+        <span>Add to Cart</span>
+      </button>
+
+      <!-- Tablet Sticky Bottom Button -->
+      <button
+        v-else-if="isTablet"
+        type="button"
+        class="tablet-sticky-add-btn"
+        :disabled="
+          !selectedSubjectId ||
+          !selectedBranchId ||
+          !selectedTeacherId ||
+          events.length === 0
+        "
+        @click="
+          events.forEach((e) => {
+            const teacher = filteredTeachers.find((t) => t.id === selectedTeacherId)
+            if (teacher) {
+              addToCartDirectly(teacher.id, teacher.name, e.start as string, e.end as string)
+            }
+          })
+        "
+      >
+        <svg class="tablet-sticky-add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <path
             stroke-linecap="round"
             stroke-linejoin="round"
