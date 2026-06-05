@@ -81,9 +81,6 @@ func validateAvailabilityPayload(teacherID int, slots []shared.WeeklySlot) error
 	if teacherID <= 0 {
 		return &ValidationError{Msg: "teacher_id must be positive"}
 	}
-	if len(slots) == 0 {
-		return &ValidationError{Msg: "weekly slots must not be empty"}
-	}
 	for _, slot := range slots {
 		if slot.DayOfWeek < 0 || slot.DayOfWeek > 6 {
 			return &ValidationError{Msg: fmt.Sprintf("day_of_week must be between 0 and 6, got %d", slot.DayOfWeek)}

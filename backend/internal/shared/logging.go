@@ -4,9 +4,11 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"log/slog"
 	"os"
 	"strings"
+	"time"
 )
 
 type contextKey string
@@ -27,7 +29,9 @@ func ContextWithRequestID(ctx context.Context) (context.Context, string) {
 
 func generateID() string {
 	b := make([]byte, 8)
-	rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		return fmt.Sprintf("%016x", time.Now().UnixNano())[:16]
+	}
 	return hex.EncodeToString(b)
 }
 

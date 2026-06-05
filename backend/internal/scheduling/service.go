@@ -49,15 +49,10 @@ func (s *SchedulingService) Evaluate(ctx context.Context, req BookingRequest) (*
 		}
 	}
 
-	var teacherIDVal interface{}
-	if req.PreferredTeacherID != nil && *req.PreferredTeacherID > 0 {
-		teacherIDVal = *req.PreferredTeacherID
-	}
-
 	var results []SlotResult
 
 	for _, slot := range req.PreferredSlots {
-		match, err := s.bookingStore.FindExactMatch(ctx, req.SubjectID, req.BranchID, slot, req.DurationMinutes, teacherIDVal)
+		match, err := s.bookingStore.FindExactMatch(ctx, req.SubjectID, req.BranchID, slot, req.DurationMinutes, req.PreferredTeacherID)
 		if err != nil {
 			return nil, fmt.Errorf("find exact match: %w", err)
 		}

@@ -33,7 +33,12 @@ func corsConfig() cors.Config {
 	allowedOriginsStr := os.Getenv("ALLOWED_ORIGINS")
 	allowedOrigins := []string{defaultCORSOrigin}
 	if allowedOriginsStr != "" {
-		allowedOrigins = strings.Split(allowedOriginsStr, ",")
+		allowedOrigins = allowedOrigins[:0]
+		for _, item := range strings.Split(allowedOriginsStr, ",") {
+			if trimmed := strings.TrimSpace(item); trimmed != "" {
+				allowedOrigins = append(allowedOrigins, trimmed)
+			}
+		}
 	}
 	return cors.Config{
 		AllowOrigins:     allowedOrigins,
@@ -67,7 +72,7 @@ func main() {
 
 	if err := db.AutoMigrate(database); err != nil {
 		logger.Error("auto migrate failed", "error", err)
-		return
+		os.Exit(1)
 	}
 
 	availRepo := db.NewPostgresRepo(database)

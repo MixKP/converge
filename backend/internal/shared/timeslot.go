@@ -14,8 +14,8 @@ func AnchorDateForDay(dayOfWeek int, loc *time.Location) time.Time {
 	now := time.Now().In(loc)
 	anchor := now.Truncate(24 * time.Hour)
 	desired := time.Weekday((dayOfWeek + 1) % 7)
-	for anchor.Weekday() != desired {
-		anchor = anchor.Add(24 * time.Hour)
+	for i := 0; i < 7 && anchor.Weekday() != desired; i++ {
+		anchor = anchor.AddDate(0, 0, 1)
 	}
 	return anchor
 }

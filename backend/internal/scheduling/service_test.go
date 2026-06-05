@@ -15,8 +15,8 @@ type mockStore struct {
 	mock.Mock
 }
 
-func (m *mockStore) FindExactMatch(ctx context.Context, subjectID, branchID int, slot shared.WeeklySlot, durationMinutes int, teacherIDVal interface{}) (*BookingMatch, error) {
-	args := m.Called(ctx, subjectID, branchID, slot, durationMinutes, teacherIDVal)
+func (m *mockStore) FindExactMatch(ctx context.Context, subjectID, branchID int, slot shared.WeeklySlot, durationMinutes int, teacherID *int) (*BookingMatch, error) {
+	args := m.Called(ctx, subjectID, branchID, slot, durationMinutes, teacherID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -97,7 +97,7 @@ func TestEvaluateExactMatchFound(t *testing.T) {
 		},
 		TeacherName: "Alice",
 	}
-	store.On("FindExactMatch", mock.Anything, 1, 1, s, 60, interface{}(nil)).Return(exactMatch, nil)
+	store.On("FindExactMatch", mock.Anything, 1, 1, s, 60, ((*int))(nil)).Return(exactMatch, nil)
 
 	result, err := svc.Evaluate(context.Background(), req)
 
@@ -118,7 +118,7 @@ func TestEvaluateNoExactMatchReturnsAlternatives(t *testing.T) {
 	s := slot(0, "09:00", "10:00")
 	req := bookingReq(1, 1, s, 60)
 
-	store.On("FindExactMatch", mock.Anything, 1, 1, s, 60, interface{}(nil)).Return(nil, nil)
+	store.On("FindExactMatch", mock.Anything, 1, 1, s, 60, ((*int))(nil)).Return(nil, nil)
 	engine.On("FindAlternativesForSlot", mock.Anything, req, s).Return([]BookingAlternative{}, nil)
 
 	result, err := svc.Evaluate(context.Background(), req)
@@ -205,8 +205,8 @@ func TestEvaluateTwoSlotsOneExactOneCLP(t *testing.T) {
 		Booking:     Booking{ID: 42, TeacherID: 1, BranchID: 1, SubjectID: 1, StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC), EndTime: time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)},
 		TeacherName: "Alice",
 	}
-	store.On("FindExactMatch", mock.Anything, 1, 1, monSlot, 60, interface{}(nil)).Return(exactMatch, nil)
-	store.On("FindExactMatch", mock.Anything, 1, 1, friSlot, 60, interface{}(nil)).Return(nil, nil)
+	store.On("FindExactMatch", mock.Anything, 1, 1, monSlot, 60, ((*int))(nil)).Return(exactMatch, nil)
+	store.On("FindExactMatch", mock.Anything, 1, 1, friSlot, 60, ((*int))(nil)).Return(nil, nil)
 
 	alts := []BookingAlternative{
 		{TeacherID: 3, TeacherName: "Carol", Score: 70},

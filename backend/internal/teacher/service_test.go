@@ -100,12 +100,14 @@ func TestSubmitAvailabilityOverlap(t *testing.T) {
 }
 
 func TestSubmitAvailabilityEmptySlots(t *testing.T) {
-	svc := NewService(new(mockStore), slog.Default())
+	store := new(mockStore)
+	svc := NewService(store, slog.Default())
+
+	store.On("ReplaceWeeklyAvailability", mock.Anything, 1, []shared.WeeklySlot{}).Return(nil)
+	store.On("SaveRawSubmission", mock.Anything, 1, mock.Anything).Return(nil)
 
 	err := svc.SubmitWeeklyAvailability(context.Background(), 1, []shared.WeeklySlot{})
-
-	var valErr *ValidationError
-	assert.ErrorAs(t, err, &valErr)
+	assert.NoError(t, err)
 }
 
 func TestSubmitAvailabilityZeroTeacherID(t *testing.T) {

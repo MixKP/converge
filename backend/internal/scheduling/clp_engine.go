@@ -44,11 +44,12 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req BookingRequ
 
 	solver := e.newSolver()
 	candidates, err := solver.Solve(ctx, teachers, req, window,
-		func(teacher TeacherInfo, start, end time.Time, availSlots []shared.WeeklySlot, _ BookingRequest) (int, []string) {
+		func(teacher TeacherInfo, start, end time.Time, availSlots []shared.WeeklySlot, req BookingRequest) (int, []string) {
 			result := e.scorer.Score(ctx, ScorableCandidate{
 				Teacher:           teacher,
 				StartTime:         start,
 				EndTime:           end,
+				Request:           req,
 				AvailabilitySlots: availSlots,
 			})
 			return result.Score, result.Reasons
