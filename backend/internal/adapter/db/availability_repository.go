@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/RinZ5/converge/backend/internal/scheduling"
 	"github.com/RinZ5/converge/backend/internal/shared"
 	"github.com/RinZ5/converge/backend/internal/teacher"
 )
@@ -53,29 +52,6 @@ func (p *PostgresRepo) GetTeachersBySubject(ctx context.Context, subjectID int) 
 	for rows.Next() {
 		var t teacher.Teacher
 		if err := rows.Scan(&t.ID, &t.Name, &t.Email, &t.Status); err != nil {
-			return nil, err
-		}
-		teachers = append(teachers, t)
-	}
-	return teachers, rows.Err()
-}
-
-func (p *PostgresRepo) TeachersBySubject(ctx context.Context, subjectID int) ([]scheduling.TeacherInfo, error) {
-	rows, err := p.DB.QueryContext(ctx, `
-		SELECT t.id, t.name
-		FROM teachers t
-		JOIN teacher_subjects ts ON t.id = ts.teacher_id
-		WHERE ts.subject_id = $1 AND t.status = 'active'
-		ORDER BY t.name`, subjectID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var teachers []scheduling.TeacherInfo
-	for rows.Next() {
-		var t scheduling.TeacherInfo
-		if err := rows.Scan(&t.ID, &t.Name); err != nil {
 			return nil, err
 		}
 		teachers = append(teachers, t)

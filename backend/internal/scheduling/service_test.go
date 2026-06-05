@@ -314,3 +314,49 @@ func TestCancelInvalidID(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "booking_id must be positive")
 }
+
+func TestListAll(t *testing.T) {
+	store := new(mockStore)
+	svc := NewSchedulingService(store, store, new(mockEngine))
+
+	expected := []Booking{{ID: 1}, {ID: 2}}
+	store.On("FindAllBookings", mock.Anything).Return(expected, nil)
+
+	bookings, err := svc.ListAll(context.Background())
+	assert.NoError(t, err)
+	assert.Len(t, bookings, 2)
+}
+
+func TestListAllError(t *testing.T) {
+	store := new(mockStore)
+	svc := NewSchedulingService(store, store, new(mockEngine))
+
+	store.On("FindAllBookings", mock.Anything).Return([]Booking{}, assert.AnError)
+
+	_, err := svc.ListAll(context.Background())
+	assert.Error(t, err)
+}
+
+func TestGetBranches(t *testing.T) {
+	store := new(mockStore)
+	svc := NewSchedulingService(store, store, new(mockEngine))
+
+	expected := []Branch{{ID: 1, Name: "Main"}}
+	store.On("GetBranches", mock.Anything).Return(expected, nil)
+
+	branches, err := svc.GetBranches(context.Background())
+	assert.NoError(t, err)
+	assert.Len(t, branches, 1)
+}
+
+func TestGetSubjects(t *testing.T) {
+	store := new(mockStore)
+	svc := NewSchedulingService(store, store, new(mockEngine))
+
+	expected := []Subject{{ID: 1, Name: "Math"}}
+	store.On("GetSubjects", mock.Anything).Return(expected, nil)
+
+	subjects, err := svc.GetSubjects(context.Background())
+	assert.NoError(t, err)
+	assert.Len(t, subjects, 1)
+}

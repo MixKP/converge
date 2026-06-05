@@ -13,6 +13,12 @@ import (
 	"github.com/joho/godotenv"
 )
 
+const (
+	dbPingTimeout = 10 * time.Second
+	dbRetryDelay  = 2 * time.Second
+	dbMaxRetries  = 5
+)
+
 func InitDB() (*sql.DB, error) {
 	_ = godotenv.Load()
 	host := getEnv("DB_HOST", "localhost")
@@ -22,17 +28,28 @@ func InitDB() (*sql.DB, error) {
 	dbname := getEnv("POSTGRES_DB", "postgres")
 
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", url.QueryEscape(user), url.QueryEscape(password), host, port, dbname)
-	db, err := sql.Open("pgx", dsn)
+	return InitDBWithConnString(dsn)
+}
+
+func InitDBWithConnString(connStr string) (*sql.DB, error) {
+	db, err := sql.Open("pgx", connStr)
 	if err != nil {
 		return nil, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := db.PingContext(ctx); err != nil {
-		db.Close()
-		return nil, err
+
+	var pingErr error
+	for range dbMaxRetries {
+		ctx, cancel := context.WithTimeout(context.Background(), dbPingTimeout)
+		pingErr = db.PingContext(ctx)
+		cancel()
+		if pingErr == nil {
+			return db, nil
+		}
+		time.Sleep(dbRetryDelay)
 	}
-	return db, nil
+
+	db.Close()
+	return nil, fmt.Errorf("ping database after %d retries: %w", dbMaxRetries, pingErr)
 }
 
 func AutoMigrate(database *sql.DB) error {

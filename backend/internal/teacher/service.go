@@ -40,6 +40,10 @@ func (s *Service) GetAllAvailability(ctx context.Context) ([]TeacherAvailability
 	return s.store.GetAllAvailability(ctx)
 }
 
+func (s *Service) TeacherAvailability(ctx context.Context, teacherID int) ([]shared.WeeklySlot, error) {
+	return s.store.FindTeacherAvailability(ctx, teacherID)
+}
+
 func (s *Service) GetBranches(ctx context.Context) ([]shared.Branch, error) {
 	return s.store.GetBranches(ctx)
 }

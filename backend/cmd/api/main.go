@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	_ "github.com/RinZ5/converge/backend/docs"
+	"github.com/RinZ5/converge/backend/internal/adapter"
 	"github.com/RinZ5/converge/backend/internal/adapter/db"
 	"github.com/RinZ5/converge/backend/internal/adapter/web"
 	"github.com/RinZ5/converge/backend/internal/commute"
@@ -24,9 +25,12 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
+const defaultCORSOrigin = "http://localhost:5173"
+const serverAddr = ":8080"
+
 func corsConfig() cors.Config {
 	allowedOriginsStr := os.Getenv("ALLOWED_ORIGINS")
-	allowedOrigins := []string{"http://localhost:5173"}
+	allowedOrigins := []string{defaultCORSOrigin}
 	if allowedOriginsStr != "" {
 		allowedOrigins = strings.Split(allowedOriginsStr, ",")
 	}
@@ -59,12 +63,17 @@ func main() {
 
 	availRepo := db.NewPostgresRepo(database)
 	bookingRepo := db.NewBookingRepository(database)
+	teacherSvc := teacher.NewService(availRepo, logger)
+	teacherRoster := adapter.NewTeacherRosterAdapter(teacherSvc)
+	commuteSvc := commute.NewService(logger)
+	roomSvc := room.NewService(logger)
+	commuteAdapter := adapter.NewCommuteAdapter(commuteSvc)
+	roomAdapter := adapter.NewRoomAdapter(roomSvc)
 
 	scorer := scheduling.NewWeightedScorer()
-	clpEngine := scheduling.NewCLPEngine(bookingRepo, availRepo, scorer, &commute.Service{}, &room.Service{}, logger)
+	clpEngine := scheduling.NewCLPEngine(bookingRepo, teacherRoster, scorer, commuteAdapter, roomAdapter, logger)
 
 	schedulingSvc := scheduling.NewSchedulingService(bookingRepo, availRepo, clpEngine)
-	teacherSvc := teacher.NewService(availRepo, logger)
 
 	availHandler := web.NewAvailabilityHandler(teacherSvc, logger)
 	bookingHandler := web.NewBookingHandler(schedulingSvc, logger)
@@ -84,8 +93,8 @@ func main() {
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	logger.Info("server starting", "addr", ":8080")
-	if err := r.Run(":8080"); err != nil {
+	logger.Info("server starting", "addr", serverAddr)
+	if err := r.Run(serverAddr); err != nil {
 		logger.Error("server failed", "error", err)
 	}
 }

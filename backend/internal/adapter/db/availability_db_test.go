@@ -12,28 +12,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func setupTestDB(t *testing.T) *PostgresRepo {
-	t.Helper()
-
-	database, err := InitDB()
-	require.NoError(t, err)
-	t.Cleanup(func() { database.Close() })
-
-	require.NoError(t, AutoMigrate(database))
-
-	_, err = database.Exec(`TRUNCATE teacher_availability, form_submission, bookings, teacher_subjects, teachers RESTART IDENTITY CASCADE`)
-	require.NoError(t, err)
-
-	_, err = database.Exec(`INSERT INTO teachers (id, name, email, status) VALUES (1, 'Test Teacher', 'test@teacher.com', 'active')`)
-	require.NoError(t, err)
-	_, err = database.Exec(`INSERT INTO teachers (id, name, status) VALUES (2, 'Inactive Teacher', 'deactivated')`)
-	require.NoError(t, err)
-
-	return NewPostgresRepo(database)
-}
-
 func TestPostgresRepoGetActiveTeachers(t *testing.T) {
-	repo := setupTestDB(t)
+	db := setupTestDB(t)
+	repo := NewPostgresRepo(db)
+
+	_, err := db.Exec(`INSERT INTO teachers (id, name, email, status) VALUES (1, 'Test Teacher', 'test@teacher.com', 'active')`)
+	require.NoError(t, err)
+	_, err = db.Exec(`INSERT INTO teachers (id, name, status) VALUES (2, 'Inactive Teacher', 'deactivated')`)
+	require.NoError(t, err)
 
 	teachers, err := repo.GetActiveTeachers(context.Background())
 	require.NoError(t, err)
@@ -42,17 +28,21 @@ func TestPostgresRepoGetActiveTeachers(t *testing.T) {
 }
 
 func TestPostgresRepoReplaceWeeklyAvailability(t *testing.T) {
-	repo := setupTestDB(t)
+	db := setupTestDB(t)
+	repo := NewPostgresRepo(db)
+
+	_, err := db.Exec(`INSERT INTO teachers (id, name, email, status) VALUES (1, 'Test Teacher', 'test@teacher.com', 'active')`)
+	require.NoError(t, err)
 
 	slots := []shared.WeeklySlot{
 		{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("10:00")},
 		{DayOfWeek: 0, Start: shared.TimeHHMM("11:00"), End: shared.TimeHHMM("12:00")},
 	}
-	err := repo.ReplaceWeeklyAvailability(context.Background(), 1, slots)
+	err = repo.ReplaceWeeklyAvailability(context.Background(), 1, slots)
 	require.NoError(t, err)
 
 	var count int
-	err = repo.DB.QueryRowContext(context.Background(),
+	err = db.QueryRowContext(context.Background(),
 		`SELECT COUNT(*) FROM teacher_availability WHERE teacher_id = 1`).Scan(&count)
 	require.NoError(t, err)
 	assert.Equal(t, 2, count)
@@ -63,24 +53,28 @@ func TestPostgresRepoReplaceWeeklyAvailability(t *testing.T) {
 	err = repo.ReplaceWeeklyAvailability(context.Background(), 1, replaced)
 	require.NoError(t, err)
 
-	err = repo.DB.QueryRowContext(context.Background(),
+	err = db.QueryRowContext(context.Background(),
 		`SELECT COUNT(*) FROM teacher_availability WHERE teacher_id = 1`).Scan(&count)
 	require.NoError(t, err)
 	assert.Equal(t, 1, count)
 }
 
 func TestPostgresRepoSaveRawSubmission(t *testing.T) {
-	repo := setupTestDB(t)
+	db := setupTestDB(t)
+	repo := NewPostgresRepo(db)
+
+	_, err := db.Exec(`INSERT INTO teachers (id, name, email, status) VALUES (1, 'Test Teacher', 'test@teacher.com', 'active')`)
+	require.NoError(t, err)
 
 	rawJSON, _ := json.Marshal(map[string]interface{}{
 		"teacher_id": 1,
 		"weekly":     []string{"slot1"},
 	})
-	err := repo.SaveRawSubmission(context.Background(), 1, rawJSON)
+	err = repo.SaveRawSubmission(context.Background(), 1, rawJSON)
 	require.NoError(t, err)
 
 	var count int
-	err = repo.DB.QueryRowContext(context.Background(),
+	err = db.QueryRowContext(context.Background(),
 		`SELECT COUNT(*) FROM form_submission WHERE teacher_id = 1`).Scan(&count)
 	require.NoError(t, err)
 	assert.Equal(t, 1, count)
