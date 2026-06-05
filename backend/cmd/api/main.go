@@ -107,7 +107,7 @@ func main() {
 		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 	})
 
-	logger.Info("server starting", "addr", serverAddr)
+	logger.Info("server starting", "addr", serverAddr, "tz", shared.LoadLocation().String())
 	if err := r.Run(serverAddr); err != nil {
 		logger.Error("server failed", "error", err)
 	}

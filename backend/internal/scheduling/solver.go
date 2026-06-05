@@ -2,7 +2,6 @@ package scheduling
 
 import (
 	"context"
-	"log"
 	"sort"
 	"time"
 
@@ -42,11 +41,7 @@ func (s *Solver) Solve(
 		duration = winEnd.Sub(winStart)
 	}
 
-	loc, err := time.LoadLocation("Asia/Bangkok")
-	if err != nil {
-		log.Printf("failed to load timezone: %v", err)
-		loc = time.UTC
-	}
+	loc := shared.LoadLocation()
 	anchor := shared.AnchorDateForDay(window.DayOfWeek, loc)
 	prefStart := anchor.Add(
 		time.Duration(shared.ParseTimeHHMM(window.Start).Hour())*time.Hour +

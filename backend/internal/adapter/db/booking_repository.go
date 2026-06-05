@@ -34,10 +34,7 @@ func (r *BookingRepo) FindExactMatch(ctx context.Context, subjectID, branchID in
 		windowEnd = shared.TimeHHMM(parsedStart.Add(duration).Format("15:04"))
 	}
 
-	loc, err := time.LoadLocation("Asia/Bangkok")
-	if err != nil {
-		return nil, fmt.Errorf("failed to load timezone: %w", err)
-	}
+	loc := shared.LoadLocation()
 	anchorDate := shared.AnchorDateForDay(slot.DayOfWeek, loc)
 	parsedStart, err := time.Parse("15:04", string(slot.Start))
 	if err != nil {

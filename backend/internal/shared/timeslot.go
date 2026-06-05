@@ -2,6 +2,14 @@ package shared
 
 import "time"
 
+func LoadLocation() *time.Location {
+	loc, err := time.LoadLocation("Asia/Bangkok")
+	if err != nil {
+		return time.UTC
+	}
+	return loc
+}
+
 func AnchorDateForDay(dayOfWeek int, loc *time.Location) time.Time {
 	now := time.Now().In(loc)
 	anchor := now.Truncate(24 * time.Hour)
