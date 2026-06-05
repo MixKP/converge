@@ -35,6 +35,14 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req BookingRequ
 		return nil, err
 	}
 
+	e.logger.Debug("finding alternatives",
+		"request_id", shared.RequestIDFromContext(ctx),
+		"op", "CLPEngine.FindAlternativesForSlot",
+		"subject_id", req.SubjectID,
+		"branch_id", req.BranchID,
+		"teacher_count", len(teachers),
+	)
+
 	var windowCandidates []BookingAlternative
 
 	for _, teacher := range teachers {
@@ -89,7 +97,12 @@ func (e *CLPEngine) enrichWithCommute(ctx context.Context, alt BookingAlternativ
 	}
 	commuteDur, err := e.commute.Estimate(ctx, branchID, branchID, t)
 	if err != nil {
-		e.logger.Warn("commute estimate failed", slog.Int("branch_id", branchID), slog.String("error", err.Error()))
+		e.logger.Warn("commune estimate failed",
+			"request_id", shared.RequestIDFromContext(ctx),
+			"op", "CLPEngine.enrichWithCommute",
+			"branch_id", branchID,
+			"error", err,
+		)
 		return alt
 	}
 	if commuteDur > 0 {
@@ -105,7 +118,12 @@ func (e *CLPEngine) enrichWithRoom(ctx context.Context, alt BookingAlternative, 
 	}
 	available, err := e.room.CheckAvailability(ctx, branchID, start, end)
 	if err != nil {
-		e.logger.Warn("room check failed", slog.Int("branch_id", branchID), slog.String("error", err.Error()))
+		e.logger.Warn("room check failed",
+			"request_id", shared.RequestIDFromContext(ctx),
+			"op", "CLPEngine.enrichWithRoom",
+			"branch_id", branchID,
+			"error", err,
+		)
 		return alt
 	}
 	alt.RoomAvailable = &available
@@ -128,7 +146,10 @@ func (e *CLPEngine) generateCandidateSlots(req BookingRequest, availSlots []shar
 
 	loc, err := time.LoadLocation("Asia/Bangkok")
 	if err != nil {
-		e.logger.Warn("failed to load timezone, falling back to UTC", slog.String("error", err.Error()))
+		e.logger.Warn("failed to load timezone, falling back to UTC",
+			"op", "CLPEngine.generateCandidateSlots",
+			"error", err,
+		)
 		loc = time.UTC
 	}
 	anchorDate := shared.AnchorDateForDay(window.DayOfWeek, loc)

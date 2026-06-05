@@ -6,7 +6,7 @@
 package main
 
 import (
-	"log/slog"
+	"net/http"
 	"os"
 	"strings"
 
@@ -17,6 +17,7 @@ import (
 	"github.com/RinZ5/converge/backend/internal/commute"
 	"github.com/RinZ5/converge/backend/internal/room"
 	"github.com/RinZ5/converge/backend/internal/scheduling"
+	"github.com/RinZ5/converge/backend/internal/shared"
 	"github.com/RinZ5/converge/backend/internal/teacher"
 
 	"github.com/gin-contrib/cors"
@@ -42,8 +43,16 @@ func corsConfig() cors.Config {
 	}
 }
 
+func requestIDMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, _ := shared.ContextWithRequestID(c.Request.Context())
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
+	}
+}
+
 func main() {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	logger := shared.NewLogger()
 
 	database, err := db.InitDB()
 	if err != nil {
@@ -80,6 +89,7 @@ func main() {
 
 	r := gin.Default()
 	r.Use(cors.New(corsConfig()))
+	r.Use(requestIDMiddleware())
 	api := r.Group("/api")
 	api.GET("/teachers", availHandler.GetTeachers)
 	api.GET("/availability", availHandler.GetAllAvailability)
@@ -92,6 +102,10 @@ func main() {
 	api.DELETE("/bookings/:id", bookingHandler.CancelBooking)
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	r.NoRoute(func(c *gin.Context) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+	})
 
 	logger.Info("server starting", "addr", serverAddr)
 	if err := r.Run(serverAddr); err != nil {

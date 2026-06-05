@@ -66,11 +66,11 @@ func (s *Service) SubmitWeeklyAvailability(ctx context.Context, teacherID int, s
 		"weekly":     slots,
 	})
 	if err != nil {
-		s.logger.Warn("failed to marshal audit payload", slog.Int("teacher_id", teacherID), slog.String("error", err.Error()))
+		s.logger.Warn("failed to marshal audit payload", slog.Int("teacher_id", teacherID), slog.Any("error", err))
 		return nil
 	}
 	if err := s.store.SaveRawSubmission(ctx, teacherID, rawJSON); err != nil {
-		s.logger.Warn("failed to save submission audit log", slog.Int("teacher_id", teacherID), slog.String("error", err.Error()))
+		s.logger.Warn("failed to save submission audit log", slog.Int("teacher_id", teacherID), slog.Any("error", err))
 	}
 	return nil
 }

@@ -118,7 +118,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Evaluates each preferred_slot independently and returns per-slot results with either an exact_match or alternatives.\n\n**Required fields:**\n- ` + "`" + `subject_id` + "`" + ` (int): The subject to book. Must be positive.\n- ` + "`" + `branch_id` + "`" + ` (int): The branch location. Must be positive.\n- ` + "`" + `preferred_slots` + "`" + ` (array): One or more time windows. Each slot has:\n- ` + "`" + `day_of_week` + "`" + `: 0=Monday through 6=Sunday\n- ` + "`" + `start` + "`" + `: Time in HH:MM format (e.g. \"09:00\")\n- ` + "`" + `end` + "`" + `: Time in HH:MM format, must be after start\n\n**Optional fields:**\n- ` + "`" + `duration_minutes` + "`" + ` (int): Session length. When omitted or 0, the full window (end - start) is used as the session duration. When set, candidates are generated in 30-minute steps within the window matching this duration.\n- ` + "`" + `preferred_teacher_id` + "`" + ` (int): Prioritize a specific teacher. When omitted, all teachers scored neutrally (+20). When set, matching teacher gets +40, others +0.\n\n**Response:** ` + "`" + `results[]` + "`" + ` has one entry per slot, in request order. Each entry has either ` + "`" + `exact_match` + "`" + ` (score=100, teacher fully matches) or ` + "`" + `alternatives` + "`" + ` (up to 3, ranked by score 0-100).",
+                "description": "Evaluates each preferred_slot independently and returns per-slot results with either an exact_match or alternatives.",
                 "consumes": [
                     "application/json"
                 ],
@@ -164,7 +164,7 @@ const docTemplate = `{
         },
         "/bookings/confirm": {
             "post": {
-                "description": "Creates the actual booking in the database after the client selects a result from the evaluate endpoint.\n\n**Required fields:**\n- ` + "`" + `teacher_id` + "`" + ` (int): The teacher assigned to the booking.\n- ` + "`" + `branch_id` + "`" + ` (int): The branch location.\n- ` + "`" + `subject_id` + "`" + ` (int): The subject to book.\n- ` + "`" + `start_time` + "`" + ` (RFC3339): Start time of the booking (use the value directly from the evaluate response).\n- ` + "`" + `end_time` + "`" + ` (RFC3339): End time of the booking (use the value directly from the evaluate response).\n- ` + "`" + `client_name` + "`" + ` (string): Name of the client making the booking.\n\n**Constraints:** Overlapping bookings for the same teacher are rejected (409 Conflict) via EXCLUDE gist constraint.",
+                "description": "Creates the actual booking in the database after the client selects a result from the evaluate endpoint.",
                 "consumes": [
                     "application/json"
                 ],

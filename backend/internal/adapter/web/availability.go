@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
+	_ "github.com/RinZ5/converge/backend/internal/scheduling"
 	"github.com/RinZ5/converge/backend/internal/shared"
 	"github.com/RinZ5/converge/backend/internal/teacher"
 
@@ -31,17 +32,20 @@ func NewAvailabilityHandler(svc teacherService, logger *slog.Logger) *Availabili
 	return &AvailabilityHandler{svc: svc, logger: logger}
 }
 
+func (h *AvailabilityHandler) requestID(c *gin.Context) string {
+	return shared.RequestIDFromContext(c.Request.Context())
+}
+
 // GetTeachers godoc
-//
-//	@Summary		List active teachers
-//	@Description	Returns all teachers with active status, ordered by name. Optionally filter by subject_id.
-//	@Tags			teachers
-//	@Produce		json
-//	@Param			subject_id	query		int		false	"Filter by subject ID"
-//	@Success		200			{array}		teacher.Teacher
-//	@Failure		400			{object}	scheduling.ErrorResponse
-//	@Failure		500			{object}	scheduling.ErrorResponse
-//	@Router			/teachers [get]
+// @Summary      List active teachers
+// @Description  Returns all teachers with active status, ordered by name. Optionally filter by subject_id.
+// @Tags         teachers
+// @Produce      json
+// @Param        subject_id  query  int  false  "Filter by subject ID"
+// @Success      200  {array}  teacher.Teacher
+// @Failure      400  {object}  scheduling.ErrorResponse
+// @Failure      500  {object}  scheduling.ErrorResponse
+// @Router       /teachers [get]
 func (h *AvailabilityHandler) GetTeachers(c *gin.Context) {
 	subjectIDStr := c.Query("subject_id")
 	if subjectIDStr != "" {
@@ -52,7 +56,12 @@ func (h *AvailabilityHandler) GetTeachers(c *gin.Context) {
 		}
 		teachers, err := h.svc.GetTeachersBySubject(c.Request.Context(), subjectID)
 		if err != nil {
-			h.logger.Error("get teachers by subject failed", "subject_id", subjectID, "error", err)
+			h.logger.Error("request failed",
+				"request_id", h.requestID(c),
+				"op", "GetTeachers/GetTeachersBySubject",
+				"subject_id", subjectID,
+				"error", err,
+			)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve teachers"})
 			return
 		}
@@ -62,7 +71,11 @@ func (h *AvailabilityHandler) GetTeachers(c *gin.Context) {
 
 	teachers, err := h.svc.GetActiveTeachers(c.Request.Context())
 	if err != nil {
-		h.logger.Error("get active teachers failed", "error", err)
+		h.logger.Error("request failed",
+			"request_id", h.requestID(c),
+			"op", "GetTeachers/GetActiveTeachers",
+			"error", err,
+		)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve teachers"})
 		return
 	}
@@ -70,18 +83,21 @@ func (h *AvailabilityHandler) GetTeachers(c *gin.Context) {
 }
 
 // GetAllAvailability godoc
-//
-//	@Summary		Get all teacher availability
-//	@Description	Returns all active teachers with their weekly availability slots, grouped by teacher
-//	@Tags			availability
-//	@Produce		json
-//	@Success		200	{array}		teacher.TeacherAvailability
-//	@Failure		500	{object}	scheduling.ErrorResponse
-//	@Router			/availability [get]
+// @Summary      Get all teacher availability
+// @Description  Returns all active teachers with their weekly availability slots, grouped by teacher
+// @Tags         availability
+// @Produce      json
+// @Success      200  {array}  teacher.TeacherAvailability
+// @Failure      500  {object}  scheduling.ErrorResponse
+// @Router       /availability [get]
 func (h *AvailabilityHandler) GetAllAvailability(c *gin.Context) {
 	availability, err := h.svc.GetAllAvailability(c.Request.Context())
 	if err != nil {
-		h.logger.Error("get all availability failed", "error", err)
+		h.logger.Error("request failed",
+			"request_id", h.requestID(c),
+			"op", "GetAllAvailability",
+			"error", err,
+		)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve availability"})
 		return
 	}
@@ -89,18 +105,21 @@ func (h *AvailabilityHandler) GetAllAvailability(c *gin.Context) {
 }
 
 // GetBranches godoc
-//
-//	@Summary		List branches
-//	@Description	Returns all branches ordered by id
-//	@Tags			branches
-//	@Produce		json
-//	@Success		200	{array}		shared.Branch
-//	@Failure		500	{object}	scheduling.ErrorResponse
-//	@Router			/branches [get]
+// @Summary      List branches
+// @Description  Returns all branches ordered by id
+// @Tags         branches
+// @Produce      json
+// @Success      200  {array}  shared.Branch
+// @Failure      500  {object}  scheduling.ErrorResponse
+// @Router       /branches [get]
 func (h *AvailabilityHandler) GetBranches(c *gin.Context) {
 	branches, err := h.svc.GetBranches(c.Request.Context())
 	if err != nil {
-		h.logger.Error("get branches failed", "error", err)
+		h.logger.Error("request failed",
+			"request_id", h.requestID(c),
+			"op", "GetBranches",
+			"error", err,
+		)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve branches"})
 		return
 	}
@@ -108,18 +127,21 @@ func (h *AvailabilityHandler) GetBranches(c *gin.Context) {
 }
 
 // GetSubjects godoc
-//
-//	@Summary		List subjects
-//	@Description	Returns all subjects ordered by id
-//	@Tags			subjects
-//	@Produce		json
-//	@Success		200	{array}		shared.Subject
-//	@Failure		500	{object}	scheduling.ErrorResponse
-//	@Router			/subjects [get]
+// @Summary      List subjects
+// @Description  Returns all subjects ordered by id
+// @Tags         subjects
+// @Produce      json
+// @Success      200  {array}  shared.Subject
+// @Failure      500  {object}  scheduling.ErrorResponse
+// @Router       /subjects [get]
 func (h *AvailabilityHandler) GetSubjects(c *gin.Context) {
 	subjects, err := h.svc.GetSubjects(c.Request.Context())
 	if err != nil {
-		h.logger.Error("get subjects failed", "error", err)
+		h.logger.Error("request failed",
+			"request_id", h.requestID(c),
+			"op", "GetSubjects",
+			"error", err,
+		)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve subjects"})
 		return
 	}
@@ -127,17 +149,16 @@ func (h *AvailabilityHandler) GetSubjects(c *gin.Context) {
 }
 
 // SubmitWeeklyAvailability godoc
-//
-//	@Summary		Submit weekly availability
-//	@Description	Replaces all existing availability for a teacher with the provided weekly schedule (full replace, not merge). Rejects overlapping slots within the same day.
-//	@Tags			availability
-//	@Accept			json
-//	@Produce		json
-//	@Param			body	body		map[string]interface{}	true	"Weekly availability payload"
-//	@Success		201		{object}	scheduling.MessageResponse
-//	@Failure		400		{object}	scheduling.ErrorResponse
-//	@Failure		500		{object}	scheduling.ErrorResponse
-//	@Router			/availability [post]
+// @Summary      Submit weekly availability
+// @Description  Replaces all existing availability for a teacher with the provided weekly schedule (full replace, not merge). Rejects overlapping slots within the same day.
+// @Tags         availability
+// @Accept       json
+// @Produce      json
+// @Param        body  body  map[string]interface{}  true  "Weekly availability payload"
+// @Success      201  {object}  scheduling.MessageResponse
+// @Failure      400  {object}  scheduling.ErrorResponse
+// @Failure      500  {object}  scheduling.ErrorResponse
+// @Router       /availability [post]
 func (h *AvailabilityHandler) SubmitWeeklyAvailability(c *gin.Context) {
 	var payload struct {
 		TeacherID int                 `json:"teacher_id"`
@@ -153,7 +174,12 @@ func (h *AvailabilityHandler) SubmitWeeklyAvailability(c *gin.Context) {
 		if errors.As(err, &valErr) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		} else {
-			h.logger.Error("submit availability failed", "teacher_id", payload.TeacherID, "error", err)
+			h.logger.Error("request failed",
+				"request_id", h.requestID(c),
+				"op", "SubmitWeeklyAvailability",
+				"teacher_id", payload.TeacherID,
+				"error", err,
+			)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save availability"})
 		}
 		return
