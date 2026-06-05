@@ -105,7 +105,7 @@ func (e *CLPEngine) generateCandidateSlots(req models.BookingRequest, availSlots
 		loc = time.UTC
 	}
 	now := time.Now().In(loc)
-	anchorDate := now.Truncate(24 * time.Hour)
+	anchorDate := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 	desiredWeekday := time.Weekday(window.DayOfWeek)
 	for anchorDate.Weekday() != desiredWeekday {
 		anchorDate = anchorDate.Add(24 * time.Hour)
