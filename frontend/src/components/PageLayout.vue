@@ -205,30 +205,109 @@
 
   @media (max-width: 640px) {
     .page-layout {
-      padding: 0.5rem;
+      padding: 0;
+      background: var(--bg-cream);
     }
 
     .page-container {
-      height: calc(100vh - 1rem);
+      height: 100vh;
       max-height: none;
-      border-radius: 6px;
+      border-radius: 0;
+      border: none;
+      box-shadow: none;
+      background: var(--bg-cream);
     }
 
     .page-header {
-      padding: 1rem;
+      padding: 0.75rem 1rem;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border-subtle);
+      position: sticky;
+      top: 0;
+      z-index: 10;
     }
 
     .page-header::after {
-      left: 1rem;
-      right: 1rem;
+      display: none;
+    }
+
+    .header-left {
+      gap: 0.5rem;
+    }
+
+    .header-indicator {
+      width: 2px;
+      height: 1rem;
+      border-radius: 1px;
+      background: var(--text-primary);
     }
 
     .header-title {
-      font-size: 1.125rem;
+      font-size: 0.9375rem;
+      font-weight: 600;
+    }
+
+    .cart-button {
+      width: 1.75rem;
+      height: 1.75rem;
+      border-radius: 6px;
+      background: transparent;
+      border-color: transparent;
+      color: var(--text-primary);
+    }
+
+    .cart-button:hover {
+      background: var(--bg-subtle);
+      border-color: transparent;
+      transform: none;
+    }
+
+    .cart-badge {
+      top: -2px;
+      right: -2px;
+      min-width: 0.75rem;
+      height: 0.75rem;
+      font-size: 0.4375rem;
+      border-width: 1px;
+    }
+
+    .cart-icon {
+      width: 1rem;
+      height: 1rem;
     }
 
     .page-content {
-      padding: 1rem;
+      padding: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      position: relative;
+      z-index: 1;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Custom scrollbar for mobile */
+    .page-content::-webkit-scrollbar {
+      width: 0;
+    }
+  }
+
+  @media (max-width: 425px) {
+    .page-header {
+      padding: 0.625rem 1rem;
+    }
+
+    .header-title {
+      font-size: 0.875rem;
+    }
+
+    .cart-button {
+      width: 1.625rem;
+      height: 1.625rem;
+    }
+
+    .cart-icon {
+      width: 0.9375rem;
+      height: 0.9375rem;
     }
   }
 </style>

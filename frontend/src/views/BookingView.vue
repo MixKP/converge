@@ -246,35 +246,316 @@
 <template>
   <PageLayout title="Book a Session">
     <div class="booking-container">
-      <!-- Mobile Step Indicator -->
-      <div v-if="isMobile && aiMode === 'idle'" class="mobile-step-indicator">
-        <div
-          class="step-indicator"
-          :class="{ 'step-indicator--active': mobileStep === 'selection' }"
-        >
-          <span class="step-number">1</span>
-          <span class="step-label">Select</span>
+      <!-- Mobile Layout (≤425px) -->
+      <div v-if="isMobile" class="mobile-layout">
+        <!-- Form Section -->
+        <div class="mobile-form-section">
+          <!-- Subject - Full Width -->
+          <div class="mobile-form-field mobile-form-field--full">
+            <label class="mobile-label">
+              <span class="mobile-label-dot"></span>
+              <span>SUBJECT</span>
+            </label>
+            <select
+              v-model="selectedSubjectId"
+              class="mobile-select"
+              aria-label="Select subject"
+            >
+              <option :value="null">Select subject</option>
+              <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
+                {{ subject.name }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Branch + Teacher - 2 Columns -->
+          <div class="mobile-form-row">
+            <div class="mobile-form-field">
+              <label class="mobile-label">
+                <span class="mobile-label-dot"></span>
+                <span>BRANCH</span>
+              </label>
+              <select
+                v-model="selectedBranchId"
+                :disabled="!selectedSubjectId"
+                class="mobile-select"
+                aria-label="Select branch"
+              >
+                <option :value="null">Select branch</option>
+                <option v-for="branch in branches" :key="branch.id" :value="branch.id">
+                  {{ branch.name }}
+                </option>
+              </select>
+            </div>
+            <div class="mobile-form-field">
+              <label class="mobile-label">
+                <span class="mobile-label-dot"></span>
+                <span>TEACHER</span>
+              </label>
+              <select
+                v-model="selectedTeacherId"
+                :disabled="!selectedSubjectId"
+                class="mobile-select"
+                aria-label="Select teacher"
+              >
+                <option :value="null">All teachers</option>
+                <option
+                  v-for="teacher in filteredTeachers"
+                  :key="teacher.id"
+                  :value="teacher.id"
+                >
+                  {{ teacher.name }}
+                </option>
+              </select>
+            </div>
+          </div>
         </div>
-        <div class="step-connector"></div>
-        <div
-          class="step-indicator"
-          :class="{ 'step-indicator--active': mobileStep === 'calendar' }"
-        >
-          <span class="step-number">2</span>
-          <span class="step-label">Time</span>
+
+        <!-- Availability Section -->
+        <div class="mobile-availability-section">
+          <div class="mobile-availability-header">
+            <div class="mobile-availability-titles">
+              <h2 class="mobile-section-title">Availability</h2>
+              <p class="mobile-section-subtitle">Select your preferred time slot</p>
+            </div>
+            <button
+              type="button"
+              class="mobile-ai-button"
+              aria-label="Open smart booking suggestions"
+              @click="openAIMode"
+            >
+              <svg
+                class="mobile-ai-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.5"
+                  d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Empty State -->
+          <div v-if="!selectedSubjectId" class="mobile-empty-state">
+            <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.5"
+                d="M15.042 21.672L13.684 16.6m0 0l-2.51 2.225.569-9.47 5.227 7.917-3.286-.672zM12 2.25V4.5m5.834.166l-1.591 1.591M20.25 10.5H18M7.757 14.743l-1.59 1.59M6 10.5H3.75m4.007-4.243l-1.59-1.59"
+              />
+            </svg>
+            <button class="mobile-empty-btn" disabled>
+              Select a subject to view availability
+            </button>
+          </div>
+
+          <!-- Calendar -->
+          <div v-else class="mobile-calendar-wrapper">
+            <Calendar
+              ref="calendarRef"
+              :model-value="events"
+              :additional-events="suggestionEvents"
+              :editable="true"
+              :business-hours="businessHours"
+              constraint="businessHours"
+              @update:model-value="events = $event"
+              @event-click="handleSuggestionClick"
+              @update:options="
+                (e: { dayHeaderFormat: string }) =>
+                  calendarRef?.setOption('dayHeaderFormat', e.dayHeaderFormat)
+              "
+            />
+          </div>
+        </div>
+
+        <!-- Mobile AI Panel -->
+        <div v-if="aiMode !== 'idle'" class="mobile-ai-panel">
+          <div class="mobile-ai-panel-header">
+            <div>
+              <h3 class="mobile-ai-panel-title">Smart Suggestions</h3>
+              <p class="mobile-ai-panel-subtitle">Find available teachers for your preferred times</p>
+            </div>
+            <button
+              type="button"
+              class="mobile-ai-close-btn"
+              aria-label="Close suggestions"
+              @click="closeAIMode"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <div v-if="!showDetailedResults && !isEvaluating" class="mobile-ai-form">
+            <div class="mobile-ai-field">
+              <label class="mobile-ai-label" for="mobile-ai-subject-select"
+                >Subject <span class="mobile-ai-required">*</span></label
+              >
+              <select id="mobile-ai-subject-select" v-model="selectedSubjectId" class="mobile-ai-select">
+                <option :value="null">Select subject</option>
+                <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
+                  {{ subject.name }}
+                </option>
+              </select>
+            </div>
+
+            <div class="mobile-ai-field">
+              <label class="mobile-ai-label">Preferred Time Slots <span class="mobile-ai-required">*</span></label>
+              <p class="mobile-ai-hint">Add the days and times you're free</p>
+
+              <div class="mobile-slot-controls">
+                <select
+                  v-model.number="aiNewSlotDay"
+                  class="mobile-ai-time-select"
+                  :disabled="!canAddTimeSlots"
+                  aria-label="Day of week"
+                >
+                  <option value="0">Sun</option>
+                  <option value="1">Mon</option>
+                  <option value="2">Tue</option>
+                  <option value="3">Wed</option>
+                  <option value="4">Thu</option>
+                  <option value="5">Fri</option>
+                  <option value="6">Sat</option>
+                </select>
+                <select
+                  v-model="aiNewSlotStart"
+                  class="mobile-ai-time-select"
+                  :disabled="!canAddTimeSlots"
+                  aria-label="Start time"
+                >
+                  <option v-for="time in TIME_OPTIONS" :key="time" :value="time">
+                    {{ time }}
+                  </option>
+                </select>
+                <span class="mobile-ai-separator">to</span>
+                <select
+                  v-model="aiNewSlotEnd"
+                  class="mobile-ai-time-select"
+                  :disabled="!canAddTimeSlots"
+                  aria-label="End time"
+                >
+                  <option v-for="time in TIME_OPTIONS" :key="time" :value="time">
+                    {{ time }}
+                  </option>
+                </select>
+                <button
+                  type="button"
+                  class="mobile-ai-add-slot-btn"
+                  :disabled="!canAddTimeSlots"
+                  aria-label="Add time slot"
+                  @click="addAiTimeSlot"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M12 4.5v15m7.5-7.5h-15"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              <div v-if="aiTimeSlots.length > 0" class="mobile-ai-slot-list">
+                <div
+                  v-for="(slot, index) in aiTimeSlots"
+                  :key="index"
+                  class="mobile-ai-slot-item"
+                >
+                  <span class="mobile-ai-slot-text">{{ getDayName(slot.day_of_week) }} {{ slot.start }} - {{ slot.end }}</span>
+                  <button
+                    type="button"
+                    class="mobile-ai-slot-remove"
+                    :aria-label="`Remove ${getDayName(slot.day_of_week)} ${slot.start} - ${slot.end}`"
+                    @click="removeAiTimeSlot(index)"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="mobile-ai-field">
+              <label class="mobile-ai-label" for="mobile-ai-branch-select"
+                >Branch <span class="mobile-ai-required">*</span></label>
+              <select
+                id="mobile-ai-branch-select"
+                v-model="selectedBranchId"
+                :disabled="!selectedSubjectId"
+                class="mobile-ai-select"
+              >
+                <option :value="null">Select branch</option>
+                <option v-for="branch in branches" :key="branch.id" :value="branch.id">
+                  {{ branch.name }}
+                </option>
+              </select>
+            </div>
+
+            <button
+              type="button"
+              class="mobile-ai-submit-btn"
+              :disabled="
+                !selectedSubjectId ||
+                !selectedBranchId ||
+                aiTimeSlots.length === 0 ||
+                isEvaluating
+              "
+              :aria-busy="isEvaluating"
+              @click="handleGetAISuggestions"
+            >
+              <span v-if="isEvaluating">Finding teachers...</span>
+              <span v-else>Find Available Teachers</span>
+              <svg
+                v-if="!isEvaluating"
+                class="mobile-ai-submit-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.5"
+                  d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <BookingResults
+            :suggestions="suggestions"
+            :show-detailed-results="showDetailedResults"
+            :is-evaluating="isEvaluating"
+            @confirm-booking="handleAIBooking"
+            @reset="closeAIMode"
+          />
         </div>
       </div>
 
-      <!-- Technical watermark -->
-      <div class="technical-watermark" aria-hidden="true">
-        <div class="watermark-label">
-          <span class="label-line"></span>
-          <span class="label-text--watermark">SCHEDULING_SYSTEM</span>
-          <span class="label-line"></span>
-        </div>
-      </div>
-
-      <div class="booking-layout" :class="{ 'booking-layout--split': aiMode !== 'idle' }">
+      <!-- Desktop Layout (>425px) -->
+      <div v-else class="booking-layout" :class="{ 'booking-layout--split': aiMode !== 'idle' }">
         <!-- Calendar Section -->
         <div
           class="calendar-section"
@@ -796,6 +1077,37 @@
           </div>
         </div>
       </div>
+
+      <!-- Mobile Sticky Bottom Button -->
+      <button
+        v-if="isMobile"
+        type="button"
+        class="mobile-sticky-add-btn"
+        :disabled="
+          !selectedSubjectId ||
+          !selectedBranchId ||
+          !selectedTeacherId ||
+          events.length === 0
+        "
+        @click="
+          events.forEach((e) => {
+            const teacher = filteredTeachers.find((t) => t.id === selectedTeacherId)
+            if (teacher) {
+              addToCartDirectly(teacher.id, teacher.name, e.start as string, e.end as string)
+            }
+          })
+        "
+      >
+        <svg class="mobile-add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M12 4.5v15m7.5-7.5h-15"
+          />
+        </svg>
+        <span>Add to Cart</span>
+      </button>
 
       <!-- Toast Notifications -->
       <div v-if="successMessage" class="toast toast--success" role="status" aria-live="polite">

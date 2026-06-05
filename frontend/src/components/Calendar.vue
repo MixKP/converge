@@ -167,10 +167,10 @@
     slotDuration: '00:30:00',
     snapDuration: '01:00:00',
     dayHeaderDidMount: handleDayHeaderDidMount,
-    // Touch optimizations - faster response on all devices
-    longPressDelay: 200,
-    eventLongPressDelay: 200,
-    selectMinDistance: 5,
+    // Touch optimizations - better mobile handling
+    longPressDelay: 400,
+    eventLongPressDelay: 400,
+    selectMinDistance: 8,
   } as const
   watch(
     () => props.modelValue,
