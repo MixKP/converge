@@ -14,25 +14,22 @@ func TestScorerExactTeacherMatchReturnsFullPoints(t *testing.T) {
 	preferredID := 1
 	teacher := TeacherInfo{ID: 1, Name: "Alice"}
 	candidate := makeCandidate(teacher, preferredID, window(0, "13:00", "14:00"))
-	candidate.MatchedSlot = window(0, "13:00", "14:00")
 
 	result := scorer.Score(context.Background(), candidate)
 
 	assert.Equal(t, 100, result.Score)
-	assert.Contains(t, result.Reasons, "Preferred teacher")
-	assert.Contains(t, result.Reasons, "Inside preferred window")
-	assert.Contains(t, result.Reasons, "Plenty of buffer")
+	assert.Contains(t, result.Reasons[0], "Your preferred teacher")
+	assert.Contains(t, result.Reasons[1], "Plenty of availability")
 }
 
 func TestScorerNoTeacherPreferenceReturnsNeutral(t *testing.T) {
 	scorer := NewWeightedScorer()
 	teacher := TeacherInfo{ID: 1, Name: "Alice"}
 	candidate := makeCandidate(teacher, 0, window(0, "13:00", "14:00"))
-	candidate.MatchedSlot = window(0, "13:00", "14:00")
 
 	result := scorer.Score(context.Background(), candidate)
 
-	assert.Equal(t, 80, result.Score)
+	assert.Equal(t, 75, result.Score)
 }
 
 func TestScorerWrongTeacherReturnsZeroTeacherScore(t *testing.T) {
@@ -43,68 +40,32 @@ func TestScorerWrongTeacherReturnsZeroTeacherScore(t *testing.T) {
 
 	result := scorer.Score(context.Background(), candidate)
 
-	assert.Contains(t, result.Reasons, "Different teacher")
-}
-
-func TestScorerInsidePreferredWindowReturnsFullTimeScore(t *testing.T) {
-	scorer := NewWeightedScorer()
-	preferredID := 1
-	teacher := TeacherInfo{ID: 1, Name: "Alice"}
-	candidate := makeCandidate(teacher, preferredID, window(0, "13:00", "14:00"))
-	candidate.MatchedSlot = window(0, "13:00", "14:00")
-
-	result := scorer.Score(context.Background(), candidate)
-
-	assert.Contains(t, result.Reasons, "Inside preferred window")
-}
-
-func TestScorerNearWindowReturnsNearScore(t *testing.T) {
-	scorer := NewWeightedScorer()
-	preferredID := 1
-	teacher := TeacherInfo{ID: 1, Name: "Alice"}
-	candidate := makeCandidate(teacher, preferredID, window(0, "13:00", "14:00"))
-	candidate.MatchedSlot = window(0, "13:00", "14:00")
-	candidate.StartTime = candidate.StartTime.Add(10 * time.Minute)
-	candidate.EndTime = candidate.EndTime.Add(10 * time.Minute)
-
-	result := scorer.Score(context.Background(), candidate)
-	assert.Less(t, result.Score, 100)
-	assert.Contains(t, result.Reasons[1], "Near window")
-}
-
-func TestScorerFarFromWindowReturnsFarScore(t *testing.T) {
-	scorer := NewWeightedScorer()
-	preferredID := 1
-	teacher := TeacherInfo{ID: 1, Name: "Alice"}
-	candidate := makeCandidate(teacher, preferredID, window(0, "13:00", "14:00"))
-	candidate.MatchedSlot = window(0, "13:00", "14:00")
-	candidate.StartTime = candidate.StartTime.Add(5 * time.Hour)
-	candidate.EndTime = candidate.EndTime.Add(5 * time.Hour)
-
-	result := scorer.Score(context.Background(), candidate)
-	assert.Less(t, result.Score, 50)
-}
-
-func TestScorerWideAvailabilityFitHighFitScore(t *testing.T) {
-	scorer := NewWeightedScorer()
-	teacher := TeacherInfo{ID: 1, Name: "Alice"}
-	candidate := makeCandidate(teacher, 0, window(0, "12:00", "13:00"))
-
-	result := scorer.Score(context.Background(), candidate)
-
-	assert.Contains(t, result.Reasons, "Plenty of buffer")
+	assert.Contains(t, result.Reasons[0], "Can also teach this subject")
 }
 
 func TestScorerConfigurableWeights(t *testing.T) {
-	scorer := &WeightedScorer{TeacherWeight: 50, TimeWeight: 50, FitWeight: 0}
+	scorer := &WeightedScorer{TeacherWeight: 50, FitWeight: 50}
 	preferredID := 1
 	teacher := TeacherInfo{ID: 1, Name: "Alice"}
 	candidate := makeCandidate(teacher, preferredID, window(0, "13:00", "14:00"))
-	candidate.MatchedSlot = window(0, "13:00", "14:00")
 
 	result := scorer.Score(context.Background(), candidate)
 
 	assert.Equal(t, 100, result.Score)
+}
+
+func TestScorerLowBufferScore(t *testing.T) {
+	scorer := NewWeightedScorer()
+	teacher := TeacherInfo{ID: 1, Name: "Alice"}
+	candidate := makeCandidate(teacher, 0, window(0, "13:00", "14:00"))
+	candidate.AvailabilitySlots = []shared.WeeklySlot{
+		{DayOfWeek: 0, Start: shared.TimeHHMM("13:30"), End: shared.TimeHHMM("14:30")},
+	}
+
+	result := scorer.Score(context.Background(), candidate)
+
+	assert.Less(t, result.Score, 75)
+	assert.Contains(t, result.Reasons[1], "Tightly fits schedule")
 }
 
 func window(day int, start, end string) shared.WeeklySlot {

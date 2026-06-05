@@ -11,27 +11,23 @@ import (
 
 type WeightedScorer struct {
 	TeacherWeight int
-	TimeWeight    int
 	FitWeight     int
 }
 
 func NewWeightedScorer() *WeightedScorer {
-	return &WeightedScorer{TeacherWeight: 40, TimeWeight: 30, FitWeight: 30}
+	return &WeightedScorer{TeacherWeight: 50, FitWeight: 50}
 }
 
 func (s *WeightedScorer) Score(ctx context.Context, candidate ScorableCandidate) ScoreResult {
 	var reasons []string
 
 	teacherScore, teacherReason := s.scoreTeacherPreference(candidate)
-	reasons = appendReason(reasons, teacherReason)
-
-	timeScore, timeReason := s.scoreTimeProximity(candidate)
-	reasons = appendReason(reasons, timeReason)
+	reasons = append(reasons, teacherReason)
 
 	fitScore, fitReason := s.scoreAvailabilityFit(candidate)
-	reasons = appendReason(reasons, fitReason)
+	reasons = append(reasons, fitReason)
 
-	total := teacherScore + timeScore + fitScore
+	total := teacherScore + fitScore
 
 	return ScoreResult{
 		Score:   total,
@@ -41,63 +37,38 @@ func (s *WeightedScorer) Score(ctx context.Context, candidate ScorableCandidate)
 
 func (s *WeightedScorer) scoreTeacherPreference(candidate ScorableCandidate) (int, string) {
 	if candidate.Request.PreferredTeacherID == nil {
-		return 20, ""
+		return s.TeacherWeight / 2, "Teaches this subject"
 	}
 	if *candidate.Request.PreferredTeacherID == candidate.Teacher.ID {
-		return s.TeacherWeight, "Preferred teacher"
+		return s.TeacherWeight, "Your preferred teacher"
 	}
-	return 0, "Different teacher"
-}
-
-func (s *WeightedScorer) scoreTimeProximity(candidate ScorableCandidate) (int, string) {
-	matched := candidate.MatchedSlot
-	if matched.Start == "" || matched.End == "" {
-		return 15, ""
-	}
-
-	candStart := timeOfDay(candidate.StartTime)
-	candEnd := timeOfDay(candidate.EndTime)
-	winStart := shared.ParseTimeHHMM(matched.Start)
-	winEnd := shared.ParseTimeHHMM(matched.End)
-
-	if (candStart.Equal(winStart) || candStart.After(winStart)) && (candEnd.Equal(winEnd) || candEnd.Before(winEnd)) {
-		return s.TimeWeight, "Inside preferred window"
-	}
-
-	distStart := math.Abs(candStart.Sub(winStart).Minutes())
-	distEnd := math.Abs(candEnd.Sub(winEnd).Minutes())
-	distanceMinutes := math.Max(distStart, distEnd)
-
-	switch {
-	case distanceMinutes <= 15:
-		return 25, fmt.Sprintf("Near window — off by %dm", int(distanceMinutes))
-	case distanceMinutes <= 60:
-		return 15, fmt.Sprintf("Within 1hr of window — off by %dm", int(distanceMinutes))
-	case distanceMinutes <= 120:
-		return 5, fmt.Sprintf("Within 2hrs of window — off by %dm", int(distanceMinutes))
-	default:
-		return 0, fmt.Sprintf("Far from window — off by %dm", int(distanceMinutes))
-	}
+	return 0, "Can also teach this subject"
 }
 
 func (s *WeightedScorer) scoreAvailabilityFit(candidate ScorableCandidate) (int, string) {
-	if len(candidate.AvailabilitySlots) == 0 {
-		return s.FitWeight / 2, ""
+	if candidate.StartTime.IsZero() || candidate.EndTime.IsZero() {
+		return s.FitWeight / 2, "Schedule unavailable"
 	}
 
+	dayOfWeek := (int(candidate.StartTime.Weekday()) + 6) % 7
 	proposedStart := timeOfDay(candidate.StartTime)
 	proposedEnd := timeOfDay(candidate.EndTime)
 
-	for _, slot := range candidate.AvailabilitySlots {
-		slotWeekday := time.Weekday((slot.DayOfWeek + 1) % 7)
-		if candidate.StartTime.Weekday() != slotWeekday {
+	slots, err := loadTeacherAvailability(candidate)
+	if err != nil || len(slots) == 0 {
+		return s.FitWeight / 2, "Schedule unavailable"
+	}
+
+	for _, slot := range slots {
+		if slot.DayOfWeek != dayOfWeek {
 			continue
 		}
 
 		availStart := shared.ParseTimeHHMM(slot.Start)
 		availEnd := shared.ParseTimeHHMM(slot.End)
 
-		if (proposedStart.Equal(availStart) || proposedStart.After(availStart)) && (proposedEnd.Equal(availEnd) || proposedEnd.Before(availEnd)) {
+		if (proposedStart.Equal(availStart) || proposedStart.After(availStart)) &&
+			(proposedEnd.Equal(availEnd) || proposedEnd.Before(availEnd)) {
 			marginBefore := float64(proposedStart.Sub(availStart).Minutes())
 			marginAfter := float64(availEnd.Sub(proposedEnd).Minutes())
 			buffer := math.Min(marginBefore, marginAfter)
@@ -106,27 +77,25 @@ func (s *WeightedScorer) scoreAvailabilityFit(candidate ScorableCandidate) (int,
 
 			switch {
 			case ratio >= 2:
-				return s.FitWeight, "Plenty of buffer"
+				return s.FitWeight, fmt.Sprintf("Plenty of availability (%.0fmin buffer)", buffer)
 			case ratio >= 1:
-				return 25, "Good buffer"
+				return 25, fmt.Sprintf("Well within schedule (%.0fmin buffer)", buffer)
 			case ratio >= 0.5:
-				return 15, "Tight fit"
+				return 15, fmt.Sprintf("Fits available time (%.0fmin cushion)", buffer)
 			default:
-				return 5, "Very tight fit"
+				return 5, fmt.Sprintf("Tightly fits schedule (%.0fmin cushion)", buffer)
 			}
 		}
 	}
 
-	return 5, "Very tight fit"
+	return 5, "Tightly fits schedule (5min cushion)"
+}
+
+func loadTeacherAvailability(candidate ScorableCandidate) ([]shared.WeeklySlot, error) {
+	return candidate.AvailabilitySlots, nil
 }
 
 func timeOfDay(t time.Time) time.Time {
+	t = t.UTC()
 	return time.Date(0, 1, 1, t.Hour(), t.Minute(), 0, 0, time.UTC)
-}
-
-func appendReason(reasons []string, reason string) []string {
-	if reason == "" {
-		return reasons
-	}
-	return append(reasons, reason)
 }
