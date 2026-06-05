@@ -116,14 +116,14 @@ func (e *CLPEngine) generateCandidateSlots(req models.BookingRequest, availSlots
 			continue
 		}
 
-		availStart := anchorDate.Add(time.Duration(parseTimeHHMM(weekSlot.Start).Hour())*time.Hour + time.Duration(parseTimeHHMM(weekSlot.Start).Minute())*time.Minute)
-		availEnd := anchorDate.Add(time.Duration(parseTimeHHMM(weekSlot.End).Hour())*time.Hour + time.Duration(parseTimeHHMM(weekSlot.End).Minute())*time.Minute)
+		availStart := anchorDate.Add(time.Duration(parseTimeHHMMInLocation(weekSlot.Start, loc).Hour())*time.Hour + time.Duration(parseTimeHHMMInLocation(weekSlot.Start, loc).Minute())*time.Minute)
+		availEnd := anchorDate.Add(time.Duration(parseTimeHHMMInLocation(weekSlot.End, loc).Hour())*time.Hour + time.Duration(parseTimeHHMMInLocation(weekSlot.End, loc).Minute())*time.Minute)
 
 		if availEnd.Sub(availStart) < duration {
 			continue
 		}
 
-		windowStart := anchorDate.Add(time.Duration(parseTimeHHMM(window.Start).Hour())*time.Hour + time.Duration(parseTimeHHMM(window.Start).Minute())*time.Minute)
+		windowStart := anchorDate.Add(time.Duration(parseTimeHHMMInLocation(window.Start, loc).Hour())*time.Hour + time.Duration(parseTimeHHMMInLocation(window.Start, loc).Minute())*time.Minute)
 
 		step := 30 * time.Minute
 		genStart := windowStart.Add(-2 * time.Hour)

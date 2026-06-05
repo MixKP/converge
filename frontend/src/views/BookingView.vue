@@ -155,6 +155,14 @@
       return
     }
 
+    // Calculate duration from the first AI time slot
+    const toMinutes = (timeStr: string) => {
+      const [hour, minute] = timeStr.split(':').map(Number)
+      return hour * 60 + minute
+    }
+    const firstSlot = aiTimeSlots.value[0]
+    const aiDuration = toMinutes(firstSlot.end) - toMinutes(firstSlot.start)
+
     isEvaluating.value = true
     errorMessage.value = ''
     successMessage.value = ''
@@ -165,7 +173,7 @@
         subject_id: selectedSubjectId.value!,
         branch_id: selectedBranchId.value!,
         preferred_slots: aiTimeSlots.value,
-        duration_minutes: 60,
+        duration_minutes: aiDuration,
         preferred_teacher_id: selectedTeacherId.value ?? undefined,
       })
 

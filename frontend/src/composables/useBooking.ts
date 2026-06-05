@@ -22,6 +22,9 @@ export function useBooking() {
   const errorMessage = ref<string>('')
   const successMessage = ref<string>('')
 
+  // Track availability loading promise
+  let availabilityPromise: Promise<void> | null = null
+
   const events = ref<EventInput[]>([])
   const businessHours = ref<BusinessHoursInput>([])
   const availabilityCache = ref<Map<number, WeeklySlot[]>>(new Map())
@@ -235,7 +238,7 @@ export function useBooking() {
         subject_id: selectedSubjectId.value,
         branch_id: selectedBranchId.value,
         preferred_slots: effectiveSlots,
-        duration_minutes: durationMinutes.value,
+        duration_minutes: calculatedDuration.value,
         preferred_teacher_id: preferredTeacherId.value ?? undefined,
       })
       suggestions.value = response
@@ -295,7 +298,7 @@ export function useBooking() {
   }
 
   const initWatchers = () => {
-    fetchAvailability()
+    availabilityPromise = fetchAvailability()
 
     subjectApi.getAll().then((data) => {
       subjects.value = data
@@ -307,17 +310,28 @@ export function useBooking() {
 
     watch(selectedSubjectId, async (newSubjectId) => {
       if (newSubjectId) {
+        // Wait for availability to load before updating business hours
+        if (availabilityPromise) {
+          await availabilityPromise
+        }
         await fetchTeachersBySubject(newSubjectId)
         updateBusinessHoursFromTeachers(filteredTeachers.value)
       } else {
         filteredTeachers.value = []
         businessHours.value = []
       }
+      // Reset branch and teacher when subject changes
+      selectedBranchId.value = null
+      teacherStore.setSelectedTeacherById(null)
       preferredTeacherId.value = null
       resetBookingState()
     })
 
     watch(selectedTeacherId, async (teacherId) => {
+      // Wait for availability to load before updating business hours
+      if (availabilityPromise) {
+        await availabilityPromise
+      }
       if (teacherId) {
         updateBusinessHours(teacherId)
       } else if (selectedSubjectId.value) {

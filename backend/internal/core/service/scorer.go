@@ -133,6 +133,14 @@ func parseTimeHHMM(t models.TimeHHMM) time.Time {
 	return time.Date(0, 1, 1, parsed.Hour(), parsed.Minute(), 0, 0, time.UTC)
 }
 
+func parseTimeHHMMInLocation(t models.TimeHHMM, loc *time.Location) time.Time {
+	parsed, err := time.ParseInLocation("15:04", string(t), loc)
+	if err != nil {
+		return time.Date(0, 1, 1, 0, 0, 0, 0, loc)
+	}
+	return parsed
+}
+
 func appendReason(reasons []string, reason string) []string {
 	if reason == "" {
 		return reasons
