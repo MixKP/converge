@@ -154,7 +154,7 @@
       center: 'title',
       right: 'next',
     },
-    height: '100%',
+    height: 'auto',
     weekends: true,
     allDaySlot: false,
     selectMirror: true,
@@ -269,6 +269,19 @@
     eventResize: handleEventResize,
     dayHeaderFormat: dayHeaderFormat.value,
   }))
+
+  const setOption = <K extends keyof CalendarOptions>(key: K, value: CalendarOptions[K]) => {
+    const api = calendarRef.value?.getApi()
+    if (api) {
+      api.setOption(key, value)
+    }
+  }
+
+  // Watch for screen width changes to update day header format
+  watch(screenWidth, () => {
+    setOption('dayHeaderFormat', dayHeaderFormat.value)
+  })
+
   watch(showDeleteDialog, (isOpen) => {
     if (isOpen) {
       cancelBtnRef.value?.focus()
@@ -277,18 +290,10 @@
       previouslyFocused.value = null
     }
   })
-  const setOption = <K extends keyof CalendarOptions>(key: K, value: CalendarOptions[K]) => {
-    const api = calendarRef.value?.getApi()
-    if (api) {
-      api.setOption(key, value)
-    }
-  }
   defineExpose({ setOption })
 </script>
 <template>
-  <div
-    class="border border-(--border-subtle) rounded-sm overflow-hidden h-full bg-(--paper-white) shadow-sm"
-  >
+  <div class="calendar-container">
     <FullCalendar ref="calendarRef" :options="calendarOptions" />
     <Transition
       enter-active-class="transition-opacity duration-200"
@@ -361,3 +366,14 @@
     </Transition>
   </div>
 </template>
+
+<style scoped>
+  .calendar-container {
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
+    overflow: hidden;
+    height: 100%;
+    background: var(--paper-white, #fff);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+</style>

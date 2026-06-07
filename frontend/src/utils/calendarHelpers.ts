@@ -28,3 +28,20 @@ export function generateAvailabilityPayload(
   const result = Array.from(weeklyMap.values())
   return { teacher_id: teacherId, weekly: result }
 }
+
+export function formatEventSlot(event: EventInput): { day: string; start: string; end: string } {
+  const start = new Date(event.start as string)
+  const end = new Date(event.end as string)
+  const dayName = start.toLocaleDateString('en-US', { weekday: 'long' })
+  const startTime = start.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+  const endTime = end.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+  return { day: dayName, start: startTime, end: endTime }
+}
