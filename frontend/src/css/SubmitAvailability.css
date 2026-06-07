@@ -85,23 +85,12 @@
 }
 
 /* Counter */
-.counter-label {
+.counter-text {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.6875rem;
+  font-size: 0.875rem;
   font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
   color: var(--text-secondary);
   white-space: nowrap;
-}
-
-.counter-value {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--primary-indigo);
-  min-width: 1.5ch;
-  text-align: center;
 }
 
 /* Calendar Container */

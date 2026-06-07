@@ -2,31 +2,32 @@
 @import 'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600;700&display=swap';
 
 :root {
-  /* Japanese Industrial Color Palette */
-  --bg-cream: #faf9f6;
-  --bg-card: #ffffff;
-  --bg-subtle: #f0efe9;
+  /* Navy Color Palette */
+  --bg-cream: #F5F7FA;
+  --bg-card: #FFFFFF;
+  --bg-subtle: #EEF2F7;
 
-  --primary-indigo: #3e4c7a;
-  --primary-indigo-deep: #2d3954;
-  --accent-sage: #7a8b6d;
-  --accent-sage-light: #a3b094;
-  --accent-coral: #c96d5d;
-  --accent-coral-soft: rgba(201, 109, 93, 0.12);
+  --primary-navy: #1E3A5F;
+  --primary-navy-deep: #152A45;
+  --accent-coral: #E8A598;
+  --accent-coral-light: #F5C7BF;
+  --accent-coral-soft: rgba(232, 165, 152, 0.15);
+  --accent-sky: #7BA3C8;
+  --accent-sky-light: #A8C5DC;
 
-  --text-primary: #1a1c23;
-  --text-secondary: #585a63;
-  --text-technical: #3e4c7a;
-  --text-muted: #8a8c94;
+  --text-primary: #1A1F2E;
+  --text-secondary: #5A6278;
+  --text-technical: #1E3A5F;
+  --text-muted: #8A92A8;
 
-  --border-subtle: #e8e6e0;
-  --border-medium: #d0cdc5;
-  --border-strong: #b0aca3;
-  --border-technical: #3e4c7a;
+  --border-subtle: #E1E8F0;
+  --border-medium: #C8D2E0;
+  --border-strong: #A0B5CC;
+  --border-technical: #1E3A5F;
 
-  /* Shadows with warm undertone */
-  --shadow-card: 0 1px 3px rgba(58, 62, 74, 0.04), 0 4px 12px rgba(58, 62, 74, 0.03);
-  --shadow-elevated: 0 4px 16px rgba(58, 62, 74, 0.06), 0 12px 32px rgba(58, 62, 74, 0.04);
+  /* Shadows with cool undertone */
+  --shadow-card: 0 1px 3px rgba(26, 31, 46, 0.04), 0 4px 12px rgba(26, 31, 46, 0.03);
+  --shadow-elevated: 0 4px 16px rgba(26, 31, 46, 0.06), 0 12px 32px rgba(26, 31, 46, 0.04);
   --shadow-technical: 0 0 0 1px var(--border-technical);
 
   /* Legacy aliases for compatibility */
@@ -34,9 +35,11 @@
   --ink-secondary: var(--text-secondary);
   --paper-cream: var(--bg-cream);
   --paper-white: var(--bg-card);
+  --primary-indigo: var(--primary-navy);
+  --primary-indigo-deep: var(--primary-navy-deep);
   --accent-terracotta: var(--accent-coral);
   --accent-terracotta-soft: var(--accent-coral-soft);
-  --accent-terracotta-light: var(--accent-coral-soft);
+  --accent-terracotta-light: var(--accent-coral-light);
   --shadow-badge: var(--shadow-card);
 }
 
@@ -126,7 +129,7 @@ body {
 
 /* Today indicator - fills entire cell */
 .fc-col-header-cell.fc-day-today {
-  background-color: rgba(62, 76, 122, 0.08) !important;
+  background-color: rgba(30, 58, 95, 0.05) !important;
 }
 
 .fc-col-header-cell .fc-col-header-cell-cushion {
@@ -145,12 +148,12 @@ body {
 
 .fc-event {
   cursor: pointer;
-  background: linear-gradient(135deg, rgba(62, 76, 122, 0.25), rgba(62, 76, 122, 0.15));
+  background: var(--primary-navy);
   border: none;
-  border-left: 3px solid var(--primary-indigo);
-  border-radius: 2px;
+  border-left: 3px solid var(--primary-navy-deep);
+  border-radius: 4px;
   padding: 8px 12px;
-  box-shadow: 0 2px 8px rgba(62, 76, 122, 0.1);
+  box-shadow: 0 2px 8px rgba(30, 58, 95, 0.2);
   transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   position: relative;
 }
@@ -162,17 +165,17 @@ body {
   right: 4px;
   width: 4px;
   height: 4px;
-  background: var(--accent-sage);
+  background: var(--accent-coral);
   border-radius: 50%;
   opacity: 0;
   transition: opacity 0.2s ease;
 }
 
 .fc-event:hover {
-  background: linear-gradient(135deg, rgba(62, 76, 122, 0.35), rgba(62, 76, 122, 0.2));
-  border-left-color: var(--primary-indigo-deep);
+  background: var(--primary-navy-deep);
+  border-left-color: var(--primary-navy);
   transform: translateY(-2px) scale(1.01);
-  box-shadow: 0 6px 16px rgba(62, 76, 122, 0.15);
+  box-shadow: 0 6px 16px rgba(30, 58, 95, 0.3);
   z-index: 10 !important;
 }
 
@@ -181,7 +184,7 @@ body {
 }
 
 .fc-v-event .fc-event-main {
-  color: var(--text-primary);
+  color: #FFFFFF;
   font-weight: 500;
   font-size: 0.8rem;
   letter-spacing: 0.02em;

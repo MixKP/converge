@@ -85,7 +85,25 @@
     const calendar = selectInfo.view.calendar
     const start = selectInfo.start
     const end = selectInfo.end
+
+    const startDay = start.getDate()
+    const endDay = end.getDate()
+    const startMonth = start.getMonth()
+    const endMonth = end.getMonth()
+
+    if (startDay !== endDay || startMonth !== endMonth) {
+      calendar.unselect()
+      return
+    }
+
     calendar.unselect()
+    const newEvent = { id: generateEventId(), start, end, title: '' }
+    emit('update:modelValue', [...(props.modelValue || []), newEvent])
+  }
+  const handleSlotClick = (arg: { dateStr: string }) => {
+    if (!props.editable) return
+    const start = new Date(arg.dateStr)
+    const end = new Date(start.getTime() + 60 * 60 * 1000) // Default to 1 hour slot
     const newEvent = { id: generateEventId(), start, end, title: '' }
     emit('update:modelValue', [...(props.modelValue || []), newEvent])
   }
@@ -165,10 +183,10 @@
     slotDuration: '00:30:00',
     snapDuration: '01:00:00',
     dayHeaderDidMount: handleDayHeaderDidMount,
-    // Touch optimizations - better mobile handling
-    longPressDelay: 400,
-    eventLongPressDelay: 400,
+    longPressDelay: 300,
+    eventLongPressDelay: 300,
     selectMinDistance: 8,
+    eventOverlap: false,
   } as const
   watch(
     () => props.modelValue,
@@ -260,10 +278,13 @@
     ...CALENDAR_DEFAULT_OPTIONS,
     editable: props.editable,
     selectable: props.editable,
+    eventDurationEditable: props.editable,
+    eventResizableFromStart: props.editable,
     businessHours: props.businessHours,
     eventConstraint: props.constraint,
     selectConstraint: props.constraint,
     select: handleDateSelect,
+    dateClick: handleSlotClick,
     eventClick: handleEventClick,
     eventDrop: handleEventDrop,
     eventResize: handleEventResize,
