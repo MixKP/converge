@@ -77,10 +77,10 @@
       <div
         v-if="showConfirm"
         class="submit-confirm-overlay"
-        @click.self="cancelConfirm"
         role="dialog"
         aria-modal="true"
         aria-labelledby="confirm-title"
+        @click.self="cancelConfirm"
       >
         <div class="submit-confirm-dialog">
           <h3 id="confirm-title" class="submit-confirm-title">Confirm Availability</h3>
@@ -165,7 +165,7 @@
           />
         </svg>
         {{ errorMessage }}
-        <button class="submit-toast-close" @click="errorMessage = ''" aria-label="Dismiss message">
+        <button class="submit-toast-close" aria-label="Dismiss message" @click="errorMessage = ''">
           ×
         </button>
       </div>

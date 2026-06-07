@@ -37,8 +37,8 @@
         type="button"
         class="navbar-cart"
         :class="{ 'navbar-cart--active': cartCount > 0 }"
-        @click="goToCart"
         aria-label="View cart"
+        @click="goToCart"
       >
         <svg class="navbar-cart-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <path

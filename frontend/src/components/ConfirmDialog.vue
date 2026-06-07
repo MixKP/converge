@@ -10,6 +10,7 @@
   withDefaults(defineProps<Props>(), {
     show: false,
     title: 'Confirm',
+    items: () => [],
     confirmText: 'Confirm',
     cancelText: 'Cancel',
   })
