@@ -1,4 +1,6 @@
 <script setup lang="ts">
+  import { onBeforeUnmount, onMounted } from 'vue'
+
   interface Toast {
     message: string
     type?: 'success' | 'error'
@@ -14,7 +16,15 @@
     close: []
   }>()
 
-  setTimeout(() => emit('close'), props.duration)
+  let closeTimer: ReturnType<typeof setTimeout> | null = null
+
+  onMounted(() => {
+    closeTimer = setTimeout(() => emit('close'), props.duration)
+  })
+
+  onBeforeUnmount(() => {
+    if (closeTimer) clearTimeout(closeTimer)
+  })
 </script>
 
 <template>
@@ -42,7 +52,14 @@
       />
     </svg>
     {{ message }}
-    <button class="toast-close" @click="emit('close')">×</button>
+    <button
+      class="toast-close"
+      type="button"
+      aria-label="Dismiss notification"
+      @click="emit('close')"
+    >
+      ×
+    </button>
   </div>
 </template>
 

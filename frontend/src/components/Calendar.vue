@@ -186,8 +186,9 @@
     // Check for double click (desktop only)
     const timeSinceLastClick = now - lastClickTime.value
     const isDoubleClick = timeSinceLastClick < DOUBLE_CLICK_DELAY && lastClickedEventId.value === id
+    const isDesktop = screenWidth.value >= 768
 
-    if (isDoubleClick) {
+    if (isDesktop && isDoubleClick) {
       // Double click → show delete dialog
       eventToDelete.value = id
       showDeleteDialog.value = true

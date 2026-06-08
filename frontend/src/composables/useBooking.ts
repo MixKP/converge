@@ -95,26 +95,29 @@ export function useBooking() {
     const end = new Date(event.end as Date)
     return Math.round((end.getTime() - start.getTime()) / (1000 * 60))
   })
-  // Helper: Convert day_of_week + time to proper date in current week (timezone-safe)
+  // Helper: Convert day_of_week + time to proper date (always next occurrence)
   const getDateForDayOfWeek = (dayOfWeek: number, timeStr: string): Date => {
     const now = new Date()
     const currentDay = now.getDay()
-    const diff = dayOfWeek - currentDay
+    const diff = (dayOfWeek - currentDay + 7) % 7
     const targetDate = new Date(now)
     targetDate.setDate(now.getDate() + diff)
     const [hours, minutes] = timeStr.split(':').map(Number)
     targetDate.setHours(hours, minutes, 0, 0)
+    if (targetDate <= now) {
+      targetDate.setDate(targetDate.getDate() + 7)
+    }
     return targetDate
   }
   const createExactMatchEvent = (
     match: BookingAlternative,
     slot: WeeklySlot,
-    index: number
+    _index: number
   ): EventInput => {
-    const startDate = getDateForDayOfWeek(slot.day_of_week, slot.start)
-    const endDate = getDateForDayOfWeek(slot.day_of_week, slot.end)
+    const startDate = getDateForDayOfWeek(slot.day_of_week, match.start_time)
+    const endDate = getDateForDayOfWeek(slot.day_of_week, match.end_time)
     return {
-      id: `suggestion-exact-${index}`,
+      id: `suggestion-exact-${match.teacher_id}-${slot.day_of_week}-${slot.start}`,
       title: `${match.teacher_name} (Score: ${match.score})`,
       start: startDate.toISOString(),
       end: endDate.toISOString(),
@@ -133,12 +136,12 @@ export function useBooking() {
   const createAlternativeEvent = (
     alt: BookingAlternative,
     slot: WeeklySlot,
-    index: number
+    _index: number
   ): EventInput => {
-    const startDate = getDateForDayOfWeek(slot.day_of_week, slot.start)
-    const endDate = getDateForDayOfWeek(slot.day_of_week, slot.end)
+    const startDate = getDateForDayOfWeek(slot.day_of_week, alt.start_time)
+    const endDate = getDateForDayOfWeek(slot.day_of_week, alt.end_time)
     return {
-      id: `suggestion-alt-${index}`,
+      id: `suggestion-alt-${alt.teacher_id}-${slot.day_of_week}-${slot.start}`,
       title: `${alt.teacher_name} (Score: ${alt.score})`,
       start: startDate.toISOString(),
       end: endDate.toISOString(),

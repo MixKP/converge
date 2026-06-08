@@ -60,6 +60,8 @@ export function useSubmitAvailability() {
   }
 
   const confirmSubmit = async () => {
+    if (isLoading.value || !canSubmit.value) return
+
     isLoading.value = true
     errorMessage.value = ''
     successMessage.value = ''

@@ -28,15 +28,13 @@
         :value="selectedTeacherId"
         class="teacher-select"
         @change="
-          emit(
-            'update:selectedTeacherId',
-            ($event.target as HTMLSelectElement).value
-              ? Number(($event.target as HTMLSelectElement).value)
-              : null
-          )
+          (() => {
+            const value = ($event.target as HTMLSelectElement).value
+            emit('update:selectedTeacherId', value === '' ? null : Number(value))
+          })()
         "
       >
-        <option :value="null">Select your name</option>
+        <option value="">Select your name</option>
         <option v-for="teacher in teachers" :key="teacher.id" :value="teacher.id">
           {{ teacher.name }}
         </option>
