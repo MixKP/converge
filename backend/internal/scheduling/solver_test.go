@@ -13,7 +13,7 @@ func TestFitsAvailabilityWithinSlot(t *testing.T) {
 	slots := []shared.WeeklySlot{
 		{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("17:00")},
 	}
-	start := time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC) // Monday
+	start := time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 6, 1, 11, 0, 0, 0, time.UTC)
 
 	assert.True(t, fitsAvailability(slots, start, end))
@@ -53,7 +53,7 @@ func TestFitsAvailabilityWrongDay(t *testing.T) {
 	slots := []shared.WeeklySlot{
 		{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("17:00")},
 	}
-	start := time.Date(2026, 6, 2, 10, 0, 0, 0, time.UTC) // Tuesday
+	start := time.Date(2026, 6, 2, 10, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 6, 2, 11, 0, 0, 0, time.UTC)
 
 	assert.False(t, fitsAvailability(slots, start, end))
@@ -69,9 +69,9 @@ func TestFitsAvailabilityBangkokTimezone(t *testing.T) {
 	loc, err := time.LoadLocation("Asia/Bangkok")
 	require.NoError(t, err)
 
-	anchor := shared.AnchorDateForDay(0, loc) // next Monday in Bangkok
-	start := anchor.Add(10 * time.Hour)       // 10:00 Bangkok
-	end := anchor.Add(11 * time.Hour)         // 11:00 Bangkok
+	anchor := shared.AnchorDateForDay(0, loc)
+	start := anchor.Add(10 * time.Hour)
+	end := anchor.Add(11 * time.Hour)
 
 	slots := []shared.WeeklySlot{
 		{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("17:00")},
@@ -101,36 +101,6 @@ func TestGenerateOffsetsZeroDuration(t *testing.T) {
 	assert.Len(t, offsets, 9)
 }
 
-func TestDeduplicateByTeacherSolver(t *testing.T) {
-	candidates := []solverCandidate{
-		{Teacher: TeacherInfo{ID: 1, Name: "Alice"}, Score: 80},
-		{Teacher: TeacherInfo{ID: 2, Name: "Bob"}, Score: 90},
-		{Teacher: TeacherInfo{ID: 1, Name: "Alice"}, Score: 70},
-	}
-
-	result := deduplicateByTeacherSolver(candidates)
-
-	assert.Len(t, result, 2)
-	assert.Equal(t, 1, result[0].Teacher.ID)
-	assert.Equal(t, 2, result[1].Teacher.ID)
-}
-
-func TestDeduplicateByTeacherSolverAllUnique(t *testing.T) {
-	candidates := []solverCandidate{
-		{Teacher: TeacherInfo{ID: 1, Name: "Alice"}, Score: 80},
-		{Teacher: TeacherInfo{ID: 2, Name: "Bob"}, Score: 90},
-	}
-
-	result := deduplicateByTeacherSolver(candidates)
-
-	assert.Len(t, result, 2)
-}
-
-func TestDeduplicateByTeacherSolverEmpty(t *testing.T) {
-	result := deduplicateByTeacherSolver(nil)
-	assert.Empty(t, result)
-}
-
 func TestTimeOfDay(t *testing.T) {
 	ts := time.Date(2026, 6, 1, 10, 30, 0, 0, time.UTC)
 	result := timeOfDay(ts)
@@ -149,4 +119,95 @@ func TestTimeOfDayBangkok(t *testing.T) {
 
 	assert.Equal(t, 18, result.Hour(), "timeOfDay should use local hour")
 	assert.Equal(t, 0, result.Minute())
+}
+
+func TestSolverWithModel(t *testing.T) {
+	teachers := []any{
+		TeacherInfo{ID: 1, Name: "Alice"},
+		TeacherInfo{ID: 2, Name: "Bob"},
+	}
+	offsets := []any{
+		timeWindow{start: time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC), end: time.Date(2026, 6, 1, 11, 0, 0, 0, time.UTC)},
+		timeWindow{start: time.Date(2026, 6, 1, 11, 0, 0, 0, time.UTC), end: time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)},
+	}
+
+	model := NewModel()
+	model.AddVariable("teacher", teachers)
+	model.AddVariable("offset", offsets)
+
+	model.AddConstraint(func(a Assignment) bool {
+		t := a.Value("teacher").(TeacherInfo)
+		o := a.Value("offset").(timeWindow)
+		if t.Name == "Alice" && o.start.Hour() == 10 {
+			return false
+		}
+		return true
+	})
+
+	model.SetObjective(func(a Assignment) int {
+		t := a.Value("teacher").(TeacherInfo)
+		return t.ID * 10
+	})
+
+	solver := &Solver{}
+	results := solver.Solve(*model, 3)
+
+	assert.Len(t, results, 3)
+	assert.Equal(t, 2, results[0].Value("teacher").(TeacherInfo).ID)
+	assert.Equal(t, 1, results[2].Value("teacher").(TeacherInfo).ID)
+	assert.Equal(t, 20, results[0].Score)
+	assert.Equal(t, 10, results[2].Score)
+}
+
+func TestSolverWithModelTop2(t *testing.T) {
+	values := []any{1, 2, 3}
+
+	model := NewModel()
+	model.AddVariable("x", values)
+	model.SetObjective(func(a Assignment) int {
+		return a.Value("x").(int) * 10
+	})
+
+	solver := &Solver{}
+	results := solver.Solve(*model, 2)
+
+	assert.Len(t, results, 2)
+	assert.Equal(t, 30, results[0].Score)
+	assert.Equal(t, 20, results[1].Score)
+}
+
+func TestSolverNoSolutions(t *testing.T) {
+	model := NewModel()
+	model.AddVariable("x", []any{1, 2})
+	model.AddConstraint(func(a Assignment) bool { return false })
+
+	solver := &Solver{}
+	results := solver.Solve(*model, 3)
+
+	assert.Empty(t, results)
+}
+
+func TestSolverEmptyModel(t *testing.T) {
+	model := NewModel()
+	solver := &Solver{}
+	results := solver.Solve(*model, 3)
+
+	assert.Len(t, results, 1)
+}
+
+func TestSolverSortOrder(t *testing.T) {
+	values := []any{5, 1, 3, 2, 4}
+
+	model := NewModel()
+	model.AddVariable("v", values)
+	model.SetObjective(func(a Assignment) int {
+		return a.Value("v").(int)
+	})
+
+	solver := &Solver{}
+	results := solver.Solve(*model, 3)
+
+	assert.Equal(t, 5, results[0].Score)
+	assert.Equal(t, 4, results[1].Score)
+	assert.Equal(t, 3, results[2].Score)
 }

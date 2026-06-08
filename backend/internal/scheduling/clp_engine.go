@@ -3,6 +3,7 @@ package scheduling
 import (
 	"context"
 	"log/slog"
+	"strconv"
 	"time"
 
 	"github.com/RinZ5/converge/backend/internal/shared"
@@ -42,72 +43,94 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req BookingRequ
 		"teacher_count", len(teachers),
 	)
 
-	solver := e.newSolver()
-	candidates, err := solver.Solve(ctx, teachers, req, window,
-		func(teacher TeacherInfo, start, end time.Time, availSlots []shared.WeeklySlot, req BookingRequest) (int, []string) {
-			result := e.scorer.Score(ctx, ScorableCandidate{
-				Teacher:           teacher,
-				StartTime:         start,
-				EndTime:           end,
-				Request:           req,
-				AvailabilitySlots: availSlots,
-			})
-			return result.Score, result.Reasons
-		},
-		e.teacherRoster,
-		e.bookingStore,
-	)
-	if err != nil {
-		return nil, err
+	duration := time.Duration(req.DurationMinutes) * time.Minute
+	if duration == 0 {
+		winStart := shared.ParseTimeHHMM(window.Start)
+		winEnd := shared.ParseTimeHHMM(window.End)
+		duration = winEnd.Sub(winStart)
 	}
 
-	alts := make([]BookingAlternative, len(candidates))
-	for i, c := range candidates {
+	loc := shared.LoadLocation()
+	anchor := shared.AnchorDateForDay(window.DayOfWeek, loc)
+	prefStart := anchor.Add(
+		time.Duration(shared.ParseTimeHHMM(window.Start).Hour())*time.Hour +
+			time.Duration(shared.ParseTimeHHMM(window.Start).Minute())*time.Minute,
+	)
+	offsets := generateOffsets(prefStart, duration)
+
+	teacherDomain := make([]any, len(teachers))
+	for i, t := range teachers {
+		teacherDomain[i] = t
+	}
+	offsetDomain := make([]any, len(offsets))
+	for i, o := range offsets {
+		offsetDomain[i] = o
+	}
+
+	model := NewModel()
+	model.AddVariable("teacher", teacherDomain)
+	model.AddVariable("offset", offsetDomain)
+
+	model.AddConstraint(func(a Assignment) bool {
+		t := a.Value("teacher").(TeacherInfo)
+		o := a.Value("offset").(timeWindow)
+		slots, err := e.teacherRoster.TeacherAvailability(ctx, t.ID)
+		if err != nil {
+			return false
+		}
+		return fitsAvailability(slots, o.start, o.end)
+	})
+
+	model.AddConstraint(func(a Assignment) bool {
+		t := a.Value("teacher").(TeacherInfo)
+		o := a.Value("offset").(timeWindow)
+		conflicts, err := e.bookingStore.FindConflictingBookings(ctx, t.ID, o.start, o.end)
+		if err != nil {
+			return false
+		}
+		return len(conflicts) == 0
+	})
+
+	model.SetObjective(func(a Assignment) int {
+		t := a.Value("teacher").(TeacherInfo)
+		o := a.Value("offset").(timeWindow)
+		slots, _ := e.teacherRoster.TeacherAvailability(ctx, t.ID)
+		result := e.scorer.Score(ctx, ScorableCandidate{
+			Teacher:           t,
+			StartTime:         o.start,
+			EndTime:           o.end,
+			Request:           req,
+			AvailabilitySlots: slots,
+		})
+		return result.Score
+	})
+
+	model.SetDedupKey(func(a Assignment) string {
+		t := a.Value("teacher").(TeacherInfo)
+		return strconv.Itoa(t.ID)
+	})
+
+	solver := e.newSolver()
+	assignments := solver.Solve(*model, MaxAlternatives)
+
+	alts := make([]BookingAlternative, 0, len(assignments))
+	for _, a := range assignments {
+		t := a.Value("teacher").(TeacherInfo)
+		o := a.Value("offset").(timeWindow)
 		alt := BookingAlternative{
-			TeacherID:   c.Teacher.ID,
-			TeacherName: c.Teacher.Name,
+			TeacherID:   t.ID,
+			TeacherName: t.Name,
 			BranchID:    req.BranchID,
 			SubjectID:   req.SubjectID,
-			StartTime:   c.Start,
-			EndTime:     c.End,
-			Score:       c.Score,
-			Reasons:     c.Reasons,
+			StartTime:   o.start,
+			EndTime:     o.end,
+			Score:       a.Score,
 		}
-		alt = e.enrichWithCommute(ctx, alt, req.BranchID, c.Start)
-		alt = e.enrichWithRoom(ctx, alt, req.BranchID, c.Start, c.End)
-		alts[i] = alt
+		alt = e.enrichWithCommute(ctx, alt, req.BranchID, o.start)
+		alt = e.enrichWithRoom(ctx, alt, req.BranchID, o.start, o.end)
+		alts = append(alts, alt)
 	}
 	return alts, nil
-}
-
-func (e *CLPEngine) checkAvailability(ctx context.Context, teacher TeacherInfo, start, end time.Time) (bool, error) {
-	slots, err := e.teacherRoster.TeacherAvailability(ctx, teacher.ID)
-	if err != nil {
-		return false, err
-	}
-	for _, slot := range slots {
-		slotWeekday := time.Weekday((slot.DayOfWeek + 1) % 7)
-		if start.Weekday() != slotWeekday {
-			continue
-		}
-		availStart := shared.ParseTimeHHMM(slot.Start)
-		availEnd := shared.ParseTimeHHMM(slot.End)
-		candStart := timeOfDay(start)
-		candEnd := timeOfDay(end)
-		if (candStart.Equal(availStart) || candStart.After(availStart)) &&
-			(candEnd.Equal(availEnd) || candEnd.Before(availEnd)) {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-func (e *CLPEngine) checkConflict(ctx context.Context, teacher TeacherInfo, start, end time.Time) (bool, error) {
-	conflicts, err := e.bookingStore.FindConflictingBookings(ctx, teacher.ID, start, end)
-	if err != nil {
-		return false, err
-	}
-	return len(conflicts) == 0, nil
 }
 
 func (e *CLPEngine) enrichWithCommute(ctx context.Context, alt BookingAlternative, branchID int, t time.Time) BookingAlternative {
@@ -147,4 +170,39 @@ func (e *CLPEngine) enrichWithRoom(ctx context.Context, alt BookingAlternative, 
 	}
 	alt.RoomAvailable = &available
 	return alt
+}
+
+func fitsAvailability(slots []shared.WeeklySlot, start, end time.Time) bool {
+	candStart := timeOfDay(start)
+	candEnd := timeOfDay(end)
+	for _, slot := range slots {
+		slotWeekday := time.Weekday((slot.DayOfWeek + 1) % 7)
+		if start.Weekday() != slotWeekday {
+			continue
+		}
+		availStart := shared.ParseTimeHHMM(slot.Start)
+		availEnd := shared.ParseTimeHHMM(slot.End)
+		if (candStart.Equal(availStart) || candStart.After(availStart)) &&
+			(candEnd.Equal(availEnd) || candEnd.Before(availEnd)) {
+			return true
+		}
+	}
+	return false
+}
+
+type timeWindow struct {
+	start time.Time
+	end   time.Time
+}
+
+func generateOffsets(anchor time.Time, duration time.Duration) []timeWindow {
+	lookbehind := 2 * time.Hour
+	lookahead := 2 * time.Hour
+	step := 30 * time.Minute
+
+	var windows []timeWindow
+	for t := anchor.Add(-lookbehind); !t.After(anchor.Add(lookahead)); t = t.Add(step) {
+		windows = append(windows, timeWindow{start: t, end: t.Add(duration)})
+	}
+	return windows
 }
