@@ -220,6 +220,7 @@ export function useBooking() {
         title: `${item.teacher_name} (In Cart)`,
         start: startDate.toISOString(),
         end: endDate.toISOString(),
+        editable: false, // Cart items cannot be edited
         backgroundColor: 'var(--accent-sage)',
         borderColor: 'var(--accent-sage)',
         textColor: '#fff',

@@ -25,6 +25,8 @@
     suggestions,
     showDetailedResults,
     suggestionEvents,
+    cartEvents,
+    allEvents,
     initWatchers,
     addEvent,
     addToCartDirectly,
@@ -33,33 +35,8 @@
 
   const { cartItems, fetchCartItems } = useBookingCart()
 
-  // Convert cart items to calendar events (directly in BookingView for proper reactivity)
-  const cartEvents = computed(() => {
-    return cartItems.value.map((item) => {
-      const startDate = new Date(item.start_time)
-      const endDate = new Date(item.end_time)
-      return {
-        id: `cart-${item.id}`,
-        title: `${item.teacher_name} (In Cart)`,
-        start: startDate.toISOString(),
-        end: endDate.toISOString(),
-        editable: false, // Mark as non-editable
-        backgroundColor: 'var(--accent-sage)',
-        borderColor: 'var(--accent-sage)',
-        textColor: '#fff',
-        classNames: ['cart-event'],
-        extendedProps: {
-          isCartItem: true,
-          cartId: item.id,
-          teacherId: item.teacher_id,
-          teacherName: item.teacher_name,
-        },
-      }
-    })
-  })
-
-  // All events for calendar: manual events + cart events (for overlap prevention)
-  const allCalendarEvents = computed(() => [...events.value, ...cartEvents.value])
+  // All events for calendar: manual events + suggestion events + cart events (for overlap prevention)
+  const allCalendarEvents = computed(() => allEvents.value)
 
   const aiMode = ref<'idle' | 'expanding' | 'expanded'>('idle')
 

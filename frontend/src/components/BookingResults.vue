@@ -457,6 +457,27 @@
     color: var(--accent-sage);
   }
 
+  /* Score colors for exact matches: green → yellow → orange → red */
+  .match-score.score-excellent {
+    color: #22c55e; /* Green for 90-100 */
+  }
+
+  .match-score.score-high {
+    color: #84cc16; /* Light green for 75-89 */
+  }
+
+  .match-score.score-medium {
+    color: #eab308; /* Yellow for 60-74 */
+  }
+
+  .match-score.score-low {
+    color: #f97316; /* Orange for 45-59 */
+  }
+
+  .match-score.score-poor {
+    color: #ef4444; /* Red for 0-44 */
+  }
+
   .match-reasons {
     font-size: 0.75rem;
     margin: 0.15rem 0 0 0;
