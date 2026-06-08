@@ -135,22 +135,23 @@ func TestSolverWithModel(t *testing.T) {
 	model.AddVariable("teacher", teachers)
 	model.AddVariable("offset", offsets)
 
-	model.AddConstraint(func(a Assignment) bool {
+	model.AddConstraint(func(a Assignment) (bool, error) {
 		t := a.Value("teacher").(TeacherInfo)
 		o := a.Value("offset").(timeWindow)
 		if t.Name == "Alice" && o.start.Hour() == 10 {
-			return false
+			return false, nil
 		}
-		return true
+		return true, nil
 	})
 
-	model.SetObjective(func(a Assignment) (int, []string) {
+	model.SetObjective(func(a Assignment) (int, []string, error) {
 		t := a.Value("teacher").(TeacherInfo)
-		return t.ID * 10, nil
+		return t.ID * 10, nil, nil
 	})
 
 	solver := &Solver{}
-	results := solver.Solve(*model, 3)
+	results, err := solver.Solve(*model, 3)
+	require.NoError(t, err)
 
 	assert.Len(t, results, 3)
 	assert.Equal(t, 2, results[0].Value("teacher").(TeacherInfo).ID)
@@ -164,12 +165,13 @@ func TestSolverWithModelTop2(t *testing.T) {
 
 	model := NewModel()
 	model.AddVariable("x", values)
-	model.SetObjective(func(a Assignment) (int, []string) {
-		return a.Value("x").(int) * 10, nil
+	model.SetObjective(func(a Assignment) (int, []string, error) {
+		return a.Value("x").(int) * 10, nil, nil
 	})
 
 	solver := &Solver{}
-	results := solver.Solve(*model, 2)
+	results, err := solver.Solve(*model, 2)
+	require.NoError(t, err)
 
 	assert.Len(t, results, 2)
 	assert.Equal(t, 30, results[0].Score)
@@ -179,10 +181,11 @@ func TestSolverWithModelTop2(t *testing.T) {
 func TestSolverNoSolutions(t *testing.T) {
 	model := NewModel()
 	model.AddVariable("x", []any{1, 2})
-	model.AddConstraint(func(a Assignment) bool { return false })
+	model.AddConstraint(func(a Assignment) (bool, error) { return false, nil })
 
 	solver := &Solver{}
-	results := solver.Solve(*model, 3)
+	results, err := solver.Solve(*model, 3)
+	require.NoError(t, err)
 
 	assert.Empty(t, results)
 }
@@ -190,7 +193,8 @@ func TestSolverNoSolutions(t *testing.T) {
 func TestSolverEmptyModel(t *testing.T) {
 	model := NewModel()
 	solver := &Solver{}
-	results := solver.Solve(*model, 3)
+	results, err := solver.Solve(*model, 3)
+	require.NoError(t, err)
 
 	assert.Len(t, results, 1)
 }
@@ -200,12 +204,13 @@ func TestSolverSortOrder(t *testing.T) {
 
 	model := NewModel()
 	model.AddVariable("v", values)
-	model.SetObjective(func(a Assignment) (int, []string) {
-		return a.Value("v").(int), nil
+	model.SetObjective(func(a Assignment) (int, []string, error) {
+		return a.Value("v").(int), nil, nil
 	})
 
 	solver := &Solver{}
-	results := solver.Solve(*model, 3)
+	results, err := solver.Solve(*model, 3)
+	require.NoError(t, err)
 
 	assert.Equal(t, 5, results[0].Score)
 	assert.Equal(t, 4, results[1].Score)

@@ -8,31 +8,36 @@ func (e *CLPEngine) newSolver() *Solver {
 	return &Solver{}
 }
 
-func (s *Solver) Solve(model Model, topN int) []Assignment {
+func (s *Solver) Solve(model Model, topN int) ([]Assignment, error) {
 	all := generateAll(model.Variables)
 
 	var valid []Assignment
 	for _, a := range all {
 		pass := true
 		for _, c := range model.Constraints {
-			if !c(a) {
+			ok, err := c(a)
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
 				pass = false
 				break
 			}
 		}
 		if pass {
 			if model.Objective != nil {
-				a.Score, a.Reasons = model.Objective(a)
+				score, reasons, err := model.Objective(a)
+				if err != nil {
+					return nil, err
+				}
+				a.Score, a.Reasons = score, reasons
 			}
 			valid = append(valid, a)
 		}
 	}
 
-	sort.Slice(valid, func(i, j int) bool {
-		if valid[i].Score != valid[j].Score {
-			return valid[i].Score > valid[j].Score
-		}
-		return i < j
+	sort.SliceStable(valid, func(i, j int) bool {
+		return valid[i].Score > valid[j].Score
 	})
 
 	if model.DedupKey != nil {
@@ -50,7 +55,7 @@ func (s *Solver) Solve(model Model, topN int) []Assignment {
 	if len(valid) > topN {
 		valid = valid[:topN]
 	}
-	return valid
+	return valid, nil
 }
 
 func generateAll(vars []Variable) []Assignment {

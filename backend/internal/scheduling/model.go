@@ -15,9 +15,9 @@ func (a Assignment) Value(name string) any {
 	return a.Values[name]
 }
 
-type Constraint func(Assignment) bool
+type Constraint func(Assignment) (bool, error)
 
-type Objective func(Assignment) (int, []string)
+type Objective func(Assignment) (int, []string, error)
 
 type Model struct {
 	Variables   []Variable

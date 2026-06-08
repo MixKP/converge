@@ -71,30 +71,30 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req BookingRequ
 	model.AddVariable("teacher", teacherDomain)
 	model.AddVariable("offset", offsetDomain)
 
-	model.AddConstraint(func(a Assignment) bool {
+	model.AddConstraint(func(a Assignment) (bool, error) {
 		t := a.Value("teacher").(TeacherInfo)
 		o := a.Value("offset").(timeWindow)
+
 		slots, err := e.teacherRoster.TeacherAvailability(ctx, t.ID)
 		if err != nil {
-			return false
+			return false, err
 		}
-		return fitsAvailability(slots, o.start, o.end)
-	})
+		a.Values["slots"] = slots
+		if !fitsAvailability(slots, o.start, o.end) {
+			return false, nil
+		}
 
-	model.AddConstraint(func(a Assignment) bool {
-		t := a.Value("teacher").(TeacherInfo)
-		o := a.Value("offset").(timeWindow)
 		conflicts, err := e.bookingStore.FindConflictingBookings(ctx, t.ID, o.start, o.end)
 		if err != nil {
-			return false
+			return false, err
 		}
-		return len(conflicts) == 0
+		return len(conflicts) == 0, nil
 	})
 
-	model.SetObjective(func(a Assignment) (int, []string) {
+	model.SetObjective(func(a Assignment) (int, []string, error) {
 		t := a.Value("teacher").(TeacherInfo)
 		o := a.Value("offset").(timeWindow)
-		slots, _ := e.teacherRoster.TeacherAvailability(ctx, t.ID)
+		slots := a.Values["slots"].([]shared.WeeklySlot)
 		result := e.scorer.Score(ctx, ScorableCandidate{
 			Teacher:           t,
 			StartTime:         o.start,
@@ -102,7 +102,7 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req BookingRequ
 			Request:           req,
 			AvailabilitySlots: slots,
 		})
-		return result.Score, result.Reasons
+		return result.Score, result.Reasons, nil
 	})
 
 	model.SetDedupKey(func(a Assignment) string {
@@ -111,7 +111,10 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req BookingRequ
 	})
 
 	solver := e.newSolver()
-	assignments := solver.Solve(*model, MaxAlternatives)
+	assignments, err := solver.Solve(*model, MaxAlternatives)
+	if err != nil {
+		return nil, err
+	}
 
 	alts := make([]BookingAlternative, 0, len(assignments))
 	for _, a := range assignments {
