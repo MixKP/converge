@@ -15,6 +15,11 @@
   --accent-mint: #A8C9B8;
   --accent-sky: #7BA3C8;
 
+  /* Suggestion Colors (Yellow/Gold) */
+  --accent-gold: #F4B942;
+  --accent-gold-light: #F7C96F;
+  --accent-gold-soft: rgba(244, 185, 66, 0.15);
+
   --text-primary: #1A2E28;
   --text-secondary: #4A5C52;
   --text-technical: #2D4A3E;
@@ -354,27 +359,36 @@ body {
 }
 
 
-/* Suggestion events - special styling */
+/* Suggestion events - special styling (gold/yellow theme) */
 .fc-event.suggestion-exact {
-  background: linear-gradient(135deg, var(--accent-sage) 0%, var(--accent-mint) 100%) !important;
-  border: 2px solid var(--accent-sage) !important;
-  box-shadow: 0 4px 16px rgba(157, 180, 160, 0.4), 0 0 0 1px rgba(157, 180, 160, 0.2) !important;
+  background: linear-gradient(135deg, var(--accent-gold) 0%, var(--accent-gold-light) 100%) !important;
+  border: 2px solid var(--accent-gold) !important;
+  box-shadow: 0 4px 16px rgba(244, 185, 66, 0.4), 0 0 0 1px rgba(244, 185, 66, 0.2) !important;
 }
 
 .fc-event.suggestion-exact:hover {
-  box-shadow: 0 6px 20px rgba(157, 180, 160, 0.5), 0 0 0 2px rgba(157, 180, 160, 0.3) !important;
+  box-shadow: 0 6px 20px rgba(244, 185, 66, 0.5), 0 0 0 2px rgba(244, 185, 66, 0.3) !important;
   transform: translateY(-4px) scale(1.03) !important;
 }
 
 .fc-event.suggestion-alt {
-  background: var(--accent-sage-soft) !important;
-  border: 2px solid var(--accent-sage-light) !important;
-  box-shadow: 0 2px 8px rgba(157, 180, 160, 0.2) !important;
+  background: var(--accent-gold-soft) !important;
+  border: 2px solid var(--accent-gold-light) !important;
+  box-shadow: 0 2px 8px rgba(244, 185, 66, 0.2) !important;
 }
 
 .fc-event.suggestion-alt:hover {
-  box-shadow: 0 4px 12px rgba(157, 180, 160, 0.3) !important;
+  box-shadow: 0 4px 12px rgba(244, 185, 66, 0.3) !important;
   transform: translateY(-2px) scale(1.02) !important;
+}
+
+/* Cart events - items already in cart */
+.fc-event.cart-event {
+  background: linear-gradient(135deg, var(--accent-sage) 0%, var(--accent-mint) 100%) !important;
+  border: 2px solid var(--accent-sage) !important;
+  opacity: 0.85 !important;
+  pointer-events: none !important;
+  cursor: not-allowed !important;
 }
 
 .fc-non-business {

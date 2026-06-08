@@ -13,7 +13,7 @@ func LoadLocation() *time.Location {
 func AnchorDateForDay(dayOfWeek int, loc *time.Location) time.Time {
 	now := time.Now().In(loc)
 	anchor := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
-	desired := time.Weekday((dayOfWeek + 1) % 7)
+	desired := time.Weekday(dayOfWeek)
 	for i := 0; i < 7 && anchor.Weekday() != desired; i++ {
 		anchor = anchor.AddDate(0, 0, 1)
 	}

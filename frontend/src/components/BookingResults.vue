@@ -1,13 +1,16 @@
 <script setup lang="ts">
+  import { ref, watch } from 'vue'
   import type { BookingResponse } from '../types'
+  import type { CartItem } from '../composables/useBookingCart'
 
   interface Props {
     suggestions: BookingResponse | null
     showDetailedResults: boolean
     isEvaluating: boolean
+    cartItems: CartItem[]
   }
 
-  defineProps<Props>()
+  const props = defineProps<Props>()
 
   const emit = defineEmits<{
     (
@@ -20,15 +23,76 @@
     (e: 'reset'): void
   }>()
 
+  // Track booked items to prevent duplicate bookings
+  const bookedKeys = ref<Set<string>>(new Set())
+
+  // Generate unique key for a booking
+  const getBookingKey = (teacherId: number, startTime: string): string => {
+    return `${teacherId}-${startTime}`
+  }
+
+  // Check if a booking is already in cart
+  const isInCart = (teacherId: number, startTime: string): boolean => {
+    return props.cartItems.some(
+      item => item.teacher_id === teacherId && item.start_time === startTime
+    )
+  }
+
+  // Check if a booking is already made (either in local state or cart)
+  const isBooked = (teacherId: number, startTime: string): boolean => {
+    return bookedKeys.value.has(getBookingKey(teacherId, startTime)) || isInCart(teacherId, startTime)
+  }
+
+  // Handle booking - emit event and mark as booked
+  const handleBooking = (
+    teacherId: number,
+    teacherName: string,
+    startTime: string,
+    endTime: string
+  ): void => {
+    const key = getBookingKey(teacherId, startTime)
+    if (!bookedKeys.value.has(key)) {
+      bookedKeys.value.add(key)
+      emit('confirmBooking', teacherId, teacherName, startTime, endTime)
+    }
+  }
+
+  // Clear booked state when suggestions change (new search)
+  watch(() => props.suggestions, () => {
+    bookedKeys.value.clear()
+  })
+
   const getScoreColor = (score: number): string => {
-    if (score >= 80) return 'score-high'
-    if (score >= 60) return 'score-medium'
-    return 'score-low'
+    if (score >= 90) return 'score-excellent' // 90-100: Green
+    if (score >= 75) return 'score-high'     // 75-89: Light green
+    if (score >= 60) return 'score-medium'   // 60-74: Yellow
+    if (score >= 45) return 'score-low'      // 45-59: Orange
+    return 'score-poor'                       // 0-44: Red
   }
 
   const formatTime = (dateStr: string): string => {
     const date = new Date(dateStr)
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+    const hours = date.getHours()
+    const minutes = date.getMinutes()
+    const ampm = hours >= 12 ? 'pm' : 'am'
+    const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours
+    const displayMinutes = minutes > 0 ? `.${String(minutes).padStart(2, '0')}` : ''
+    return `${displayHours}${displayMinutes}${ampm}`
+  }
+
+  const formatDate = (dateStr: string): string => {
+    const date = new Date(dateStr)
+    const dayName = date.toLocaleDateString('en-US', { weekday: 'long' })
+    const timeStr = formatTime(dateStr)
+    return `${dayName} ${timeStr}`
+  }
+
+  const isNextWeek = (dateStr: string): boolean => {
+    const date = new Date(dateStr)
+    const now = new Date()
+    const oneWeekFromNow = new Date(now)
+    oneWeekFromNow.setDate(now.getDate() + 7)
+    return date >= oneWeekFromNow
   }
 
   const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
@@ -64,7 +128,16 @@
         :style="{ '--stagger-index': index }"
       >
         <div class="result-header">
-          <div>
+          <div v-if="slotResult.exact_match">
+            <h4 class="result-title">
+              {{ formatDate(slotResult.exact_match.start_time) }} -
+              {{ formatTime(slotResult.exact_match.end_time) }}
+              <template v-if="isNextWeek(slotResult.exact_match.start_time)">
+                (next week)
+              </template>
+            </h4>
+          </div>
+          <div v-else>
             <h4 class="result-title">
               {{ getDayName(slotResult.slot.day_of_week) }} {{ slotResult.slot.start }} -
               {{ slotResult.slot.end }}
@@ -73,12 +146,17 @@
           </div>
         </div>
 
-        <div v-if="slotResult.exact_match" class="match-exact">
+        <div
+          v-if="slotResult.exact_match"
+          class="match-exact"
+          :class="getScoreColor(slotResult.exact_match.score)"
+        >
           <div class="match-content">
             <div class="match-header">
               <span class="match-name">{{ slotResult.exact_match.teacher_name }}</span>
             </div>
             <p class="match-score">Score: {{ slotResult.exact_match.score }}</p>
+            <p class="match-reasons">{{ slotResult.message }}</p>
             <p
               v-if="slotResult.exact_match.reasons && slotResult.exact_match.reasons.length > 0"
               class="match-reasons"
@@ -89,17 +167,18 @@
           <button
             type="button"
             class="match-button"
+            :class="{ 'match-button--booked': isBooked(slotResult.exact_match.teacher_id, slotResult.exact_match.start_time) }"
+            :disabled="isBooked(slotResult.exact_match.teacher_id, slotResult.exact_match.start_time)"
             @click="
-              emit(
-                'confirmBooking',
-                slotResult.exact_match!.teacher_id,
-                slotResult.exact_match!.teacher_name,
-                slotResult.exact_match!.start_time,
-                slotResult.exact_match!.end_time
+              handleBooking(
+                slotResult.exact_match.teacher_id,
+                slotResult.exact_match.teacher_name,
+                slotResult.exact_match.start_time,
+                slotResult.exact_match.end_time
               )
             "
           >
-            Book Now
+            {{ isBooked(slotResult.exact_match.teacher_id, slotResult.exact_match.start_time) ? 'Booked' : 'Book Now' }}
           </button>
         </div>
 
@@ -131,7 +210,8 @@
                 Score: {{ alt.score }}
               </p>
               <p class="alternative-time">
-                {{ formatTime(alt.start_time) }} - {{ formatTime(alt.end_time) }}
+                {{ formatDate(alt.start_time) }} - {{ formatTime(alt.end_time) }}
+                <template v-if="isNextWeek(alt.start_time)"> (next week)</template>
               </p>
               <p v-if="alt.reasons && alt.reasons.length > 0" class="alternative-reasons">
                 {{ alt.reasons.join(' • ') }}
@@ -140,9 +220,10 @@
             <button
               type="button"
               class="alternative-button"
+              :class="{ 'alternative-button--booked': isBooked(alt.teacher_id, alt.start_time) }"
+              :disabled="isBooked(alt.teacher_id, alt.start_time)"
               @click="
-                emit(
-                  'confirmBooking',
+                handleBooking(
                   alt.teacher_id,
                   alt.teacher_name,
                   alt.start_time,
@@ -150,7 +231,7 @@
                 )
               "
             >
-              Book Now
+              {{ isBooked(alt.teacher_id, alt.start_time) ? 'Booked' : 'Book Now' }}
             </button>
           </div>
         </div>
@@ -293,6 +374,12 @@
     animation-delay: calc(var(--stagger-index, 0) * 80ms + 0.2s);
   }
 
+  /* Result card background colors based on score */
+
+
+
+
+
   @keyframes result-card-enter {
     from {
       opacity: 0;
@@ -341,8 +428,9 @@
     justify-content: space-between;
     gap: 0.75rem;
     padding: 0.75rem;
-    background: linear-gradient(135deg, var(--accent-sage) 0%, var(--accent-mint) 100%);
+    background: var(--bg-subtle);
     border-radius: 6px;
+    border: 2px solid var(--accent-sage);
   }
 
   .match-content {
@@ -352,35 +440,34 @@
   .match-header {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-  }
-
-  .match-star {
-    font-size: 1rem;
+    width: 100%;
   }
 
   .match-name {
     font-weight: 600;
-    color: white;
-    font-size: 0.875rem;
+    color: var(--text-primary);
+    font-size: 0.95rem;
   }
 
   .match-score {
-    font-size: 0.8125rem;
-    color: rgba(255, 255, 255, 0.8);
-    margin: 0.25rem 0 0 0;
+    font-size: 0.8rem;
+    font-weight: 500;
+    margin: 0.15rem 0 0 0;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent-sage);
   }
 
   .match-reasons {
     font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.7);
-    margin: 0.25rem 0 0 0;
+    margin: 0.15rem 0 0 0;
+    font-weight: 500;
+    color: var(--text-secondary);
   }
 
   .match-button {
     padding: 0.5rem 1rem;
-    background: white;
-    color: var(--primary-navy);
+    background: var(--accent-sage);
+    color: white;
     border: none;
     border-radius: 6px;
     font-size: 0.8125rem;
@@ -392,12 +479,25 @@
   }
 
   .match-button:hover {
-    background: var(--bg-cream);
+    background: var(--primary-navy);
   }
 
   .match-button:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+    box-shadow: 0 0 0 2px rgba(157, 180, 160, 0.4);
+  }
+
+  .match-button--booked,
+  .match-button:disabled {
+    background: var(--border-medium);
+    color: var(--text-muted);
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+
+  .match-button--booked:hover,
+  .match-button:disabled:hover {
+    background: var(--border-medium);
   }
 
   .alternatives {
@@ -474,16 +574,25 @@
     margin: 0.25rem 0 0 0;
   }
 
+  /* Score colors: green → yellow → orange → red */
+  .alternative-score.score-excellent {
+    color: #22c55e; /* Green for 90-100 */
+  }
+
   .alternative-score.score-high {
-    color: var(--accent-sage);
+    color: #84cc16; /* Light green for 75-89 */
   }
 
   .alternative-score.score-medium {
-    color: #b8860b;
+    color: #eab308; /* Yellow for 60-74 */
   }
 
   .alternative-score.score-low {
-    color: var(--accent-coral);
+    color: #f97316; /* Orange for 45-59 */
+  }
+
+  .alternative-score.score-poor {
+    color: #ef4444; /* Red for 0-44 */
   }
 
   .alternative-time {
@@ -520,6 +629,20 @@
   .alternative-button:focus-visible {
     outline: none;
     box-shadow: 0 0 0 2px rgba(201, 109, 93, 0.4);
+  }
+
+  .alternative-button--booked,
+  .alternative-button:disabled {
+    background: var(--border-medium);
+    color: var(--text-muted);
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+
+  .alternative-button--booked:hover,
+  .alternative-button:disabled:hover {
+    background: var(--border-medium);
+    filter: none;
   }
 
   .empty-state {

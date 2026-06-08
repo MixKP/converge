@@ -144,7 +144,7 @@ definitions:
   shared.WeeklySlot:
     properties:
       day_of_week:
-        description: 0=Monday ... 6=Sunday
+        description: 0=Sunday ... 6=Saturday (matches JavaScript Date.getDay())
         example: 0
         type: integer
       end:

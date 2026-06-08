@@ -40,13 +40,10 @@
         aria-label="View cart"
         @click="goToCart"
       >
-        <svg class="navbar-cart-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="1.5"
-            d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z"
-          />
+        <svg class="navbar-cart-icon" viewBox="0 0 24 24" fill="currentColor">
+          <path d="m21,5H3c-.55,0-1,.45-1,1v3.55c0,.48.33.89.8.98.69.14,1.2.76,1.2,1.47s-.5,1.33-1.2,1.47c-.47.09-.8.5-.8.98v3.55c0,.55.45,1,1,1h18c.55,0,1-.45,1-1v-3.55c0-.48-.33-.89-.8-.98-.69-.14-1.2-.76-1.2-1.47s.5-1.33,1.2-1.47c.47-.09.8-.5.8-.98v-3.55c0-.55-.45-1-1-1Zm-1,3.84c-1.2.57-2,1.79-2,3.16s.8,2.59,2,3.16v1.84h-4v-2h-1v2H4v-1.84c1.2-.57,2-1.79,2-3.16s-.8-2.59-2-3.16v-1.84h11v1h1v-1h4v1.84Z"/>
+          <path d="M15 9H16V11H15z"/>
+          <path d="M15 12H16V14H15z"/>
         </svg>
         <span v-if="cartCount > 0" class="navbar-cart-badge">{{
           cartCount > 9 ? '9+' : cartCount

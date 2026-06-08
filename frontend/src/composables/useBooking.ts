@@ -13,7 +13,7 @@ import { useBookingCart } from './useBookingCart'
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
 export function useBooking() {
   const teacherStore = useTeacherStore()
-  const { addToCart } = useBookingCart()
+  const { addToCart, cartItems } = useBookingCart()
 
   const calendarRef = ref()
   const activeTab = ref<'manual' | 'ai'>('manual')
@@ -109,20 +109,50 @@ export function useBooking() {
     }
     return targetDate
   }
+  const formatSuggestionDate = (start: Date, end: Date): string => {
+    const dayName = start.toLocaleDateString('en-US', { weekday: 'short' }) // Sun, Mon, etc.
+    const formatTime = (date: Date) => {
+      const hours = date.getHours()
+      const minutes = date.getMinutes()
+      const ampm = hours >= 12 ? 'pm' : 'am'
+      const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours
+      const displayMinutes = minutes > 0 ? `.${String(minutes).padStart(2, '0')}` : ''
+      return `${displayHours}${displayMinutes}${ampm}`
+    }
+    return `${dayName} ${formatTime(start)} - ${formatTime(end)}`
+  }
+  const isNextWeek = (date: Date): boolean => {
+    const now = new Date()
+    const oneWeekFromNow = new Date(now)
+    oneWeekFromNow.setDate(now.getDate() + 7)
+    return date >= oneWeekFromNow
+  }
   const createExactMatchEvent = (
     match: BookingAlternative,
     slot: WeeklySlot,
     _index: number
   ): EventInput => {
-    const startDate = getDateForDayOfWeek(slot.day_of_week, match.start_time)
-    const endDate = getDateForDayOfWeek(slot.day_of_week, match.end_time)
+    // Extract time from backend's start_time and place it in current/next week
+    const backendDate = new Date(match.start_time)
+    const backendDayName = backendDate.toLocaleDateString('en-US', { weekday: 'long' })
+    const timeStr = `${String(backendDate.getHours()).padStart(2, '0')}:${String(backendDate.getMinutes()).padStart(2, '0')}`
+    const startDate = getDateForDayOfWeek(backendDate.getDay(), timeStr)
+
+    const backendEndDate = new Date(match.end_time)
+    const endTimeStr = `${String(backendEndDate.getHours()).padStart(2, '0')}:${String(backendEndDate.getMinutes()).padStart(2, '0')}`
+    const endDate = getDateForDayOfWeek(backendEndDate.getDay(), endTimeStr)
+
+    const dateStr = formatSuggestionDate(startDate, endDate)
+    const nextWeekTag = isNextWeek(startDate) ? ' (next week)' : ''
+    const title = `${dateStr}${nextWeekTag} Exact match found\n${match.teacher_name}`
+
     return {
       id: `suggestion-exact-${match.teacher_id}-${slot.day_of_week}-${slot.start}`,
-      title: `${match.teacher_name} (Score: ${match.score})`,
+      title,
       start: startDate.toISOString(),
       end: endDate.toISOString(),
-      backgroundColor: 'linear-gradient(135deg, var(--accent-sage) 0%, var(--accent-mint) 100%)',
-      borderColor: 'var(--accent-sage)',
+      backgroundColor: 'linear-gradient(135deg, var(--accent-gold) 0%, var(--accent-gold-light) 100%)',
+      borderColor: 'var(--accent-gold)',
       textColor: '#fff',
       classNames: ['suggestion-exact'],
       extendedProps: {
@@ -138,15 +168,21 @@ export function useBooking() {
     slot: WeeklySlot,
     _index: number
   ): EventInput => {
-    const startDate = getDateForDayOfWeek(slot.day_of_week, alt.start_time)
-    const endDate = getDateForDayOfWeek(slot.day_of_week, alt.end_time)
+    // Extract time from backend's start_time and place it in current/next week
+    const backendDate = new Date(alt.start_time)
+    const timeStr = `${String(backendDate.getHours()).padStart(2, '0')}:${String(backendDate.getMinutes()).padStart(2, '0')}`
+    const startDate = getDateForDayOfWeek(backendDate.getDay(), timeStr)
+
+    const backendEndDate = new Date(alt.end_time)
+    const endTimeStr = `${String(backendEndDate.getHours()).padStart(2, '0')}:${String(backendEndDate.getMinutes()).padStart(2, '0')}`
+    const endDate = getDateForDayOfWeek(backendEndDate.getDay(), endTimeStr)
     return {
       id: `suggestion-alt-${alt.teacher_id}-${slot.day_of_week}-${slot.start}`,
       title: `${alt.teacher_name} (Score: ${alt.score})`,
       start: startDate.toISOString(),
       end: endDate.toISOString(),
-      backgroundColor: 'var(--accent-sage-soft)',
-      borderColor: 'var(--accent-sage)',
+      backgroundColor: 'var(--accent-gold-soft)',
+      borderColor: 'var(--accent-gold)',
       textColor: 'var(--ink-primary)',
       classNames: ['suggestion-alt'],
       extendedProps: {
@@ -173,7 +209,32 @@ export function useBooking() {
     }
     return result
   })
-  const allEvents = computed<EventInput[]>(() => [...events.value, ...suggestionEvents.value])
+
+  // Convert cart items to calendar events
+  const cartEvents = computed<EventInput[]>(() => {
+    return cartItems.value.map((item) => {
+      const startDate = new Date(item.start_time)
+      const endDate = new Date(item.end_time)
+      return {
+        id: `cart-${item.id}`,
+        title: `${item.teacher_name} (In Cart)`,
+        start: startDate.toISOString(),
+        end: endDate.toISOString(),
+        backgroundColor: 'var(--accent-sage)',
+        borderColor: 'var(--accent-sage)',
+        textColor: '#fff',
+        classNames: ['cart-event'],
+        extendedProps: {
+          isCartItem: true,
+          cartId: item.id,
+          teacherId: item.teacher_id,
+          teacherName: item.teacher_name,
+        },
+      }
+    })
+  })
+
+  const allEvents = computed<EventInput[]>(() => [...events.value, ...suggestionEvents.value, ...cartEvents.value])
 
   const getSlotLabel = (slot: WeeklySlot): string => {
     return `${DAY_NAMES[slot.day_of_week]} ${slot.start} - ${slot.end}`
@@ -296,6 +357,10 @@ export function useBooking() {
   const removeManualSlot = (index: number): void => {
     manualSlots.value.splice(index, 1)
   }
+  const addEvent = (event: EventInput): void => {
+    events.value = [...events.value, event]
+  }
+
   const addToCartDirectly = (
     teacherId: number,
     teacherName: string,
@@ -327,6 +392,9 @@ export function useBooking() {
       client_name: 'Guest',
     })
     showSuccess('Added to cart!')
+    // Clear manual events after adding to cart
+    events.value = []
+    manualSlots.value = []
   }
 
   const initWatchers = () => {
@@ -404,6 +472,7 @@ export function useBooking() {
     canEvaluate,
     calculatedDuration,
     suggestionEvents,
+    cartEvents,
     allEvents,
 
     getSlotLabel,
@@ -411,6 +480,7 @@ export function useBooking() {
     handleEvaluate,
     handleAddManualSlot,
     removeManualSlot,
+    addEvent,
     addToCartDirectly,
     initWatchers,
     getAggregatedAvailability,

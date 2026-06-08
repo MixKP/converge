@@ -83,7 +83,7 @@ func makeCandidate(teacher TeacherInfo, preferredTeacherID int, prefSlot shared.
 	}
 
 	anchorDate := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
-	desiredWeekday := time.Weekday((prefSlot.DayOfWeek + 1) % 7)
+	desiredWeekday := time.Weekday(prefSlot.DayOfWeek) // 0=Sunday ... 6=Saturday
 	for anchorDate.Weekday() != desiredWeekday {
 		anchorDate = anchorDate.Add(24 * time.Hour)
 	}

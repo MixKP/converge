@@ -2,6 +2,7 @@
   import { ref, computed } from 'vue'
   import BookingResults from './BookingResults.vue'
   import type { BookingResponse } from '../types'
+  import type { CartItem } from '../composables/useBookingCart'
 
   interface TimeSlot {
     day_of_week: number
@@ -22,12 +23,14 @@
     isEvaluating: boolean
     layout?: 'mobile' | 'tablet' | 'desktop'
     isMobile?: boolean
+    cartItems?: CartItem[]
   }
 
   const props = withDefaults(defineProps<Props>(), {
     layout: 'desktop',
     isMobile: false,
     suggestions: null,
+    cartItems: () => [],
   })
 
   const emit = defineEmits<{
@@ -345,6 +348,7 @@
         :suggestions="suggestions"
         :show-detailed-results="showDetailedResults"
         :is-evaluating="isEvaluating"
+        :cart-items="cartItems"
         @confirm-booking="handleConfirmBooking"
         @reset="handleReset"
       />

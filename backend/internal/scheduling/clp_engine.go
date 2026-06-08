@@ -180,7 +180,7 @@ func fitsAvailability(slots []shared.WeeklySlot, start, end time.Time) bool {
 	candStart := timeOfDay(start)
 	candEnd := timeOfDay(end)
 	for _, slot := range slots {
-		slotWeekday := time.Weekday((slot.DayOfWeek + 1) % 7)
+		slotWeekday := time.Weekday(slot.DayOfWeek) // 0=Sunday ... 6=Saturday (matches frontend)
 		if start.Weekday() != slotWeekday {
 			continue
 		}

@@ -96,8 +96,30 @@
         title: e.title,
       }))
   }
+  // Check if time range overlaps with any cart event
+  const overlapsWithCartEvent = (start: Date, end: Date): boolean => {
+    // Check both modelValue (includes cart events now) and additionalEvents (suggestions)
+    const allEvents = [...(props.modelValue || []), ...(props.additionalEvents || [])]
+    const cartEvents = allEvents.filter(
+      e => e.extendedProps?.isCartItem === true
+    )
+    for (const cartEvent of cartEvents) {
+      const cartStart = new Date(cartEvent.start as Date)
+      const cartEnd = new Date(cartEvent.end as Date)
+      // Check for overlap
+      if (start < cartEnd && end > cartStart) {
+        return true
+      }
+    }
+    return false
+  }
+
   const handleDateSelect = (selectInfo: DateSelectArg) => {
     if (!props.editable) return
+    // Check for overlap with cart events
+    if (overlapsWithCartEvent(selectInfo.start, selectInfo.end)) {
+      return
+    }
     const calendar = selectInfo.view.calendar
     calendar.unselect()
 
@@ -106,18 +128,31 @@
   }
 
   const handleSelectAllow = (selectInfo: { start: Date; end: Date }) => {
-    return isSameDaySelection(selectInfo.start, selectInfo.end)
+    if (!isSameDaySelection(selectInfo.start, selectInfo.end)) return false
+    // Also prevent selection if it overlaps with cart events
+    if (overlapsWithCartEvent(selectInfo.start, selectInfo.end)) return false
+    return true
   }
 
   const handleEventAllow = (dropInfo: { start: Date | null; end: Date | null }) => {
     const start = dropInfo.start
     const end = dropInfo.end
     if (!start || !end) return false
-    return isSameDay(start, end)
+    if (!isSameDay(start, end)) return false
+    // Also prevent if it overlaps with cart events
+    if (overlapsWithCartEvent(start, end)) return false
+    return true
   }
 
   const handleSlotClick = (arg: { dateStr: string }) => {
     if (!props.editable) return
+    const clickDate = new Date(arg.dateStr)
+    const endDate = new Date(clickDate)
+    endDate.setHours(clickDate.getHours() + 1)
+    // Check for overlap with cart events
+    if (overlapsWithCartEvent(clickDate, endDate)) {
+      return
+    }
     const newEvent = createOneHourEvent(new Date(arg.dateStr))
     emit('update:modelValue', [...(props.modelValue || []), newEvent])
   }

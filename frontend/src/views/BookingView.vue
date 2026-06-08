@@ -1,6 +1,7 @@
 <script setup lang="ts">
   import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
   import { useBooking } from '../composables/useBooking'
+  import { useBookingCart } from '../composables/useBookingCart'
   import PageLayout from '../components/PageLayout.vue'
   import Calendar from '../components/Calendar.vue'
   import CalendarDisabledOverlay from '../components/CalendarDisabledOverlay.vue'
@@ -25,9 +26,40 @@
     showDetailedResults,
     suggestionEvents,
     initWatchers,
+    addEvent,
     addToCartDirectly,
     resetBookingState,
   } = useBooking()
+
+  const { cartItems, fetchCartItems } = useBookingCart()
+
+  // Convert cart items to calendar events (directly in BookingView for proper reactivity)
+  const cartEvents = computed(() => {
+    return cartItems.value.map((item) => {
+      const startDate = new Date(item.start_time)
+      const endDate = new Date(item.end_time)
+      return {
+        id: `cart-${item.id}`,
+        title: `${item.teacher_name} (In Cart)`,
+        start: startDate.toISOString(),
+        end: endDate.toISOString(),
+        editable: false, // Mark as non-editable
+        backgroundColor: 'var(--accent-sage)',
+        borderColor: 'var(--accent-sage)',
+        textColor: '#fff',
+        classNames: ['cart-event'],
+        extendedProps: {
+          isCartItem: true,
+          cartId: item.id,
+          teacherId: item.teacher_id,
+          teacherName: item.teacher_name,
+        },
+      }
+    })
+  })
+
+  // All events for calendar: manual events + cart events (for overlap prevention)
+  const allCalendarEvents = computed(() => [...events.value, ...cartEvents.value])
 
   const aiMode = ref<'idle' | 'expanding' | 'expanded'>('idle')
 
@@ -52,6 +84,7 @@
   }
 
   onMounted(() => {
+    fetchCartItems()
     checkMobile()
     globalThis.addEventListener('resize', checkMobile)
   })
@@ -126,14 +159,16 @@
   const handleSuggestionClick = (info: EventClickArg): void => {
     const props = info.event.extendedProps
     if (props?.isSuggestion) {
-      addToCartDirectly(
-        props.teacherId,
-        props.teacherName,
-        info.event.startStr,
-        info.event.endStr,
-        selectedSubjectId.value ?? undefined,
-        selectedBranchId.value ?? undefined
-      )
+      // Create event on calendar from suggestion
+      const newEvent: EventInput = {
+        id: `manual-${Date.now()}`,
+        start: info.event.startStr,
+        end: info.event.endStr,
+        title: `${props.teacherName}`,
+      }
+      addEvent(newEvent)
+      successMessage.value = 'Time slot added to calendar!'
+      setTimeout(() => (successMessage.value = ''), 3000)
     }
   }
 
@@ -345,7 +380,7 @@
           <div v-else class="mobile-calendar-wrapper">
             <Calendar
               ref="calendarRef"
-              :model-value="events"
+              :model-value="allCalendarEvents"
               :additional-events="suggestionEvents"
               :editable="!!selectedBranchId && !!selectedTeacherId"
               :business-hours="businessHours"
@@ -375,6 +410,7 @@
           :is-evaluating="isEvaluating"
           layout="mobile"
           :is-mobile="isMobile"
+          :cart-items="cartItems"
           @update:selected-subject-id="(v) => (selectedSubjectId = v)"
           @update:selected-branch-id="(v) => (selectedBranchId = v)"
           @update:selected-teacher-id="(v) => (selectedTeacherId = v)"
@@ -478,7 +514,7 @@
           <div v-else class="tablet-calendar-wrapper">
             <Calendar
               ref="calendarRef"
-              :model-value="events"
+              :model-value="allCalendarEvents"
               :additional-events="suggestionEvents"
               :editable="!!selectedBranchId && !!selectedTeacherId"
               :business-hours="businessHours"
@@ -513,7 +549,7 @@
                 d="M12 4.5v15m7.5-7.5h-15"
               />
             </svg>
-            <span>{{ selectedTeacherId ? 'Add to Cart' : 'Select a Teacher' }}</span>
+            <span>{{ selectedTeacherId ? 'Add to Booking' : 'Select a Teacher' }}</span>
           </button>
         </div>
 
@@ -531,6 +567,7 @@
           :show-detailed-results="showDetailedResults"
           :is-evaluating="isEvaluating"
           layout="tablet"
+          :cart-items="cartItems"
           @update:selected-subject-id="(v) => (selectedSubjectId = v)"
           @update:selected-branch-id="(v) => (selectedBranchId = v)"
           @update:selected-teacher-id="(v) => (selectedTeacherId = v)"
@@ -616,7 +653,7 @@
               <Calendar
                 v-if="selectedSubjectId"
                 ref="calendarRef"
-                :model-value="events"
+                :model-value="allCalendarEvents"
                 :additional-events="suggestionEvents"
                 :editable="!!selectedBranchId && !!selectedTeacherId"
                 :business-hours="businessHours"
@@ -632,7 +669,7 @@
             </div>
           </div>
 
-          <!-- Mobile: Add to Cart section (shows after selecting time slots) -->
+          <!-- Mobile: Add to Booking section (shows after selecting time slots) -->
           <div
             v-if="isMobile && mobileStep === 'calendar' && events.length > 0"
             class="mobile-add-to-cart"
@@ -657,7 +694,7 @@
                   d="M12 4.5v15m7.5-7.5h-15"
                 />
               </svg>
-              <span>{{ selectedTeacherId ? 'Add to Cart' : 'Select a Teacher' }}</span>
+              <span>{{ selectedTeacherId ? 'Add to Booking' : 'Select a Teacher' }}</span>
             </button>
           </div>
         </div>
@@ -763,16 +800,10 @@
               :disabled="
                 !selectedSubjectId || !selectedBranchId || !selectedTeacherId || events.length === 0
               "
-              :aria-label="
-                events.length === 1 ? 'Add slot to cart' : `Add ${events.length} slots to cart`
-              "
+              :aria-label="'Add to booking'"
               @click="addAllSlotsToCart(selectedTeacherId)"
             >
-              <span class="button-text">{{
-                events.length > 0
-                  ? `Add ${events.length} slot${events.length > 1 ? 's' : ''} to Cart`
-                  : 'Add to Cart'
-              }}</span>
+              <span class="button-text">Add to Booking</span>
               <svg
                 class="button-icon"
                 viewBox="0 0 24 24"
@@ -805,6 +836,7 @@
             :show-detailed-results="showDetailedResults"
             :is-evaluating="isEvaluating"
             layout="desktop"
+            :cart-items="cartItems"
             @update:selected-subject-id="(v) => (selectedSubjectId = v)"
             @update:selected-branch-id="(v) => (selectedBranchId = v)"
             @update:selected-teacher-id="(v) => (selectedTeacherId = v)"
@@ -835,7 +867,7 @@
             d="M12 4.5v15m7.5-7.5h-15"
           />
         </svg>
-        <span>Add to Cart</span>
+        <span>Add to Booking</span>
       </button>
 
       <!-- Tablet Sticky Bottom Button -->
@@ -856,7 +888,7 @@
             d="M12 4.5v15m7.5-7.5h-15"
           />
         </svg>
-        <span>Add to Cart</span>
+        <span>Add to Booking</span>
       </button>
 
       <!-- Toast Notifications -->

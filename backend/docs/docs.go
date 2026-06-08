@@ -572,7 +572,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "day_of_week": {
-                    "description": "0=Monday ... 6=Sunday",
+                    "description": "0=Sunday ... 6=Saturday (matches JavaScript Date.getDay())",
                     "type": "integer",
                     "example": 0
                 },

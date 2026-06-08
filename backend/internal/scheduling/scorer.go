@@ -50,7 +50,7 @@ func (s *WeightedScorer) scoreAvailabilityFit(candidate ScorableCandidate) (int,
 		return s.FitWeight / 2, "Schedule unavailable"
 	}
 
-	dayOfWeek := (int(candidate.StartTime.Weekday()) + 6) % 7
+	dayOfWeek := int(candidate.StartTime.Weekday()) // 0=Sunday ... 6=Saturday (matches frontend)
 	proposedStart := timeOfDay(candidate.StartTime)
 	proposedEnd := timeOfDay(candidate.EndTime)
 
