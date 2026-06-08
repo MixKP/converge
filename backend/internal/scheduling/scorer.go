@@ -96,6 +96,5 @@ func loadTeacherAvailability(candidate ScorableCandidate) ([]shared.WeeklySlot, 
 }
 
 func timeOfDay(t time.Time) time.Time {
-	t = t.UTC()
 	return time.Date(0, 1, 1, t.Hour(), t.Minute(), 0, 0, time.UTC)
 }

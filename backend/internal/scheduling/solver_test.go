@@ -147,6 +147,6 @@ func TestTimeOfDayBangkok(t *testing.T) {
 	ts := time.Date(2026, 6, 1, 18, 0, 0, 0, loc)
 	result := timeOfDay(ts)
 
-	assert.Equal(t, 11, result.Hour(), "18:00 Bangkok = 11:00 UTC, timeOfDay should normalize to UTC")
+	assert.Equal(t, 18, result.Hour(), "timeOfDay should use local hour")
 	assert.Equal(t, 0, result.Minute())
 }
