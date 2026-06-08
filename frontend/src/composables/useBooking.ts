@@ -95,47 +95,76 @@ export function useBooking() {
     const end = new Date(event.end as Date)
     return Math.round((end.getTime() - start.getTime()) / (1000 * 60))
   })
-  const createExactMatchEvent = (match: BookingAlternative, index: number): EventInput => ({
-    id: `suggestion-exact-${index}`,
-    title: `⭐ ${match.teacher_name} (Score: ${match.score})`,
-    start: match.start_time,
-    end: match.end_time,
-    backgroundColor: 'var(--accent-terracotta)',
-    borderColor: 'var(--accent-terracotta-dark)',
-    textColor: '#fff',
-    extendedProps: {
-      isSuggestion: true,
-      teacherId: match.teacher_id,
-      teacherName: match.teacher_name,
-      score: match.score,
-    },
-  })
-  const createAlternativeEvent = (alt: BookingAlternative, index: number): EventInput => ({
-    id: `suggestion-alt-${index}`,
-    title: `💡 ${alt.teacher_name} (Score: ${alt.score})`,
-    start: alt.start_time,
-    end: alt.end_time,
-    backgroundColor: 'var(--accent-terracotta-soft)',
-    borderColor: 'var(--accent-terracotta)',
-    textColor: 'var(--ink-primary)',
-    extendedProps: {
-      isSuggestion: true,
-      teacherId: alt.teacher_id,
-      teacherName: alt.teacher_name,
-      score: alt.score,
-    },
-  })
+  // Helper: Convert day_of_week + time to proper date in current week (timezone-safe)
+  const getDateForDayOfWeek = (dayOfWeek: number, timeStr: string): Date => {
+    const now = new Date()
+    const currentDay = now.getDay()
+    const diff = dayOfWeek - currentDay
+    const targetDate = new Date(now)
+    targetDate.setDate(now.getDate() + diff)
+    const [hours, minutes] = timeStr.split(':').map(Number)
+    targetDate.setHours(hours, minutes, 0, 0)
+    return targetDate
+  }
+  const createExactMatchEvent = (
+    match: BookingAlternative,
+    slot: WeeklySlot,
+    index: number
+  ): EventInput => {
+    const startDate = getDateForDayOfWeek(slot.day_of_week, slot.start)
+    const endDate = getDateForDayOfWeek(slot.day_of_week, slot.end)
+    return {
+      id: `suggestion-exact-${index}`,
+      title: `${match.teacher_name} (Score: ${match.score})`,
+      start: startDate.toISOString(),
+      end: endDate.toISOString(),
+      backgroundColor: 'linear-gradient(135deg, var(--accent-sage) 0%, var(--accent-mint) 100%)',
+      borderColor: 'var(--accent-sage)',
+      textColor: '#fff',
+      classNames: ['suggestion-exact'],
+      extendedProps: {
+        isSuggestion: true,
+        teacherId: match.teacher_id,
+        teacherName: match.teacher_name,
+        score: match.score,
+      },
+    }
+  }
+  const createAlternativeEvent = (
+    alt: BookingAlternative,
+    slot: WeeklySlot,
+    index: number
+  ): EventInput => {
+    const startDate = getDateForDayOfWeek(slot.day_of_week, slot.start)
+    const endDate = getDateForDayOfWeek(slot.day_of_week, slot.end)
+    return {
+      id: `suggestion-alt-${index}`,
+      title: `${alt.teacher_name} (Score: ${alt.score})`,
+      start: startDate.toISOString(),
+      end: endDate.toISOString(),
+      backgroundColor: 'var(--accent-sage-soft)',
+      borderColor: 'var(--accent-sage)',
+      textColor: 'var(--ink-primary)',
+      classNames: ['suggestion-alt'],
+      extendedProps: {
+        isSuggestion: true,
+        teacherId: alt.teacher_id,
+        teacherName: alt.teacher_name,
+        score: alt.score,
+      },
+    }
+  }
   const suggestionEvents = computed<EventInput[]>(() => {
     if (!suggestions.value || !showDetailedResults.value) return []
     const result: EventInput[] = []
     let index = 0
     for (const slotResult of suggestions.value.results) {
       if (slotResult.exact_match) {
-        result.push(createExactMatchEvent(slotResult.exact_match, index++))
+        result.push(createExactMatchEvent(slotResult.exact_match, slotResult.slot, index++))
       }
       if (slotResult.alternatives) {
         for (const alt of slotResult.alternatives) {
-          result.push(createAlternativeEvent(alt, index++))
+          result.push(createAlternativeEvent(alt, slotResult.slot, index++))
         }
       }
     }

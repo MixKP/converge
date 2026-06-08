@@ -43,11 +43,6 @@
             </select>
           </div>
 
-          <!-- Hours Counter -->
-          <div class="toolbar-section toolbar-section--counter">
-            <span class="counter-text">Selected: {{ events.length }}</span>
-          </div>
-
           <!-- Submit Button -->
           <div class="toolbar-section toolbar-section--action">
             <SubmitButton

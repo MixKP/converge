@@ -41,7 +41,7 @@
     align-items: center;
     justify-content: center;
     padding: 0.875rem 1.5rem;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 0.875rem;
     font-weight: 500;
     color: white;

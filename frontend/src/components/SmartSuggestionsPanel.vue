@@ -393,7 +393,7 @@
     font-size: 0.8125rem;
     color: var(--text-secondary);
     margin: 0.25rem 0 0 0;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
   }
 
   .smart-suggestions-panel--mobile__close {
@@ -441,7 +441,7 @@
     letter-spacing: 0.05em;
     text-transform: uppercase;
     color: var(--text-muted);
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
   }
 
   .smart-suggestions-panel--mobile__required {
@@ -452,7 +452,7 @@
     font-size: 0.75rem;
     color: var(--text-secondary);
     margin: 0;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
   }
 
   .smart-suggestions-panel--mobile__select {
@@ -466,7 +466,7 @@
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.15s ease;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
     appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%23585863' viewBox='0 0 24 24'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M8 10l4 4 4-4'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
@@ -503,7 +503,7 @@
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.15s ease;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
     appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%23585863' viewBox='0 0 24 24'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19.5 8.25l-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
@@ -522,7 +522,7 @@
   .smart-suggestions-panel--mobile__separator {
     font-size: 0.75rem;
     color: var(--text-secondary);
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
   }
 
   .smart-suggestions-panel--mobile__add-slot {
@@ -576,7 +576,7 @@
   .smart-suggestions-panel--mobile__slot-text {
     font-size: 0.8125rem;
     color: var(--text-primary);
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
   }
 
   .smart-suggestions-panel--mobile__slot-remove {
@@ -614,12 +614,12 @@
     font-size: 0.875rem;
     font-weight: 600;
     color: white;
-    background: var(--primary-indigo);
+    background: linear-gradient(135deg, var(--accent-sage) 0%, var(--accent-mint) 100%);
     border: none;
     border-radius: 8px;
     cursor: pointer;
     transition: all 0.2s ease;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
     touch-action: manipulation;
   }
 
@@ -629,7 +629,7 @@
   }
 
   .smart-suggestions-panel--mobile__submit:not(:disabled):hover {
-    background: var(--primary-indigo-deep);
+    filter: brightness(0.9);
   }
 
   .smart-suggestions-panel--mobile__submit-icon {
@@ -676,7 +676,7 @@
     font-size: 0.8125rem;
     color: var(--text-secondary);
     margin: 0.25rem 0 0 0;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
   }
 
   .smart-suggestions-panel--tablet__close {
@@ -724,7 +724,7 @@
     letter-spacing: 0.05em;
     text-transform: uppercase;
     color: var(--text-muted);
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
   }
 
   .smart-suggestions-panel--tablet__required {
@@ -735,7 +735,7 @@
     font-size: 0.75rem;
     color: var(--text-secondary);
     margin: 0;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
   }
 
   .smart-suggestions-panel--tablet__select {
@@ -749,7 +749,7 @@
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.15s ease;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
     appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%23585863' viewBox='0 0 24 24'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M8 10l4 4 4-4'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
@@ -784,7 +784,7 @@
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.15s ease;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
     appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%23585863' viewBox='0 0 24 24'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19.5 8.25l-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
@@ -803,7 +803,7 @@
   .smart-suggestions-panel--tablet__separator {
     font-size: 0.75rem;
     color: var(--text-secondary);
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
   }
 
   .smart-suggestions-panel--tablet__add-slot {
@@ -857,7 +857,7 @@
   .smart-suggestions-panel--tablet__slot-text {
     font-size: 0.8125rem;
     color: var(--text-primary);
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
   }
 
   .smart-suggestions-panel--tablet__slot-remove {
@@ -895,12 +895,12 @@
     font-size: 0.875rem;
     font-weight: 600;
     color: white;
-    background: var(--primary-indigo);
+    background: linear-gradient(135deg, var(--accent-sage) 0%, var(--accent-mint) 100%);
     border: none;
     border-radius: 8px;
     cursor: pointer;
     transition: all 0.2s ease;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
     touch-action: manipulation;
   }
 
@@ -910,7 +910,7 @@
   }
 
   .smart-suggestions-panel--tablet__submit:not(:disabled):hover {
-    background: var(--primary-indigo-deep);
+    filter: brightness(0.9);
   }
 
   .smart-suggestions-panel--tablet__submit-icon {
@@ -1027,7 +1027,7 @@
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.2s ease;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
     touch-action: manipulation;
   }
 
@@ -1162,30 +1162,30 @@
     font-size: 0.875rem;
     font-weight: 500;
     color: white;
-    background: #3e4c7a;
+    background: linear-gradient(135deg, var(--accent-sage) 0%, var(--accent-mint) 100%);
     border: none;
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
-    box-shadow: 0 2px 8px rgba(62, 76, 122, 0.2);
-    font-family: 'IBM Plex Sans', sans-serif;
+    box-shadow: 0 2px 8px rgba(157, 180, 160, 0.2);
+    font-family: 'Inter', sans-serif;
     touch-action: manipulation;
     flex-shrink: 0;
     max-height: 44px;
   }
 
   .smart-suggestions-panel--desktop__submit:hover:not(:disabled) {
-    background: #2a3452;
+    filter: brightness(0.9);
     transform: translateY(-1px);
-    box-shadow: 0 3px 12px rgba(62, 76, 122, 0.25);
+    box-shadow: 0 3px 12px rgba(157, 180, 160, 0.25);
   }
 
   .smart-suggestions-panel--desktop__submit:disabled {
     opacity: 1;
     cursor: not-allowed;
     transform: none;
-    background: #e2e8f0;
-    color: #475569;
+    background: var(--bg-subtle);
+    color: var(--text-muted);
     box-shadow: none;
   }
 

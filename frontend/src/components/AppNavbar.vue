@@ -68,7 +68,8 @@
 
   .navbar-container {
     width: 100%;
-    padding: 1rem 1.5rem;
+    height: 60px;
+    padding: 0 1.5rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -85,14 +86,14 @@
 
   .navbar-indicator {
     width: 4px;
-    height: 1.5rem;
+    height: 1.25rem;
     background: #3e4c7a;
     border-radius: 2px;
     flex-shrink: 0;
   }
 
   .navbar-title {
-    font-size: 1.375rem;
+    font-size: 1.25rem;
     font-weight: 600;
     color: #111827;
     font-family:
@@ -109,8 +110,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 2.25rem;
+    height: 2.25rem;
     color: #6b7280;
     background: #f3f4f6;
     border: 1px solid transparent;
@@ -136,22 +137,22 @@
   }
 
   .navbar-cart-icon {
-    width: 1.25rem;
-    height: 1.25rem;
+    width: 1.125rem;
+    height: 1.125rem;
     stroke-width: 1.5;
   }
 
   .navbar-cart-badge {
     position: absolute;
-    top: -4px;
-    right: -4px;
+    top: -3px;
+    right: -3px;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 1.125rem;
-    height: 1.125rem;
-    padding: 0 0.375rem;
-    font-size: 0.625rem;
+    min-width: 1rem;
+    height: 1rem;
+    padding: 0 0.25rem;
+    font-size: 0.5625rem;
     font-weight: 600;
     font-family: 'JetBrains Mono', 'SF Mono', monospace;
     color: #ffffff;
@@ -164,12 +165,13 @@
   /* Laptop/Tablet (768px - 1439px) */
   @media (min-width: 768px) and (max-width: 1439px) {
     .navbar-container {
-      padding: 0.875rem 1.25rem;
+      height: 60px;
+      padding: 0 1.25rem;
     }
 
     .navbar-indicator {
       width: 3px;
-      height: 1.25rem;
+      height: 1.125rem;
     }
 
     .navbar-title {
@@ -177,29 +179,30 @@
     }
 
     .navbar-cart {
-      width: 2.25rem;
-      height: 2.25rem;
+      width: 2.125rem;
+      height: 2.125rem;
     }
 
     .navbar-cart-icon {
-      width: 1.125rem;
-      height: 1.125rem;
+      width: 1.0625rem;
+      height: 1.0625rem;
     }
 
     .navbar-cart-badge {
       top: -3px;
       right: -3px;
-      min-width: 1rem;
-      height: 1rem;
-      font-size: 0.5625rem;
-      padding: 0 0.25rem;
+      min-width: 0.9375rem;
+      height: 0.9375rem;
+      font-size: 0.53125rem;
+      padding: 0 0.21875rem;
     }
   }
 
   /* Mobile (< 768px) */
   @media (max-width: 767px) {
     .navbar-container {
-      padding: 0.75rem 1rem;
+      height: 60px;
+      padding: 0 1rem;
     }
 
     .navbar-indicator {
@@ -251,7 +254,8 @@
   /* Small mobile (< 425px) */
   @media (max-width: 424px) {
     .navbar-container {
-      padding: 0.625rem 0.875rem;
+      height: 60px;
+      padding: 0 0.875rem;
     }
 
     .navbar-title {

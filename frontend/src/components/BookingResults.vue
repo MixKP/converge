@@ -76,7 +76,6 @@
         <div v-if="slotResult.exact_match" class="match-exact">
           <div class="match-content">
             <div class="match-header">
-              <span class="match-star">⭐</span>
               <span class="match-name">{{ slotResult.exact_match.teacher_name }}</span>
             </div>
             <p class="match-score">Score: {{ slotResult.exact_match.score }}</p>
@@ -116,7 +115,6 @@
           >
             <div class="alternative-content">
               <div class="alternative-header">
-                <span class="alternative-bulb">💡</span>
                 <span class="alternative-name">{{ alt.teacher_name }}</span>
                 <span
                   v-if="alt.room_available !== undefined"
@@ -241,7 +239,7 @@
   .loading-text {
     font-size: 0.875rem;
     color: var(--text-secondary);
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
     animation: pulse 2s ease-in-out infinite;
   }
 
@@ -268,7 +266,7 @@
     font-weight: 600;
     color: var(--text-primary);
     margin: 0 0 0.5rem 0;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
   }
 
   .summary-text {
@@ -328,7 +326,7 @@
     font-weight: 600;
     color: var(--text-primary);
     margin: 0;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
   }
 
   .result-message {
@@ -343,7 +341,7 @@
     justify-content: space-between;
     gap: 0.75rem;
     padding: 0.75rem;
-    background: var(--accent-coral);
+    background: linear-gradient(135deg, var(--accent-sage) 0%, var(--accent-mint) 100%);
     border-radius: 6px;
   }
 
@@ -382,14 +380,14 @@
   .match-button {
     padding: 0.5rem 1rem;
     background: white;
-    color: var(--accent-coral);
+    color: var(--primary-navy);
     border: none;
     border-radius: 6px;
     font-size: 0.8125rem;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
     white-space: nowrap;
   }
 
@@ -511,7 +509,7 @@
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
     white-space: nowrap;
   }
 
@@ -568,7 +566,7 @@
     border-radius: 8px;
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
   }
 
   .action-button--secondary {

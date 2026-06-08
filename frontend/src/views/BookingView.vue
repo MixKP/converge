@@ -347,7 +347,7 @@
               ref="calendarRef"
               :model-value="events"
               :additional-events="suggestionEvents"
-              :editable="true"
+              :editable="!!selectedBranchId && !!selectedTeacherId"
               :business-hours="businessHours"
               constraint="businessHours"
               @update:model-value="events = $event"
@@ -480,7 +480,7 @@
               ref="calendarRef"
               :model-value="events"
               :additional-events="suggestionEvents"
-              :editable="true"
+              :editable="!!selectedBranchId && !!selectedTeacherId"
               :business-hours="businessHours"
               constraint="businessHours"
               @update:model-value="events = $event"
@@ -618,7 +618,7 @@
                 ref="calendarRef"
                 :model-value="events"
                 :additional-events="suggestionEvents"
-                :editable="true"
+                :editable="!!selectedBranchId && !!selectedTeacherId"
                 :business-hours="businessHours"
                 constraint="businessHours"
                 @update:model-value="events = $event"
@@ -754,31 +754,6 @@
                   />
                 </svg>
               </button>
-            </div>
-
-            <!-- Selected Slots Display -->
-            <div v-if="events.length > 0" class="slots-display">
-              <div class="slots-header">
-                <span class="slots-count">{{ events.length }}</span>
-                <span class="slots-label">slot{{ events.length > 1 ? 's' : '' }} selected</span>
-              </div>
-              <div class="slots-grid">
-                <div v-for="(event, idx) in events.slice(0, 3)" :key="idx" class="slot-chip">
-                  <span class="slot-time">{{
-                    new Date(event.start as Date).toLocaleTimeString('en-US', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      hour12: false,
-                    })
-                  }}</span>
-                </div>
-                <div v-if="events.length > 3" class="slot-chip slot-chip--more">
-                  +{{ events.length - 3 }}
-                </div>
-              </div>
-              <p v-if="events.length > 0" class="slots-guidance">
-                Select a teacher and branch, then add to cart
-              </p>
             </div>
 
             <!-- Action Button -->

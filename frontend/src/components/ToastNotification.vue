@@ -60,7 +60,7 @@
     animation: toast-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
     z-index: 100;
     font-size: 0.875rem;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
   }
 
   .toast--success {

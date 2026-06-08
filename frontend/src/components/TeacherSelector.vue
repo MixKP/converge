@@ -78,7 +78,7 @@
   }
 
   .form-label {
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 0.8125rem;
     font-weight: 500;
     color: var(--text-primary);
@@ -107,7 +107,7 @@
 
   .teacher-name {
     flex: 1;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 0.875rem;
     font-weight: 400;
     color: var(--text-primary);
@@ -123,7 +123,7 @@
     border-radius: 4px;
     cursor: pointer;
     transition: all 0.2s ease;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
   }
 
   .change-teacher-btn:hover {
@@ -142,7 +142,7 @@
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.2s ease;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
     appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%233e4c7a' viewBox='0 0 24 24'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M8 10l4 4 4-4'/%3E%3C/svg%3E");
     background-repeat: no-repeat;

@@ -371,7 +371,7 @@
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.2s ease;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
   }
 
   .clear-btn:hover {
@@ -485,7 +485,7 @@
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
   }
 
   .action-btn--secondary {
@@ -537,7 +537,7 @@
     animation: toast-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
     z-index: 100;
     font-size: 0.875rem;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
   }
 
   .toast--success {
@@ -618,7 +618,7 @@
     padding: 0.625rem 1rem;
     font-size: 0.875rem;
     font-weight: 500;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.2s ease;

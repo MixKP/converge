@@ -98,7 +98,7 @@
   }
 
   .dialog-value {
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 0.875rem;
     color: var(--text-primary);
   }
@@ -128,7 +128,7 @@
     padding: 0.625rem 1rem;
     font-size: 0.875rem;
     font-weight: 500;
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.2s ease;

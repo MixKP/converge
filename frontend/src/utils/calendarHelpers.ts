@@ -1,6 +1,33 @@
 import type { EventInput } from '@fullcalendar/core'
 import type { AvailabilityPayload } from '../types'
 
+export function generateEventId(): string {
+  return `event-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+}
+
+export function isSameDaySelection(start: Date, end: Date): boolean {
+  const startDay = start.getDate()
+  const endDay = end.getDate()
+  const startMonth = start.getMonth()
+  const endMonth = end.getMonth()
+  return startDay === endDay && startMonth === endMonth
+}
+
+export function createEvent(start: Date, end: Date): EventInput {
+  return {
+    id: generateEventId(),
+    start,
+    end,
+    title: '',
+  }
+}
+
+export function createOneHourEvent(date: Date): EventInput {
+  const start = new Date(date)
+  const end = new Date(start.getTime() + 60 * 60 * 1000)
+  return createEvent(start, end)
+}
+
 export function generateAvailabilityPayload(
   events: EventInput[],
   teacherId: number
