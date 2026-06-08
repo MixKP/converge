@@ -6,8 +6,9 @@ type Variable struct {
 }
 
 type Assignment struct {
-	Values map[string]any
-	Score  int
+	Values  map[string]any
+	Score   int
+	Reasons []string
 }
 
 func (a Assignment) Value(name string) any {
@@ -16,7 +17,7 @@ func (a Assignment) Value(name string) any {
 
 type Constraint func(Assignment) bool
 
-type Objective func(Assignment) int
+type Objective func(Assignment) (int, []string)
 
 type Model struct {
 	Variables   []Variable

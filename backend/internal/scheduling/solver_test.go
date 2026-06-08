@@ -144,9 +144,9 @@ func TestSolverWithModel(t *testing.T) {
 		return true
 	})
 
-	model.SetObjective(func(a Assignment) int {
+	model.SetObjective(func(a Assignment) (int, []string) {
 		t := a.Value("teacher").(TeacherInfo)
-		return t.ID * 10
+		return t.ID * 10, nil
 	})
 
 	solver := &Solver{}
@@ -164,8 +164,8 @@ func TestSolverWithModelTop2(t *testing.T) {
 
 	model := NewModel()
 	model.AddVariable("x", values)
-	model.SetObjective(func(a Assignment) int {
-		return a.Value("x").(int) * 10
+	model.SetObjective(func(a Assignment) (int, []string) {
+		return a.Value("x").(int) * 10, nil
 	})
 
 	solver := &Solver{}
@@ -200,8 +200,8 @@ func TestSolverSortOrder(t *testing.T) {
 
 	model := NewModel()
 	model.AddVariable("v", values)
-	model.SetObjective(func(a Assignment) int {
-		return a.Value("v").(int)
+	model.SetObjective(func(a Assignment) (int, []string) {
+		return a.Value("v").(int), nil
 	})
 
 	solver := &Solver{}

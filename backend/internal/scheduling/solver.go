@@ -22,7 +22,7 @@ func (s *Solver) Solve(model Model, topN int) []Assignment {
 		}
 		if pass {
 			if model.Objective != nil {
-				a.Score = model.Objective(a)
+				a.Score, a.Reasons = model.Objective(a)
 			}
 			valid = append(valid, a)
 		}

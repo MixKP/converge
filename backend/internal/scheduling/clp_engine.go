@@ -91,7 +91,7 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req BookingRequ
 		return len(conflicts) == 0
 	})
 
-	model.SetObjective(func(a Assignment) int {
+	model.SetObjective(func(a Assignment) (int, []string) {
 		t := a.Value("teacher").(TeacherInfo)
 		o := a.Value("offset").(timeWindow)
 		slots, _ := e.teacherRoster.TeacherAvailability(ctx, t.ID)
@@ -102,7 +102,7 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req BookingRequ
 			Request:           req,
 			AvailabilitySlots: slots,
 		})
-		return result.Score
+		return result.Score, result.Reasons
 	})
 
 	model.SetDedupKey(func(a Assignment) string {
@@ -125,6 +125,7 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req BookingRequ
 			StartTime:   o.start,
 			EndTime:     o.end,
 			Score:       a.Score,
+			Reasons:     a.Reasons,
 		}
 		alt = e.enrichWithCommute(ctx, alt, req.BranchID, o.start)
 		alt = e.enrichWithRoom(ctx, alt, req.BranchID, o.start, o.end)

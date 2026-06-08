@@ -82,13 +82,15 @@ func (s *WeightedScorer) scoreAvailabilityFit(candidate ScorableCandidate) (int,
 				return 25, fmt.Sprintf("Well within schedule (%.0fmin buffer)", buffer)
 			case ratio >= 0.5:
 				return 15, fmt.Sprintf("Fits available time (%.0fmin cushion)", buffer)
+			case buffer < 1:
+				return 5, "Time adjusted to match availability"
 			default:
 				return 5, fmt.Sprintf("Tightly fits schedule (%.0fmin cushion)", buffer)
 			}
 		}
 	}
 
-	return 5, "Tightly fits schedule (5min cushion)"
+	return 5, "Tightly fits schedule"
 }
 
 func loadTeacherAvailability(candidate ScorableCandidate) ([]shared.WeeklySlot, error) {
