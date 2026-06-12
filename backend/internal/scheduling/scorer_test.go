@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestScorerExactTeacherMatchReturnsFullPoints(t *testing.T) {
+func TestScorer_Score_ExactTeacherMatch(t *testing.T) {
 	scorer := NewWeightedScorer()
 	preferredID := 1
 	teacher := TeacherInfo{ID: 1, Name: "Alice"}
@@ -22,7 +22,7 @@ func TestScorerExactTeacherMatchReturnsFullPoints(t *testing.T) {
 	assert.Contains(t, result.Reasons[1], "Plenty of availability")
 }
 
-func TestScorerNoTeacherPreferenceReturnsNeutral(t *testing.T) {
+func TestScorer_Score_NoTeacherPreference(t *testing.T) {
 	scorer := NewWeightedScorer()
 	teacher := TeacherInfo{ID: 1, Name: "Alice"}
 	candidate := makeCandidate(teacher, 0, window(0, "13:00", "14:00"))
@@ -32,7 +32,7 @@ func TestScorerNoTeacherPreferenceReturnsNeutral(t *testing.T) {
 	assert.Equal(t, 75, result.Score)
 }
 
-func TestScorerWrongTeacherReturnsZeroTeacherScore(t *testing.T) {
+func TestScorer_Score_WrongTeacher(t *testing.T) {
 	scorer := NewWeightedScorer()
 	preferredID := 42
 	teacher := TeacherInfo{ID: 1, Name: "Alice"}
@@ -43,7 +43,7 @@ func TestScorerWrongTeacherReturnsZeroTeacherScore(t *testing.T) {
 	assert.Contains(t, result.Reasons[0], "Can also teach this subject")
 }
 
-func TestScorerConfigurableWeights(t *testing.T) {
+func TestScorer_Score_ConfigurableWeights(t *testing.T) {
 	scorer := &WeightedScorer{TeacherWeight: 50, FitWeight: 50}
 	preferredID := 1
 	teacher := TeacherInfo{ID: 1, Name: "Alice"}
@@ -54,18 +54,83 @@ func TestScorerConfigurableWeights(t *testing.T) {
 	assert.Equal(t, 100, result.Score)
 }
 
-func TestScorerLowBufferScore(t *testing.T) {
+func TestScorer_Score_FullBuffer(t *testing.T) {
 	scorer := NewWeightedScorer()
 	teacher := TeacherInfo{ID: 1, Name: "Alice"}
 	candidate := makeCandidate(teacher, 0, window(0, "13:00", "14:00"))
 	candidate.AvailabilitySlots = []shared.WeeklySlot{
-		{DayOfWeek: 0, Start: shared.TimeHHMM("13:30"), End: shared.TimeHHMM("14:30")},
+		{DayOfWeek: 0, Start: shared.TimeHHMM("11:00"), End: shared.TimeHHMM("16:00")},
 	}
 
 	result := scorer.Score(context.Background(), candidate)
 
-	assert.Less(t, result.Score, 75)
+	assert.Equal(t, 75, result.Score)
+	assert.Contains(t, result.Reasons[1], "Plenty of availability")
+}
+
+func TestScorer_Score_WellWithinBuffer(t *testing.T) {
+	scorer := NewWeightedScorer()
+	teacher := TeacherInfo{ID: 1, Name: "Alice"}
+	candidate := makeCandidate(teacher, 0, window(0, "13:00", "14:00"))
+	candidate.AvailabilitySlots = []shared.WeeklySlot{
+		{DayOfWeek: 0, Start: shared.TimeHHMM("12:00"), End: shared.TimeHHMM("15:00")},
+	}
+
+	result := scorer.Score(context.Background(), candidate)
+
+	assert.Equal(t, 50, result.Score)
+	assert.Contains(t, result.Reasons[1], "Well within schedule")
+}
+
+func TestScorer_Score_FitsTime(t *testing.T) {
+	scorer := NewWeightedScorer()
+	teacher := TeacherInfo{ID: 1, Name: "Alice"}
+	candidate := makeCandidate(teacher, 0, window(0, "13:00", "14:00"))
+	candidate.AvailabilitySlots = []shared.WeeklySlot{
+		{DayOfWeek: 0, Start: shared.TimeHHMM("12:30"), End: shared.TimeHHMM("14:30")},
+	}
+
+	result := scorer.Score(context.Background(), candidate)
+
+	assert.Equal(t, 40, result.Score)
+	assert.Contains(t, result.Reasons[1], "Fits available time")
+}
+
+func TestScorer_Score_TimeAdjusted(t *testing.T) {
+	scorer := NewWeightedScorer()
+	teacher := TeacherInfo{ID: 1, Name: "Alice"}
+	candidate := makeCandidate(teacher, 0, window(0, "13:00", "14:00"))
+	candidate.AvailabilitySlots = []shared.WeeklySlot{
+		{DayOfWeek: 0, Start: shared.TimeHHMM("13:00"), End: shared.TimeHHMM("14:01")},
+	}
+
+	result := scorer.Score(context.Background(), candidate)
+
+	assert.Contains(t, result.Reasons[1], "Time adjusted to match availability")
+}
+
+func TestScorer_Score_TightlyFits(t *testing.T) {
+	scorer := NewWeightedScorer()
+	teacher := TeacherInfo{ID: 1, Name: "Alice"}
+	candidate := makeCandidate(teacher, 0, window(0, "13:00", "14:00"))
+	candidate.AvailabilitySlots = []shared.WeeklySlot{
+		{DayOfWeek: 0, Start: shared.TimeHHMM("12:45"), End: shared.TimeHHMM("14:15")},
+	}
+
+	result := scorer.Score(context.Background(), candidate)
+
 	assert.Contains(t, result.Reasons[1], "Tightly fits schedule")
+}
+
+func TestScorer_Score_ZeroStartTime(t *testing.T) {
+	scorer := NewWeightedScorer()
+	teacher := TeacherInfo{ID: 1, Name: "Alice"}
+	candidate := makeCandidate(teacher, 0, window(0, "13:00", "14:00"))
+	candidate.StartTime = time.Time{}
+
+	result := scorer.Score(context.Background(), candidate)
+
+	assert.Contains(t, result.Reasons[1], "Schedule unavailable")
 }
 
 func window(day int, start, end string) shared.WeeklySlot {
@@ -82,15 +147,15 @@ func makeCandidate(teacher TeacherInfo, preferredTeacherID int, prefSlot shared.
 		req.PreferredTeacherID = &preferredTeacherID
 	}
 
-	anchorDate := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
-	desiredWeekday := time.Weekday(prefSlot.DayOfWeek) // 0=Sunday ... 6=Saturday
-	for anchorDate.Weekday() != desiredWeekday {
-		anchorDate = anchorDate.Add(24 * time.Hour)
+	loc := shared.LoadLocation()
+	sunday := time.Date(2026, 6, 7, 0, 0, 0, 0, loc)
+	for sunday.Weekday() != time.Weekday(prefSlot.DayOfWeek) {
+		sunday = sunday.Add(24 * time.Hour)
 	}
 	parsedStart, _ := time.Parse("15:04", string(prefSlot.Start))
 	parsedEnd, _ := time.Parse("15:04", string(prefSlot.End))
-	startTime := anchorDate.Add(time.Duration(parsedStart.Hour())*time.Hour + time.Duration(parsedStart.Minute())*time.Minute)
-	endTime := anchorDate.Add(time.Duration(parsedEnd.Hour())*time.Hour + time.Duration(parsedEnd.Minute())*time.Minute)
+	startTime := sunday.Add(time.Duration(parsedStart.Hour())*time.Hour + time.Duration(parsedStart.Minute())*time.Minute)
+	endTime := sunday.Add(time.Duration(parsedEnd.Hour())*time.Hour + time.Duration(parsedEnd.Minute())*time.Minute)
 
 	return ScorableCandidate{
 		Teacher:           teacher,

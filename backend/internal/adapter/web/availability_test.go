@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"log/slog"
 
 	"github.com/RinZ5/converge/backend/internal/shared"
 	"github.com/RinZ5/converge/backend/internal/teacher"
@@ -56,7 +56,7 @@ func (m *mockService) SubmitWeeklyAvailability(ctx context.Context, teacherID in
 	return m.submitErr
 }
 
-func TestGetTeachersSuccess(t *testing.T) {
+func TestAvailabilityHandler_GetTeachers_Success(t *testing.T) {
 	mock := &mockService{
 		teachers: []teacher.Teacher{
 			{ID: 1, Name: "Alice", Email: "alice@test.com"},
@@ -82,7 +82,7 @@ func TestGetTeachersSuccess(t *testing.T) {
 	assert.Equal(t, "bob@test.com", teachers[1].Email)
 }
 
-func TestGetTeachersError(t *testing.T) {
+func TestAvailabilityHandler_GetTeachers_Error(t *testing.T) {
 	mock := &mockService{getErr: assert.AnError}
 	handler := NewAvailabilityHandler(mock, slog.Default())
 	r := gin.Default()
@@ -94,7 +94,7 @@ func TestGetTeachersError(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
-func TestSubmitWeeklyAvailabilitySuccess(t *testing.T) {
+func TestAvailabilityHandler_SubmitWeeklyAvailability_Success(t *testing.T) {
 	mock := &mockService{}
 	handler := NewAvailabilityHandler(mock, slog.Default())
 
@@ -119,7 +119,7 @@ func TestSubmitWeeklyAvailabilitySuccess(t *testing.T) {
 	assert.True(t, mock.submitCalled)
 }
 
-func TestSubmitWeeklyAvailabilityOverlap(t *testing.T) {
+func TestAvailabilityHandler_SubmitWeeklyAvailability_Overlap(t *testing.T) {
 	mock := &mockService{
 		submitErr: &teacher.ValidationError{
 			Msg: "overlapping slots on day 0: 09:00-11:00 and 10:30-12:00",
@@ -148,7 +148,7 @@ func TestSubmitWeeklyAvailabilityOverlap(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "overlapping")
 }
 
-func TestSubmitWeeklyAvailabilityInvalidJSON(t *testing.T) {
+func TestAvailabilityHandler_SubmitWeeklyAvailability_InvalidJSON(t *testing.T) {
 	mock := &mockService{}
 	handler := NewAvailabilityHandler(mock, slog.Default())
 	r := gin.Default()
@@ -163,7 +163,7 @@ func TestSubmitWeeklyAvailabilityInvalidJSON(t *testing.T) {
 	assert.False(t, mock.submitCalled)
 }
 
-func TestSubmitWeeklyAvailabilityServiceError(t *testing.T) {
+func TestAvailabilityHandler_SubmitWeeklyAvailability_ServiceError(t *testing.T) {
 	mock := &mockService{submitErr: assert.AnError}
 	handler := NewAvailabilityHandler(mock, slog.Default())
 
@@ -188,7 +188,7 @@ func TestSubmitWeeklyAvailabilityServiceError(t *testing.T) {
 	assert.True(t, mock.submitCalled)
 }
 
-func TestSubmitWeeklyAvailabilityEmptyBody(t *testing.T) {
+func TestAvailabilityHandler_SubmitWeeklyAvailability_EmptyBody(t *testing.T) {
 	mock := &mockService{}
 	handler := NewAvailabilityHandler(mock, slog.Default())
 
@@ -205,7 +205,7 @@ func TestSubmitWeeklyAvailabilityEmptyBody(t *testing.T) {
 	assert.False(t, mock.submitCalled)
 }
 
-func TestGetTeachersEmptyList(t *testing.T) {
+func TestAvailabilityHandler_GetTeachers_EmptyList(t *testing.T) {
 	mock := &mockService{
 		teachers: []teacher.Teacher{},
 	}
@@ -226,7 +226,7 @@ func TestGetTeachersEmptyList(t *testing.T) {
 	assert.Len(t, teachers, 0)
 }
 
-func TestGetAllAvailabilitySuccess(t *testing.T) {
+func TestAvailabilityHandler_GetAllAvailability_Success(t *testing.T) {
 	mock := &mockService{
 		availability: []teacher.TeacherAvailability{
 			{
@@ -265,7 +265,7 @@ func TestGetAllAvailabilitySuccess(t *testing.T) {
 	assert.Len(t, availability[1].Weekly, 1)
 }
 
-func TestGetAllAvailabilityError(t *testing.T) {
+func TestAvailabilityHandler_GetAllAvailability_Error(t *testing.T) {
 	mock := &mockService{availErr: assert.AnError}
 	handler := NewAvailabilityHandler(mock, slog.Default())
 
@@ -281,7 +281,7 @@ func TestGetAllAvailabilityError(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "failed to retrieve availability")
 }
 
-func TestGetAllAvailabilityEmpty(t *testing.T) {
+func TestAvailabilityHandler_GetAllAvailability_Empty(t *testing.T) {
 	mock := &mockService{
 		availability: []teacher.TeacherAvailability{},
 	}
@@ -302,7 +302,7 @@ func TestGetAllAvailabilityEmpty(t *testing.T) {
 	assert.Len(t, availability, 0)
 }
 
-func TestGetTeachersBySubjectSuccess(t *testing.T) {
+func TestAvailabilityHandler_GetTeachersBySubject_Success(t *testing.T) {
 	mock := &mockService{
 		teachersBySub: []teacher.Teacher{
 			{ID: 1, Name: "Alice", Email: "alice@test.com"},
@@ -327,7 +327,7 @@ func TestGetTeachersBySubjectSuccess(t *testing.T) {
 	assert.Equal(t, "Alice", teachers[0].Name)
 }
 
-func TestGetTeachersBySubjectInvalidID(t *testing.T) {
+func TestAvailabilityHandler_GetTeachersBySubject_InvalidID(t *testing.T) {
 	mock := &mockService{}
 	handler := NewAvailabilityHandler(mock, slog.Default())
 
@@ -343,7 +343,7 @@ func TestGetTeachersBySubjectInvalidID(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "invalid subject_id")
 }
 
-func TestGetTeachersBySubjectNegativeID(t *testing.T) {
+func TestAvailabilityHandler_GetTeachersBySubject_NegativeID(t *testing.T) {
 	mock := &mockService{}
 	handler := NewAvailabilityHandler(mock, slog.Default())
 
@@ -359,7 +359,7 @@ func TestGetTeachersBySubjectNegativeID(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "invalid subject_id")
 }
 
-func TestGetTeachersBySubjectError(t *testing.T) {
+func TestAvailabilityHandler_GetTeachersBySubject_Error(t *testing.T) {
 	mock := &mockService{teachersBySubErr: assert.AnError}
 	handler := NewAvailabilityHandler(mock, slog.Default())
 
@@ -375,7 +375,7 @@ func TestGetTeachersBySubjectError(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "failed to retrieve teachers")
 }
 
-func TestGetBranchesSuccess(t *testing.T) {
+func TestAvailabilityHandler_GetBranches_Success(t *testing.T) {
 	mock := &mockService{
 		branches: []shared.Branch{
 			{ID: 1, Name: "Main Campus"},
@@ -400,7 +400,7 @@ func TestGetBranchesSuccess(t *testing.T) {
 	assert.Equal(t, "Main Campus", branches[0].Name)
 }
 
-func TestGetBranchesError(t *testing.T) {
+func TestAvailabilityHandler_GetBranches_Error(t *testing.T) {
 	mock := &mockService{branchesErr: assert.AnError}
 	handler := NewAvailabilityHandler(mock, slog.Default())
 
@@ -416,7 +416,7 @@ func TestGetBranchesError(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "failed to retrieve branches")
 }
 
-func TestGetSubjectsSuccess(t *testing.T) {
+func TestAvailabilityHandler_GetSubjects_Success(t *testing.T) {
 	mock := &mockService{
 		subjects: []shared.Subject{
 			{ID: 1, Name: "Mathematics"},
@@ -441,7 +441,7 @@ func TestGetSubjectsSuccess(t *testing.T) {
 	assert.Equal(t, "Mathematics", subjects[0].Name)
 }
 
-func TestGetSubjectsError(t *testing.T) {
+func TestAvailabilityHandler_GetSubjects_Error(t *testing.T) {
 	mock := &mockService{subjectsErr: assert.AnError}
 	handler := NewAvailabilityHandler(mock, slog.Default())
 

@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCommuteAdapter(t *testing.T) {
+func TestCommuteAdapter_Estimate_Success(t *testing.T) {
 	svc := commute.NewService(slog.Default())
 	adapter := NewCommuteAdapter(svc)
 

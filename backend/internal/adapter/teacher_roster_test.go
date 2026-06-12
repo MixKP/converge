@@ -25,7 +25,7 @@ func (m *mockTeacherRosterSource) TeacherAvailability(ctx context.Context, teach
 	return args.Get(0).([]shared.WeeklySlot), args.Error(1)
 }
 
-func TestTeacherRosterAdapterTeachersBySubject(t *testing.T) {
+func TestTeacherRosterAdapter_TeachersBySubject_Success(t *testing.T) {
 	src := new(mockTeacherRosterSource)
 	adapter := NewTeacherRosterAdapter(src)
 
@@ -43,7 +43,7 @@ func TestTeacherRosterAdapterTeachersBySubject(t *testing.T) {
 	assert.Equal(t, "Bob", result[1].Name)
 }
 
-func TestTeacherRosterAdapterTeachersBySubjectError(t *testing.T) {
+func TestTeacherRosterAdapter_TeachersBySubject_Error(t *testing.T) {
 	src := new(mockTeacherRosterSource)
 	adapter := NewTeacherRosterAdapter(src)
 
@@ -54,7 +54,7 @@ func TestTeacherRosterAdapterTeachersBySubjectError(t *testing.T) {
 	assert.Contains(t, err.Error(), "db error")
 }
 
-func TestTeacherRosterAdapterTeacherAvailability(t *testing.T) {
+func TestTeacherRosterAdapter_TeacherAvailability_Success(t *testing.T) {
 	src := new(mockTeacherRosterSource)
 	adapter := NewTeacherRosterAdapter(src)
 

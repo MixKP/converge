@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"log/slog"
 	"time"
 
 	"github.com/RinZ5/converge/backend/internal/scheduling"
@@ -46,7 +46,7 @@ func slot(day int, start, end string) scheduling.WeeklySlot {
 	return scheduling.WeeklySlot{DayOfWeek: day, Start: scheduling.TimeHHMM(start), End: scheduling.TimeHHMM(end)}
 }
 
-func TestCreateBookingExactMatch(t *testing.T) {
+func TestBookingHandler_CreateBooking_ExactMatch(t *testing.T) {
 	mock := &mockBookingSvc{
 		result: &scheduling.BookingResponse{
 			Results: []scheduling.SlotResult{{
@@ -96,7 +96,7 @@ func TestCreateBookingExactMatch(t *testing.T) {
 	assert.Contains(t, response.Results[0].Message, "Exact match found")
 }
 
-func TestCreateBookingAlternatives(t *testing.T) {
+func TestBookingHandler_CreateBooking_Alternatives(t *testing.T) {
 	mock := &mockBookingSvc{
 		result: &scheduling.BookingResponse{
 			Results: []scheduling.SlotResult{{
@@ -144,7 +144,7 @@ func TestCreateBookingAlternatives(t *testing.T) {
 	assert.Len(t, response.Results[0].Alternatives, 1)
 }
 
-func TestCreateBookingEmptyAlternatives(t *testing.T) {
+func TestBookingHandler_CreateBooking_EmptyAlternatives(t *testing.T) {
 	mock := &mockBookingSvc{
 		result: &scheduling.BookingResponse{
 			Results: []scheduling.SlotResult{{
@@ -176,7 +176,7 @@ func TestCreateBookingEmptyAlternatives(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "No alternatives available")
 }
 
-func TestCreateBookingValidationError(t *testing.T) {
+func TestBookingHandler_CreateBooking_ValidationError(t *testing.T) {
 	mock := &mockBookingSvc{
 		evalErr: &scheduling.ValidationError{Msg: "preferred_slots must not be empty"},
 	}
@@ -200,7 +200,7 @@ func TestCreateBookingValidationError(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestCreateBookingInvalidJSON(t *testing.T) {
+func TestBookingHandler_CreateBooking_InvalidJSON(t *testing.T) {
 	mock := &mockBookingSvc{}
 	handler := NewBookingHandler(mock, slog.Default())
 
@@ -216,7 +216,7 @@ func TestCreateBookingInvalidJSON(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestCreateBookingServiceError(t *testing.T) {
+func TestBookingHandler_CreateBooking_ServiceError(t *testing.T) {
 	mock := &mockBookingSvc{evalErr: assert.AnError}
 	handler := NewBookingHandler(mock, slog.Default())
 
@@ -241,7 +241,7 @@ func TestCreateBookingServiceError(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "failed to evaluate booking")
 }
 
-func TestCreateBookingOptionalPreferredTeacher(t *testing.T) {
+func TestBookingHandler_CreateBooking_OptionalPreferredTeacher(t *testing.T) {
 	mock := &mockBookingSvc{
 		result: &scheduling.BookingResponse{
 			Results: []scheduling.SlotResult{{
@@ -288,7 +288,7 @@ func TestCreateBookingOptionalPreferredTeacher(t *testing.T) {
 	assert.Len(t, response.Results, 1)
 }
 
-func TestConfirmBookingSuccess(t *testing.T) {
+func TestBookingHandler_ConfirmBooking_Success(t *testing.T) {
 	mock := &mockBookingSvc{
 		confirm: &scheduling.Booking{
 			ID:         10,
@@ -330,7 +330,7 @@ func TestConfirmBookingSuccess(t *testing.T) {
 	assert.Equal(t, "John Doe", response.ClientName)
 }
 
-func TestConfirmBookingValidationError(t *testing.T) {
+func TestBookingHandler_ConfirmBooking_ValidationError(t *testing.T) {
 	mock := &mockBookingSvc{
 		confErr: &scheduling.ValidationError{Msg: "client_name must not be empty"},
 	}
@@ -357,7 +357,36 @@ func TestConfirmBookingValidationError(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestConfirmBookingServiceError(t *testing.T) {
+func TestBookingHandler_ConfirmBooking_ConflictError(t *testing.T) {
+	mock := &mockBookingSvc{
+		confErr: &scheduling.ConflictError{Msg: "overlapping booking with teacher requested time slot"},
+	}
+	handler := NewBookingHandler(mock, slog.Default())
+
+	payload := scheduling.ConfirmBookingRequest{
+		TeacherID:  1,
+		BranchID:   2,
+		SubjectID:  3,
+		StartTime:  time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		EndTime:    time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+		ClientName: "John Doe",
+	}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPost, "/api/bookings/confirm", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.POST("/api/bookings/confirm", handler.ConfirmBooking)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusConflict, w.Code)
+	assert.Contains(t, w.Body.String(), "overlapping booking")
+}
+
+func TestBookingHandler_ConfirmBooking_ServiceError(t *testing.T) {
 	mock := &mockBookingSvc{confErr: assert.AnError}
 	handler := NewBookingHandler(mock, slog.Default())
 
@@ -384,7 +413,7 @@ func TestConfirmBookingServiceError(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "failed to confirm booking")
 }
 
-func TestCancelBookingSuccess(t *testing.T) {
+func TestBookingHandler_CancelBooking_Success(t *testing.T) {
 	mock := &mockBookingSvc{}
 	handler := NewBookingHandler(mock, slog.Default())
 
@@ -400,7 +429,7 @@ func TestCancelBookingSuccess(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "Booking cancelled successfully")
 }
 
-func TestCancelBookingNotFound(t *testing.T) {
+func TestBookingHandler_CancelBooking_NotFound(t *testing.T) {
 	mock := &mockBookingSvc{
 		cancelErr: &scheduling.NotFoundError{Msg: "booking 999 not found"},
 	}
@@ -418,7 +447,7 @@ func TestCancelBookingNotFound(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "not found")
 }
 
-func TestCancelBookingInvalidID(t *testing.T) {
+func TestBookingHandler_CancelBooking_InvalidID(t *testing.T) {
 	mock := &mockBookingSvc{}
 	handler := NewBookingHandler(mock, slog.Default())
 
@@ -434,7 +463,7 @@ func TestCancelBookingInvalidID(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "invalid booking id")
 }
 
-func TestCancelBookingServiceError(t *testing.T) {
+func TestBookingHandler_CancelBooking_ServiceError(t *testing.T) {
 	mock := &mockBookingSvc{cancelErr: assert.AnError}
 	handler := NewBookingHandler(mock, slog.Default())
 
@@ -450,7 +479,7 @@ func TestCancelBookingServiceError(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "failed to cancel booking")
 }
 
-func TestListBookingsSuccess(t *testing.T) {
+func TestBookingHandler_ListBookings_Success(t *testing.T) {
 	mock := &mockBookingSvc{
 		listAll: []scheduling.Booking{
 			{ID: 1, TeacherID: 1, ClientName: "John Doe", StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC), EndTime: time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)},
@@ -476,7 +505,7 @@ func TestListBookingsSuccess(t *testing.T) {
 	assert.Equal(t, "John Doe", bookings[0].ClientName)
 }
 
-func TestListBookingsEmpty(t *testing.T) {
+func TestBookingHandler_ListBookings_Empty(t *testing.T) {
 	mock := &mockBookingSvc{listAll: []scheduling.Booking{}}
 	handler := NewBookingHandler(mock, slog.Default())
 
@@ -492,7 +521,7 @@ func TestListBookingsEmpty(t *testing.T) {
 	assert.Equal(t, "[]", w.Body.String())
 }
 
-func TestListBookingsServiceError(t *testing.T) {
+func TestBookingHandler_ListBookings_ServiceError(t *testing.T) {
 	mock := &mockBookingSvc{listErr: assert.AnError}
 	handler := NewBookingHandler(mock, slog.Default())
 

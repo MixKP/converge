@@ -78,7 +78,7 @@ func bookingReq(subjectID, branchID int, s shared.WeeklySlot, dur int) BookingRe
 	}
 }
 
-func TestEvaluateExactMatchFound(t *testing.T) {
+func TestSchedulingService_Evaluate_ExactMatch(t *testing.T) {
 	store := new(mockStore)
 	engine := new(mockEngine)
 	svc := NewSchedulingService(store, store, engine)
@@ -97,7 +97,7 @@ func TestEvaluateExactMatchFound(t *testing.T) {
 		},
 		TeacherName: "Alice",
 	}
-	store.On("FindExactMatch", mock.Anything, 1, 1, s, 60, ((*int))(nil)).Return(exactMatch, nil)
+	store.On("FindExactMatch", mock.Anything, 1, 1, s, 60, (*int)(nil)).Return(exactMatch, nil)
 
 	result, err := svc.Evaluate(context.Background(), req)
 
@@ -110,7 +110,7 @@ func TestEvaluateExactMatchFound(t *testing.T) {
 	store.AssertExpectations(t)
 }
 
-func TestEvaluateNoExactMatchReturnsAlternatives(t *testing.T) {
+func TestSchedulingService_Evaluate_Alternatives(t *testing.T) {
 	store := new(mockStore)
 	engine := new(mockEngine)
 	svc := NewSchedulingService(store, store, engine)
@@ -118,7 +118,7 @@ func TestEvaluateNoExactMatchReturnsAlternatives(t *testing.T) {
 	s := slot(0, "09:00", "10:00")
 	req := bookingReq(1, 1, s, 60)
 
-	store.On("FindExactMatch", mock.Anything, 1, 1, s, 60, ((*int))(nil)).Return(nil, nil)
+	store.On("FindExactMatch", mock.Anything, 1, 1, s, 60, (*int)(nil)).Return(nil, nil)
 	engine.On("FindAlternativesForSlot", mock.Anything, req, s).Return([]BookingAlternative{}, nil)
 
 	result, err := svc.Evaluate(context.Background(), req)
@@ -128,7 +128,7 @@ func TestEvaluateNoExactMatchReturnsAlternatives(t *testing.T) {
 	assert.Contains(t, result.Results[0].Message, "No exact match")
 }
 
-func TestEvaluateMissingSubjectID(t *testing.T) {
+func TestSchedulingService_Evaluate_MissingSubject(t *testing.T) {
 	store := new(mockStore)
 	engine := new(mockEngine)
 	svc := NewSchedulingService(store, store, engine)
@@ -141,7 +141,7 @@ func TestEvaluateMissingSubjectID(t *testing.T) {
 	assert.Contains(t, err.Error(), "subject_id")
 }
 
-func TestEvaluateMissingBranchID(t *testing.T) {
+func TestSchedulingService_Evaluate_MissingBranch(t *testing.T) {
 	store := new(mockStore)
 	engine := new(mockEngine)
 	svc := NewSchedulingService(store, store, engine)
@@ -154,7 +154,7 @@ func TestEvaluateMissingBranchID(t *testing.T) {
 	assert.Contains(t, err.Error(), "branch_id")
 }
 
-func TestEvaluateEmptySlots(t *testing.T) {
+func TestSchedulingService_Evaluate_EmptySlots(t *testing.T) {
 	store := new(mockStore)
 	engine := new(mockEngine)
 	svc := NewSchedulingService(store, store, engine)
@@ -171,7 +171,7 @@ func TestEvaluateEmptySlots(t *testing.T) {
 	assert.Contains(t, err.Error(), "preferred_slots")
 }
 
-func TestEvaluateInvalidDayOfWeek(t *testing.T) {
+func TestSchedulingService_Evaluate_InvalidDay(t *testing.T) {
 	store := new(mockStore)
 	engine := new(mockEngine)
 	svc := NewSchedulingService(store, store, engine)
@@ -184,7 +184,7 @@ func TestEvaluateInvalidDayOfWeek(t *testing.T) {
 	assert.Contains(t, err.Error(), "day_of_week")
 }
 
-func TestEvaluateTwoSlotsOneExactOneCLP(t *testing.T) {
+func TestSchedulingService_Evaluate_TwoSlots(t *testing.T) {
 	store := new(mockStore)
 	engine := new(mockEngine)
 	svc := NewSchedulingService(store, store, engine)
@@ -205,8 +205,8 @@ func TestEvaluateTwoSlotsOneExactOneCLP(t *testing.T) {
 		Booking:     Booking{ID: 42, TeacherID: 1, BranchID: 1, SubjectID: 1, StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC), EndTime: time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)},
 		TeacherName: "Alice",
 	}
-	store.On("FindExactMatch", mock.Anything, 1, 1, monSlot, 60, ((*int))(nil)).Return(exactMatch, nil)
-	store.On("FindExactMatch", mock.Anything, 1, 1, friSlot, 60, ((*int))(nil)).Return(nil, nil)
+	store.On("FindExactMatch", mock.Anything, 1, 1, monSlot, 60, (*int)(nil)).Return(exactMatch, nil)
+	store.On("FindExactMatch", mock.Anything, 1, 1, friSlot, 60, (*int)(nil)).Return(nil, nil)
 
 	alts := []BookingAlternative{
 		{TeacherID: 3, TeacherName: "Carol", Score: 70},
@@ -224,7 +224,7 @@ func TestEvaluateTwoSlotsOneExactOneCLP(t *testing.T) {
 	assert.Equal(t, "Carol", result.Results[1].Alternatives[0].TeacherName)
 }
 
-func TestConfirmSuccess(t *testing.T) {
+func TestSchedulingService_Confirm_Success(t *testing.T) {
 	store := new(mockStore)
 	svc := NewSchedulingService(store, store, new(mockEngine))
 
@@ -256,7 +256,7 @@ func TestConfirmSuccess(t *testing.T) {
 	store.AssertExpectations(t)
 }
 
-func TestConfirmMissingFields(t *testing.T) {
+func TestSchedulingService_Confirm_MissingFields(t *testing.T) {
 	svc := NewSchedulingService(new(mockStore), new(mockStore), new(mockEngine))
 
 	tests := []struct {
@@ -282,7 +282,7 @@ func TestConfirmMissingFields(t *testing.T) {
 	}
 }
 
-func TestCancelSuccess(t *testing.T) {
+func TestSchedulingService_Cancel_Success(t *testing.T) {
 	store := new(mockStore)
 	svc := NewSchedulingService(store, store, new(mockEngine))
 
@@ -294,7 +294,7 @@ func TestCancelSuccess(t *testing.T) {
 	store.AssertExpectations(t)
 }
 
-func TestCancelNotFound(t *testing.T) {
+func TestSchedulingService_Cancel_NotFound(t *testing.T) {
 	store := new(mockStore)
 	svc := NewSchedulingService(store, store, new(mockEngine))
 
@@ -306,7 +306,7 @@ func TestCancelNotFound(t *testing.T) {
 	assert.Contains(t, err.Error(), "not found")
 }
 
-func TestCancelInvalidID(t *testing.T) {
+func TestSchedulingService_Cancel_InvalidID(t *testing.T) {
 	svc := NewSchedulingService(new(mockStore), new(mockStore), new(mockEngine))
 
 	err := svc.Cancel(context.Background(), 0)
@@ -315,7 +315,7 @@ func TestCancelInvalidID(t *testing.T) {
 	assert.Contains(t, err.Error(), "booking_id must be positive")
 }
 
-func TestListAll(t *testing.T) {
+func TestSchedulingService_ListAll_Success(t *testing.T) {
 	store := new(mockStore)
 	svc := NewSchedulingService(store, store, new(mockEngine))
 
@@ -327,7 +327,7 @@ func TestListAll(t *testing.T) {
 	assert.Len(t, bookings, 2)
 }
 
-func TestListAllError(t *testing.T) {
+func TestSchedulingService_ListAll_Error(t *testing.T) {
 	store := new(mockStore)
 	svc := NewSchedulingService(store, store, new(mockEngine))
 
@@ -337,7 +337,7 @@ func TestListAllError(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestGetBranches(t *testing.T) {
+func TestSchedulingService_GetBranches_Success(t *testing.T) {
 	store := new(mockStore)
 	svc := NewSchedulingService(store, store, new(mockEngine))
 
@@ -349,7 +349,7 @@ func TestGetBranches(t *testing.T) {
 	assert.Len(t, branches, 1)
 }
 
-func TestGetSubjects(t *testing.T) {
+func TestSchedulingService_GetSubjects_Success(t *testing.T) {
 	store := new(mockStore)
 	svc := NewSchedulingService(store, store, new(mockEngine))
 

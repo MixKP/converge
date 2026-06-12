@@ -73,7 +73,7 @@ func clpSlot(day int, start, end string) shared.WeeklySlot {
 	return shared.WeeklySlot{DayOfWeek: day, Start: shared.TimeHHMM(start), End: shared.TimeHHMM(end)}
 }
 
-func TestCLPEngineTeacherWithoutSubjectReturnsEmpty(t *testing.T) {
+func TestCLPEngine_Alternatives_NoTeachers(t *testing.T) {
 	bStore := new(mockCLPBookingStore)
 	tRoster := new(mockCLPTeacherRoster)
 	scorer := new(mockCLPScorer)
@@ -88,7 +88,7 @@ func TestCLPEngineTeacherWithoutSubjectReturnsEmpty(t *testing.T) {
 	assert.Empty(t, result)
 }
 
-func TestCLPEngineTeacherWithConflictPruned(t *testing.T) {
+func TestCLPEngine_Alternatives_ConflictPruned(t *testing.T) {
 	bStore := new(mockCLPBookingStore)
 	tRoster := new(mockCLPTeacherRoster)
 	scorer := new(mockCLPScorer)
@@ -111,7 +111,7 @@ func TestCLPEngineTeacherWithConflictPruned(t *testing.T) {
 	scorer.AssertNotCalled(t, "Score")
 }
 
-func TestCLPEngineNoConflictCandidateScored(t *testing.T) {
+func TestCLPEngine_Alternatives_NoConflict(t *testing.T) {
 	bStore := new(mockCLPBookingStore)
 	tRoster := new(mockCLPTeacherRoster)
 	scorer := new(mockCLPScorer)
@@ -138,7 +138,7 @@ func TestCLPEngineNoConflictCandidateScored(t *testing.T) {
 	}
 }
 
-func TestCLPEngineReturnsTop3ByScore(t *testing.T) {
+func TestCLPEngine_Alternatives_Top3ByScore(t *testing.T) {
 	bStore := new(mockCLPBookingStore)
 	tRoster := new(mockCLPTeacherRoster)
 	scorer := new(mockCLPScorer)

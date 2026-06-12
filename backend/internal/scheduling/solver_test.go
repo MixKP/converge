@@ -9,63 +9,105 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFitsAvailabilityWithinSlot(t *testing.T) {
+func TestFitsAvailability_WithinSlot(t *testing.T) {
+	slots := []shared.WeeklySlot{
+		{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("17:00")},
+	}
+	start := time.Date(2026, 6, 7, 10, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 6, 7, 11, 0, 0, 0, time.UTC)
+
+	assert.True(t, fitsAvailability(slots, start, end))
+}
+
+func TestFitsAvailability_ExactBoundary(t *testing.T) {
+	slots := []shared.WeeklySlot{
+		{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("17:00")},
+	}
+	start := time.Date(2026, 6, 7, 9, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 6, 7, 17, 0, 0, 0, time.UTC)
+
+	assert.True(t, fitsAvailability(slots, start, end))
+}
+
+func TestFitsAvailability_StartEqualsAvailStart(t *testing.T) {
+	slots := []shared.WeeklySlot{
+		{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("17:00")},
+	}
+	start := time.Date(2026, 6, 7, 9, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 6, 7, 10, 0, 0, 0, time.UTC)
+
+	assert.True(t, fitsAvailability(slots, start, end))
+}
+
+func TestFitsAvailability_EndEqualsAvailEnd(t *testing.T) {
+	slots := []shared.WeeklySlot{
+		{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("17:00")},
+	}
+	start := time.Date(2026, 6, 7, 16, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 6, 7, 17, 0, 0, 0, time.UTC)
+
+	assert.True(t, fitsAvailability(slots, start, end))
+}
+
+func TestFitsAvailability_SpansTwoAdjacentSlots(t *testing.T) {
+	slots := []shared.WeeklySlot{
+		{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("10:00")},
+		{DayOfWeek: 0, Start: shared.TimeHHMM("10:00"), End: shared.TimeHHMM("11:00")},
+	}
+	start := time.Date(2026, 6, 7, 9, 30, 0, 0, time.UTC)
+	end := time.Date(2026, 6, 7, 10, 30, 0, 0, time.UTC)
+
+	assert.False(t, fitsAvailability(slots, start, end))
+}
+
+func TestFitsAvailability_StartEqualsEnd(t *testing.T) {
+	slots := []shared.WeeklySlot{
+		{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("17:00")},
+	}
+	start := time.Date(2026, 6, 7, 10, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 6, 7, 10, 0, 0, 0, time.UTC)
+
+	// start==end still fits within availability; duration validation is the caller's responsibility
+	assert.True(t, fitsAvailability(slots, start, end))
+}
+
+func TestFitsAvailability_BeforeSlot(t *testing.T) {
+	slots := []shared.WeeklySlot{
+		{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("17:00")},
+	}
+	start := time.Date(2026, 6, 7, 8, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 6, 7, 9, 0, 0, 0, time.UTC)
+
+	assert.False(t, fitsAvailability(slots, start, end))
+}
+
+func TestFitsAvailability_AfterSlot(t *testing.T) {
+	slots := []shared.WeeklySlot{
+		{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("17:00")},
+	}
+	start := time.Date(2026, 6, 7, 17, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 6, 7, 18, 0, 0, 0, time.UTC)
+
+	assert.False(t, fitsAvailability(slots, start, end))
+}
+
+func TestFitsAvailability_WrongDay(t *testing.T) {
 	slots := []shared.WeeklySlot{
 		{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("17:00")},
 	}
 	start := time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 6, 1, 11, 0, 0, 0, time.UTC)
 
-	assert.True(t, fitsAvailability(slots, start, end))
-}
-
-func TestFitsAvailabilityExactBoundary(t *testing.T) {
-	slots := []shared.WeeklySlot{
-		{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("17:00")},
-	}
-	start := time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC)
-	end := time.Date(2026, 6, 1, 17, 0, 0, 0, time.UTC)
-
-	assert.True(t, fitsAvailability(slots, start, end))
-}
-
-func TestFitsAvailabilityBeforeSlot(t *testing.T) {
-	slots := []shared.WeeklySlot{
-		{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("17:00")},
-	}
-	start := time.Date(2026, 6, 1, 8, 0, 0, 0, time.UTC)
-	end := time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC)
-
 	assert.False(t, fitsAvailability(slots, start, end))
 }
 
-func TestFitsAvailabilityAfterSlot(t *testing.T) {
-	slots := []shared.WeeklySlot{
-		{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("17:00")},
-	}
-	start := time.Date(2026, 6, 1, 17, 0, 0, 0, time.UTC)
-	end := time.Date(2026, 6, 1, 18, 0, 0, 0, time.UTC)
-
-	assert.False(t, fitsAvailability(slots, start, end))
-}
-
-func TestFitsAvailabilityWrongDay(t *testing.T) {
-	slots := []shared.WeeklySlot{
-		{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("17:00")},
-	}
-	start := time.Date(2026, 6, 2, 10, 0, 0, 0, time.UTC)
-	end := time.Date(2026, 6, 2, 11, 0, 0, 0, time.UTC)
-
-	assert.False(t, fitsAvailability(slots, start, end))
-}
-
-func TestFitsAvailabilityEmptySlots(t *testing.T) {
+func TestFitsAvailability_EmptySlots(t *testing.T) {
 	assert.False(t, fitsAvailability([]shared.WeeklySlot{},
-		time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
-		time.Date(2026, 6, 1, 11, 0, 0, 0, time.UTC)))
+		time.Date(2026, 6, 7, 10, 0, 0, 0, time.UTC),
+		time.Date(2026, 6, 7, 11, 0, 0, 0, time.UTC)))
 }
 
-func TestFitsAvailabilityBangkokTimezone(t *testing.T) {
+func TestFitsAvailability_BangkokTimezone(t *testing.T) {
 	loc, err := time.LoadLocation("Asia/Bangkok")
 	require.NoError(t, err)
 
@@ -80,7 +122,7 @@ func TestFitsAvailabilityBangkokTimezone(t *testing.T) {
 	assert.True(t, fitsAvailability(slots, start, end))
 }
 
-func TestGenerateOffsetsStandardRange(t *testing.T) {
+func TestGenerateOffsets_StandardRange(t *testing.T) {
 	prefStart := time.Date(2026, 6, 1, 13, 0, 0, 0, time.UTC)
 	duration := 60 * time.Minute
 
@@ -93,7 +135,7 @@ func TestGenerateOffsetsStandardRange(t *testing.T) {
 	assert.Equal(t, "16:00", offsets[8].end.Format("15:04"))
 }
 
-func TestGenerateOffsetsZeroDuration(t *testing.T) {
+func TestGenerateOffsets_ZeroDuration(t *testing.T) {
 	prefStart := time.Date(2026, 6, 1, 13, 0, 0, 0, time.UTC)
 
 	offsets := generateOffsets(prefStart, 0)
@@ -101,7 +143,7 @@ func TestGenerateOffsetsZeroDuration(t *testing.T) {
 	assert.Len(t, offsets, 9)
 }
 
-func TestTimeOfDay(t *testing.T) {
+func TestTimeOfDay_Normal(t *testing.T) {
 	ts := time.Date(2026, 6, 1, 10, 30, 0, 0, time.UTC)
 	result := timeOfDay(ts)
 
@@ -112,7 +154,7 @@ func TestTimeOfDay(t *testing.T) {
 	assert.Equal(t, 30, result.Minute())
 }
 
-func TestTimeOfDayBangkok(t *testing.T) {
+func TestTimeOfDay_Bangkok(t *testing.T) {
 	loc, _ := time.LoadLocation("Asia/Bangkok")
 	ts := time.Date(2026, 6, 1, 18, 0, 0, 0, loc)
 	result := timeOfDay(ts)
@@ -121,7 +163,7 @@ func TestTimeOfDayBangkok(t *testing.T) {
 	assert.Equal(t, 0, result.Minute())
 }
 
-func TestSolverWithModel(t *testing.T) {
+func TestSolver_Solve_MultiVariable(t *testing.T) {
 	teachers := []any{
 		TeacherInfo{ID: 1, Name: "Alice"},
 		TeacherInfo{ID: 2, Name: "Bob"},
@@ -160,7 +202,7 @@ func TestSolverWithModel(t *testing.T) {
 	assert.Equal(t, 10, results[2].Score)
 }
 
-func TestSolverWithModelTop2(t *testing.T) {
+func TestSolver_Solve_Top2(t *testing.T) {
 	values := []any{1, 2, 3}
 
 	model := NewModel()
@@ -178,7 +220,7 @@ func TestSolverWithModelTop2(t *testing.T) {
 	assert.Equal(t, 20, results[1].Score)
 }
 
-func TestSolverNoSolutions(t *testing.T) {
+func TestSolver_Solve_NoSolutions(t *testing.T) {
 	model := NewModel()
 	model.AddVariable("x", []any{1, 2})
 	model.AddConstraint(func(a Assignment) (bool, error) { return false, nil })
@@ -190,7 +232,7 @@ func TestSolverNoSolutions(t *testing.T) {
 	assert.Empty(t, results)
 }
 
-func TestSolverEmptyModel(t *testing.T) {
+func TestSolver_Solve_EmptyModel(t *testing.T) {
 	model := NewModel()
 	solver := &Solver{}
 	results, err := solver.Solve(*model, 3)
@@ -199,7 +241,7 @@ func TestSolverEmptyModel(t *testing.T) {
 	assert.Len(t, results, 1)
 }
 
-func TestSolverSortOrder(t *testing.T) {
+func TestSolver_Solve_SortOrder(t *testing.T) {
 	values := []any{5, 1, 3, 2, 4}
 
 	model := NewModel()

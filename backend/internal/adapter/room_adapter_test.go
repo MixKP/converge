@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestRoomAdapter(t *testing.T) {
+func TestRoomAdapter_CheckAvailability_Success(t *testing.T) {
 	svc := room.NewService(slog.Default())
 	adapter := NewRoomAdapter(svc)
 

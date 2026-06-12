@@ -70,7 +70,7 @@ func tSlot(day int, start, end string) shared.WeeklySlot {
 	return shared.WeeklySlot{DayOfWeek: day, Start: shared.TimeHHMM(start), End: shared.TimeHHMM(end)}
 }
 
-func TestSubmitAvailabilitySuccess(t *testing.T) {
+func TestTeacherService_SubmitAvailability_Success(t *testing.T) {
 	store := new(mockStore)
 	svc := NewService(store, slog.Default())
 
@@ -85,7 +85,7 @@ func TestSubmitAvailabilitySuccess(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestSubmitAvailabilityOverlap(t *testing.T) {
+func TestTeacherService_SubmitAvailability_Overlap(t *testing.T) {
 	svc := NewService(new(mockStore), slog.Default())
 
 	slots := []shared.WeeklySlot{
@@ -99,7 +99,7 @@ func TestSubmitAvailabilityOverlap(t *testing.T) {
 	assert.Contains(t, err.Error(), "overlapping")
 }
 
-func TestSubmitAvailabilityEmptySlots(t *testing.T) {
+func TestTeacherService_SubmitAvailability_EmptySlots(t *testing.T) {
 	store := new(mockStore)
 	svc := NewService(store, slog.Default())
 
@@ -110,7 +110,7 @@ func TestSubmitAvailabilityEmptySlots(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestSubmitAvailabilityZeroTeacherID(t *testing.T) {
+func TestTeacherService_SubmitAvailability_ZeroTeacherID(t *testing.T) {
 	svc := NewService(new(mockStore), slog.Default())
 
 	slots := []shared.WeeklySlot{tSlot(0, "09:00", "10:00")}
@@ -120,7 +120,7 @@ func TestSubmitAvailabilityZeroTeacherID(t *testing.T) {
 	assert.ErrorAs(t, err, &valErr)
 }
 
-func TestSubmitAvailabilityDayOfWeekOutOfRange(t *testing.T) {
+func TestTeacherService_SubmitAvailability_DayOfWeekOutOfRange(t *testing.T) {
 	svc := NewService(new(mockStore), slog.Default())
 
 	slots := []shared.WeeklySlot{tSlot(7, "09:00", "10:00")}
@@ -130,7 +130,7 @@ func TestSubmitAvailabilityDayOfWeekOutOfRange(t *testing.T) {
 	assert.ErrorAs(t, err, &valErr)
 }
 
-func TestSubmitAvailabilityEmptyStart(t *testing.T) {
+func TestTeacherService_SubmitAvailability_EmptyStart(t *testing.T) {
 	svc := NewService(new(mockStore), slog.Default())
 
 	slots := []shared.WeeklySlot{{DayOfWeek: 0, Start: shared.TimeHHMM(""), End: shared.TimeHHMM("10:00")}}
@@ -140,7 +140,7 @@ func TestSubmitAvailabilityEmptyStart(t *testing.T) {
 	assert.ErrorAs(t, err, &valErr)
 }
 
-func TestSubmitAvailabilityStartAfterEnd(t *testing.T) {
+func TestTeacherService_SubmitAvailability_StartAfterEnd(t *testing.T) {
 	svc := NewService(new(mockStore), slog.Default())
 
 	slots := []shared.WeeklySlot{tSlot(0, "10:00", "09:00")}
@@ -150,7 +150,7 @@ func TestSubmitAvailabilityStartAfterEnd(t *testing.T) {
 	assert.ErrorAs(t, err, &valErr)
 }
 
-func TestSubmitAvailabilityTouchingSlots(t *testing.T) {
+func TestTeacherService_SubmitAvailability_TouchingSlots(t *testing.T) {
 	store := new(mockStore)
 	svc := NewService(store, slog.Default())
 
@@ -165,7 +165,7 @@ func TestSubmitAvailabilityTouchingSlots(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestSubmitAvailabilityOverlapMessageFormat(t *testing.T) {
+func TestTeacherService_SubmitAvailability_OverlapMessageFormat(t *testing.T) {
 	svc := NewService(new(mockStore), slog.Default())
 
 	slots := []shared.WeeklySlot{
@@ -179,7 +179,7 @@ func TestSubmitAvailabilityOverlapMessageFormat(t *testing.T) {
 	assert.Equal(t, "overlapping slots on day 0: 09:00-11:00 and 10:30-12:00", valErr.Error())
 }
 
-func TestSubmitAvailabilityCrossDays(t *testing.T) {
+func TestTeacherService_SubmitAvailability_CrossDays(t *testing.T) {
 	store := new(mockStore)
 	svc := NewService(store, slog.Default())
 
@@ -194,7 +194,7 @@ func TestSubmitAvailabilityCrossDays(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestSubmitAvailabilityReplaceFails(t *testing.T) {
+func TestTeacherService_SubmitAvailability_ReplaceFails(t *testing.T) {
 	store := new(mockStore)
 	svc := NewService(store, slog.Default())
 
@@ -206,7 +206,7 @@ func TestSubmitAvailabilityReplaceFails(t *testing.T) {
 	assert.Contains(t, err.Error(), "replace availability")
 }
 
-func TestGetActiveTeachersSuccess(t *testing.T) {
+func TestTeacherService_GetActiveTeachers_Success(t *testing.T) {
 	store := new(mockStore)
 	svc := NewService(store, slog.Default())
 
@@ -218,7 +218,7 @@ func TestGetActiveTeachersSuccess(t *testing.T) {
 	assert.Len(t, teachers, 2)
 }
 
-func TestGetActiveTeachersFails(t *testing.T) {
+func TestTeacherService_GetActiveTeachers_Error(t *testing.T) {
 	store := new(mockStore)
 	svc := NewService(store, slog.Default())
 
@@ -228,7 +228,7 @@ func TestGetActiveTeachersFails(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestGetBranchesSuccess(t *testing.T) {
+func TestTeacherService_GetBranches_Success(t *testing.T) {
 	store := new(mockStore)
 	svc := NewService(store, slog.Default())
 
@@ -240,7 +240,7 @@ func TestGetBranchesSuccess(t *testing.T) {
 	assert.Len(t, branches, 1)
 }
 
-func TestGetSubjectsSuccess(t *testing.T) {
+func TestTeacherService_GetSubjects_Success(t *testing.T) {
 	store := new(mockStore)
 	svc := NewService(store, slog.Default())
 
@@ -252,7 +252,7 @@ func TestGetSubjectsSuccess(t *testing.T) {
 	assert.Len(t, subjects, 1)
 }
 
-func TestGetTeachersBySubjectSuccess(t *testing.T) {
+func TestTeacherService_GetTeachersBySubject_Success(t *testing.T) {
 	store := new(mockStore)
 	svc := NewService(store, slog.Default())
 
@@ -264,7 +264,7 @@ func TestGetTeachersBySubjectSuccess(t *testing.T) {
 	assert.Len(t, teachers, 1)
 }
 
-func TestGetAllAvailabilitySuccess(t *testing.T) {
+func TestTeacherService_GetAllAvailability_Success(t *testing.T) {
 	store := new(mockStore)
 	svc := NewService(store, slog.Default())
 
@@ -279,7 +279,7 @@ func TestGetAllAvailabilitySuccess(t *testing.T) {
 	assert.Len(t, avail, 1)
 }
 
-func TestTeacherAvailabilitySuccess(t *testing.T) {
+func TestTeacherService_TeacherAvailability_Success(t *testing.T) {
 	store := new(mockStore)
 	svc := NewService(store, slog.Default())
 

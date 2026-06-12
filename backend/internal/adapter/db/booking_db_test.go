@@ -159,6 +159,95 @@ func TestBookingRepoFindAllBookings(t *testing.T) {
 	assert.Len(t, bookings, 3)
 }
 
+func TestBookingRepoFindExactMatch_Success(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBookingRepository(db)
+	teacherID, branchID, subjectID := seedBookingParents(t, db)
+
+	_, err := db.Exec(`INSERT INTO teacher_subjects (teacher_id, subject_id) VALUES ($1, $2)`, teacherID, subjectID)
+	require.NoError(t, err)
+
+	_, err = db.Exec(`INSERT INTO teacher_availability (teacher_id, day_of_week, start_time, end_time)
+		VALUES ($1, 0, '09:00', '17:00')`, teacherID)
+	require.NoError(t, err)
+
+	slot := shared.WeeklySlot{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("10:00")}
+	match, err := repo.FindExactMatch(context.Background(), subjectID, branchID, slot, 60, nil)
+	require.NoError(t, err)
+	require.NotNil(t, match)
+	assert.Equal(t, "Test Teacher", match.TeacherName)
+	assert.Equal(t, teacherID, match.Booking.TeacherID)
+	assert.NotZero(t, match.Booking.StartTime)
+	assert.NotZero(t, match.Booking.EndTime)
+}
+
+func TestBookingRepoFindExactMatch_NoMatch(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBookingRepository(db)
+	teacherID, branchID, subjectID := seedBookingParents(t, db)
+
+	_, err := db.Exec(`INSERT INTO teacher_subjects (teacher_id, subject_id) VALUES ($1, $2)`, teacherID, subjectID)
+	require.NoError(t, err)
+
+	_, err = db.Exec(`INSERT INTO teacher_availability (teacher_id, day_of_week, start_time, end_time)
+		VALUES ($1, 1, '09:00', '17:00')`, teacherID) // day=1 (Monday), but slot is day=0
+	require.NoError(t, err)
+
+	slot := shared.WeeklySlot{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("10:00")}
+	match, err := repo.FindExactMatch(context.Background(), subjectID, branchID, slot, 60, nil)
+	require.NoError(t, err)
+	assert.Nil(t, match)
+}
+
+func TestBookingRepoFindExactMatch_DeactivatedTeacher(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBookingRepository(db)
+	teacherID, branchID, subjectID := seedBookingParents(t, db)
+
+	_, err := db.Exec(`UPDATE teachers SET status = 'deactivated' WHERE id = $1`, teacherID)
+	require.NoError(t, err)
+
+	_, err = db.Exec(`INSERT INTO teacher_subjects (teacher_id, subject_id) VALUES ($1, $2)`, teacherID, subjectID)
+	require.NoError(t, err)
+
+	_, err = db.Exec(`INSERT INTO teacher_availability (teacher_id, day_of_week, start_time, end_time)
+		VALUES ($1, 0, '09:00', '17:00')`, teacherID)
+	require.NoError(t, err)
+
+	slot := shared.WeeklySlot{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("10:00")}
+	match, err := repo.FindExactMatch(context.Background(), subjectID, branchID, slot, 60, nil)
+	require.NoError(t, err)
+	assert.Nil(t, match)
+}
+
+func TestBookingRepoFindExactMatch_ConflictExcludes(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBookingRepository(db)
+	teacherID, branchID, subjectID := seedBookingParents(t, db)
+
+	_, err := db.Exec(`INSERT INTO teacher_subjects (teacher_id, subject_id) VALUES ($1, $2)`, teacherID, subjectID)
+	require.NoError(t, err)
+
+	_, err = db.Exec(`INSERT INTO teacher_availability (teacher_id, day_of_week, start_time, end_time)
+		VALUES ($1, 0, '09:00', '17:00')`, teacherID)
+	require.NoError(t, err)
+
+	// Insert a booking that overlaps with the slot
+	loc := shared.LoadLocation()
+	anchor := shared.AnchorDateForDay(0, loc)
+	conflictStart := time.Date(anchor.Year(), anchor.Month(), anchor.Day(), 9, 30, 0, 0, loc)
+	conflictEnd := time.Date(anchor.Year(), anchor.Month(), anchor.Day(), 10, 30, 0, 0, loc)
+	_, err = db.Exec(`INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time, client_name)
+		VALUES ($1, $2, $3, $4, $5, 'Conflicting Booking')`,
+		teacherID, branchID, subjectID, conflictStart, conflictEnd)
+	require.NoError(t, err)
+
+	slot := shared.WeeklySlot{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("10:00")}
+	match, err := repo.FindExactMatch(context.Background(), subjectID, branchID, slot, 60, nil)
+	require.NoError(t, err)
+	assert.Nil(t, match)
+}
+
 func TestBookingRepoFindTeacherAvailability(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewBookingRepository(db)
