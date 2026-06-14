@@ -1229,27 +1229,27 @@
 }
 
 /* Suggestion events - read-only appearance (no hover effect) */
-:deep(.fc-event.suggestion-exact),
-:deep(.fc-event.suggestion-alt) {
+.fc-event.suggestion-exact,
+.fc-event.suggestion-alt {
   cursor: default !important;
   opacity: 0.9;
 }
 
-:deep(.fc-event.suggestion-exact:hover),
-:deep(.fc-event.suggestion-alt:hover) {
+.fc-event.suggestion-exact:hover,
+.fc-event.suggestion-alt:hover {
   opacity: 0.9 !important;
   transform: none !important;
   box-shadow: none !important;
 }
 
 /* Booked events - already confirmed bookings */
-:deep(.fc-event.booked-event) {
+.fc-event.booked-event {
   cursor: not-allowed !important;
   opacity: 0.6;
   pointer-events: none !important;
 }
 
-:deep(.fc-event.booked-event:hover) {
+.fc-event.booked-event:hover {
   opacity: 0.6 !important;
   transform: none !important;
 }

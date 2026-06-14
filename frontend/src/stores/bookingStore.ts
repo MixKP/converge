@@ -330,6 +330,8 @@ export const useBookingStore = defineStore('booking', () => {
     return (
       value !== null &&
       typeof value === 'object' &&
+      'id' in value &&
+      typeof value.id === 'number' &&
       'teacher_id' in value &&
       typeof value.teacher_id === 'number' &&
       'teacher_name' in value &&
@@ -354,7 +356,13 @@ export const useBookingStore = defineStore('booking', () => {
   }
 
   const fetchCartItems = () => {
-    cartItems.value = getValidatedArray('bookingCart', isCartItem)
+    const loaded = getValidatedArray('bookingCart', isCartItem)
+    cartItems.value = loaded
+    // Sync counter to avoid ID collisions with persisted items
+    if (loaded.length > 0) {
+      const maxId = Math.max(...loaded.map((item) => item.id))
+      cartIdCounter = Math.max(cartIdCounter, maxId)
+    }
   }
 
   const saveCart = () => {

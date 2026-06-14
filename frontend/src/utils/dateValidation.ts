@@ -189,7 +189,7 @@ export function formatTime12Hour(date: Date): string {
   const minutes = date.getMinutes()
   const ampm = hours >= 12 ? 'pm' : 'am'
   const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours
-  const displayMinutes = minutes > 0 ? `.${String(minutes).padStart(2, '0')}` : ''
+  const displayMinutes = minutes > 0 ? `:${String(minutes).padStart(2, '0')}` : ''
 
   return `${displayHours}${displayMinutes}${ampm}`
 }
@@ -216,7 +216,12 @@ export function getNextDateForDayOfWeek(dayOfWeek: number, timeStr: string): Dat
   const targetDate = new Date(now)
   targetDate.setDate(now.getDate() + diff)
 
-  const [hours, minutes] = timeStr.split(':').map(Number)
+  const totalMinutes = toMinutes(timeStr)
+  if (isNaN(totalMinutes)) {
+    throw new Error(`Invalid time format: ${timeStr}. Expected HH:MM format.`)
+  }
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
   targetDate.setHours(hours, minutes, 0, 0)
 
   // If the time has passed today, move to next week
@@ -310,6 +315,9 @@ export function toMinutes(timeStr: string): number {
  * ```
  */
 export function toTimeString(minutes: number): string {
+  if (minutes < 0 || !Number.isFinite(minutes)) {
+    throw new Error(`Invalid minutes value: ${minutes}. Must be a non-negative finite number.`)
+  }
   const hours = Math.floor(minutes / 60) % 24
   const mins = minutes % 60
   return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`

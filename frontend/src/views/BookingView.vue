@@ -788,7 +788,11 @@
               type="button"
               class="add-button"
               :disabled="
-                !selectedSubjectId || !selectedBranchId || !selectedTeacherId || events.length === 0
+                !selectedSubjectId ||
+                !selectedBranchId ||
+                !selectedTeacherId ||
+                events.length === 0 ||
+                isAddingToCart
               "
               :aria-label="'Add to booking'"
               @click="addAllSlotsToCart(selectedTeacherId)"
