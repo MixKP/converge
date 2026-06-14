@@ -3,14 +3,14 @@ import { useTeacherStore } from '../stores/teacherStore'
 import { availabilityApi } from '../services/availabilityApi'
 import type { EventInput } from '@fullcalendar/core'
 import { generateAvailabilityPayload } from '../utils/calendarHelpers'
+import { useMessages } from './useMessages'
 
 export function useSubmitAvailability() {
   const teacherStore = useTeacherStore()
   const isLoading = ref(false)
-  const errorMessage = ref('')
-  const successMessage = ref('')
   const events = ref<EventInput[]>([])
   const showConfirm = ref(false)
+  const { successMessage, errorMessage, showSuccess, showError } = useMessages()
 
   const selectedTeacherId = computed({
     get: () => teacherStore.selectedTeacherId,
@@ -49,6 +49,16 @@ export function useSubmitAvailability() {
       })
   })
 
+  // Alternative using calendarHelpers utility:
+  // const formattedSlots = computed(() => {
+  //   return events.value
+  //     .map(event => formatEventSlot(event))
+  //     .sort((a, b) => {
+  //       const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+  //       return days.indexOf(a.day) - days.indexOf(b.day) || a.start.localeCompare(b.start)
+  //     })
+  // })
+
   watch(selectedTeacherId, () => {
     events.value = []
     errorMessage.value = ''
@@ -72,11 +82,9 @@ export function useSubmitAvailability() {
       events.value = []
       teacherStore.setSelectedTeacherById(null)
       showConfirm.value = false
-      successMessage.value = 'Availability submitted successfully!'
-      setTimeout(() => (successMessage.value = ''), 3000)
+      showSuccess('Availability submitted successfully!')
     } catch (error) {
-      errorMessage.value =
-        error instanceof Error ? error.message : 'Failed to submit availability. Please try again.'
+      showError(error, 'Failed to submit availability. Please try again.')
     } finally {
       isLoading.value = false
     }

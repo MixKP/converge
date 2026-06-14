@@ -1,5 +1,8 @@
 import { ref } from 'vue'
 import { bookingApi } from '../services/bookingApi'
+import { getValidatedArray, setItem } from '../utils/storage'
+import { getErrorMessage } from '../utils/errorHandler'
+import { useMessages } from './useMessages'
 
 export interface CartItem {
   id: number
@@ -15,37 +18,84 @@ export interface CartItem {
   status: 'pending' | 'confirmed'
 }
 
-const cartItems = ref<CartItem[]>([])
-const isLoading = ref(false)
-const errorMessage = ref<string>('')
-const successMessage = ref<string>('')
+// Module-level cart ID counter for unique ID generation
+let cartIdCounter = 0
 
 export function useBookingCart() {
+  // State is now per-instance, not shared across components
+  const cartItems = ref<CartItem[]>([])
+  const isLoading = ref(false)
+  const { successMessage, errorMessage, showSuccess } = useMessages()
+  // Type guard for CartItem validation
+  const isCartItem = (value: unknown): value is CartItem => {
+    return (
+      value !== null &&
+      typeof value === 'object' &&
+      'teacher_id' in value &&
+      typeof value.teacher_id === 'number' &&
+      'teacher_name' in value &&
+      typeof value.teacher_name === 'string' &&
+      'branch_id' in value &&
+      typeof value.branch_id === 'number' &&
+      'branch_name' in value &&
+      typeof value.branch_name === 'string' &&
+      'subject_id' in value &&
+      typeof value.subject_id === 'number' &&
+      'subject_name' in value &&
+      typeof value.subject_name === 'string' &&
+      'start_time' in value &&
+      typeof value.start_time === 'string' &&
+      'end_time' in value &&
+      typeof value.end_time === 'string' &&
+      'client_name' in value &&
+      typeof value.client_name === 'string' &&
+      'status' in value &&
+      (value.status === 'pending' || value.status === 'confirmed')
+    )
+  }
+
   const fetchCartItems = () => {
-    const stored = localStorage.getItem('bookingCart')
-    if (stored) {
-      try {
-        cartItems.value = JSON.parse(stored)
-      } catch {
-        cartItems.value = []
-      }
-    }
+    cartItems.value = getValidatedArray('bookingCart', isCartItem)
   }
 
   const saveCart = () => {
-    localStorage.setItem('bookingCart', JSON.stringify(cartItems.value))
+    setItem('bookingCart', cartItems.value)
   }
 
   const addToCart = (item: Omit<CartItem, 'id' | 'status'>) => {
+    // Validate input item
+    if (!item || typeof item !== 'object') {
+      console.error('Invalid cart item: not an object')
+      return
+    }
+
+    const requiredFields: (keyof Omit<CartItem, 'id' | 'status'>)[] = [
+      'teacher_id',
+      'teacher_name',
+      'branch_id',
+      'branch_name',
+      'subject_id',
+      'subject_name',
+      'start_time',
+      'end_time',
+      'client_name',
+    ]
+    for (const field of requiredFields) {
+      if (!(field in item) || item[field] === null || item[field] === undefined) {
+        console.error(`Invalid cart item: missing or invalid field "${field}"`)
+        return
+      }
+    }
+
+    // Use monotonic counter for unique IDs instead of timestamp + random
     const newItem: CartItem = {
       ...item,
-      id: Date.now() + Math.random(),
+      id: ++cartIdCounter,
       status: 'pending',
     }
     cartItems.value.push(newItem)
     saveCart()
-    successMessage.value = 'Added to cart'
-    setTimeout(() => (successMessage.value = ''), 2000)
+    showSuccess('Added to cart', 2000)
   }
 
   const removeItem = (id: number) => {
@@ -60,6 +110,8 @@ export function useBookingCart() {
 
   const submitBookings = async () => {
     if (cartItems.value.length === 0) return
+    // Prevent multiple concurrent submissions
+    if (isLoading.value) return
 
     isLoading.value = true
     errorMessage.value = ''
@@ -89,17 +141,18 @@ export function useBookingCart() {
       })
 
       if (failedCount > 0) {
-        cartItems.value = cartItems.value.filter(
-          (item) => !successfulItems.some((success) => success.id === item.id)
-        )
+        // Remove only successful items from cart (they've been confirmed)
+        // Keep failed items so user can retry or remove them manually
+        const successfulIds = new Set(successfulItems.map((item) => item.id))
+        cartItems.value = cartItems.value.filter((item) => !successfulIds.has(item.id))
         saveCart()
-        errorMessage.value = `${failedCount} booking(s) failed. ${successfulItems.length} succeeded and were removed from cart.`
+        errorMessage.value = `${failedCount} booking(s) failed and remain in cart. ${successfulItems.length} succeeded and were confirmed.`
       } else {
         successMessage.value = `Successfully confirmed ${cartItems.value.length} booking(s)!`
         clearCart()
       }
     } catch (error) {
-      errorMessage.value = error instanceof Error ? error.message : 'Failed to confirm bookings'
+      errorMessage.value = getErrorMessage(error, 'Failed to confirm bookings')
     } finally {
       isLoading.value = false
     }

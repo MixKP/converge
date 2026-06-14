@@ -3,24 +3,33 @@ import { useTeacherStore } from '../stores/teacherStore'
 import { availabilityApi } from '../services/availabilityApi'
 import { subjectApi } from '../services/subjectApi'
 import { teacherApi } from '../services/teacherApi'
-import { bookingApi } from '../services/bookingApi'
 import { branchApi } from '../services/branchApi'
 import type { Teacher, Branch } from '../types'
 import type { EventInput, BusinessHoursInput } from '@fullcalendar/core'
 import type { WeeklySlot, Subject, BookingResponse, BookingAlternative } from '../types'
 import { transformBackendAvailability } from '../utils/availabilityTransform'
 import { useBookingCart } from './useBookingCart'
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
+import { debounce } from '../utils/common'
+import {
+  validateDateRange,
+  hasOverlapWithCart,
+  formatTimeString,
+  getNextDateForDayOfWeek,
+  isNextWeek,
+  formatSuggestionDate,
+} from '../utils/dateValidation'
+import { useMessages } from './useMessages'
+
 export function useBooking() {
   const teacherStore = useTeacherStore()
   const { addToCart, cartItems } = useBookingCart()
+  const { successMessage, errorMessage, showSuccess, showError } = useMessages()
 
   const calendarRef = ref()
   const activeTab = ref<'manual' | 'ai'>('manual')
   const isLoadingTeachers = ref(false)
   const isEvaluating = ref(false)
-  const errorMessage = ref<string>('')
-  const successMessage = ref<string>('')
+  const isAddingToCart = ref(false) // Prevent multiple add to cart clicks
 
   // Track availability loading promise
   let availabilityPromise: Promise<void> | null = null
@@ -39,93 +48,13 @@ export function useBooking() {
     set: (val) => teacherStore.setSelectedTeacherById(val),
   })
   const preferredTeacherId = ref<number | null>(null)
-  const durationMinutes = ref<number>(60)
 
   const suggestions = ref<BookingResponse | null>(null)
   const showDetailedResults = ref(false)
 
-  const manualSlots = ref<WeeklySlot[]>([])
-  const newSlotDay = ref<number>(0)
-  const newSlotStart = ref<string>('09:00')
-  const newSlotEnd = ref<string>('10:00')
-
-  const timeOptions = computed(() => {
-    const options: string[] = []
-    for (let hour = 8; hour <= 18; hour++) {
-      const hourStr = String(hour).padStart(2, '0')
-      options.push(`${hourStr}:00`, `${hourStr}:30`)
-    }
-    options.push('19:00')
-    return options
-  })
-  const currentStep = computed(() => {
-    if (!selectedSubjectId.value) return 1
-    if (!selectedBranchId.value) return 2
-    return 3
-  })
-  const canSelectTeacher = computed(() => !!selectedSubjectId.value)
-  const canAddManualSlot = computed(() => newSlotStart.value < newSlotEnd.value)
-  const getEffectiveSlots = (): WeeklySlot[] => {
-    if (manualSlots.value.length > 0) return manualSlots.value
-    return events.value.map((e) => {
-      const start = new Date(e.start as Date)
-      const end = new Date(e.end as Date)
-      // Use Sunday-first (0=Sun, 1=Mon, ..., 6=Sat) to match backend
-      const dayOfWeek = start.getDay()
-      return {
-        day_of_week: dayOfWeek,
-        start: start.toTimeString().slice(0, 5),
-        end: end.toTimeString().slice(0, 5),
-      }
-    })
-  }
-  const canEvaluate = computed(() => {
-    return (
-      !!selectedSubjectId.value &&
-      !!selectedBranchId.value &&
-      getEffectiveSlots().length > 0 &&
-      !isEvaluating.value
-    )
-  })
-  const calculatedDuration = computed(() => {
-    if (events.value.length === 0) return 60
-    const event = events.value[0]
-    if (!event.start || !event.end) return 60
-    const start = new Date(event.start as Date)
-    const end = new Date(event.end as Date)
-    return Math.round((end.getTime() - start.getTime()) / (1000 * 60))
-  })
   // Helper: Convert day_of_week + time to proper date (always next occurrence)
   const getDateForDayOfWeek = (dayOfWeek: number, timeStr: string): Date => {
-    const now = new Date()
-    const currentDay = now.getDay()
-    const diff = (dayOfWeek - currentDay + 7) % 7
-    const targetDate = new Date(now)
-    targetDate.setDate(now.getDate() + diff)
-    const [hours, minutes] = timeStr.split(':').map(Number)
-    targetDate.setHours(hours, minutes, 0, 0)
-    if (targetDate <= now) {
-      targetDate.setDate(targetDate.getDate() + 7)
-    }
-    return targetDate
-  }
-  const formatSuggestionDate = (start: Date, end: Date): string => {
-    const dayName = start.toLocaleDateString('en-US', { weekday: 'short' }) // Sun, Mon, etc.
-    const formatTime = (date: Date) => {
-      const hours = date.getHours()
-      const minutes = date.getMinutes()
-      const ampm = hours >= 12 ? 'pm' : 'am'
-      const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours
-      const displayMinutes = minutes > 0 ? `.${String(minutes).padStart(2, '0')}` : ''
-      return `${displayHours}${displayMinutes}${ampm}`
-    }
-    return `${dayName} ${formatTime(start)} - ${formatTime(end)}`
-  }
-  const isNextWeek = (date: Date): boolean => {
-    const now = new Date()
-    const oneWeekFromNow = new Date(now)
-    oneWeekFromNow.setDate(now.getDate() + 7)
-    return date >= oneWeekFromNow
+    return getNextDateForDayOfWeek(dayOfWeek, timeStr)
   }
   const createExactMatchEvent = (
     match: BookingAlternative,
@@ -134,12 +63,11 @@ export function useBooking() {
   ): EventInput => {
     // Extract time from backend's start_time and place it in current/next week
     const backendDate = new Date(match.start_time)
-    const backendDayName = backendDate.toLocaleDateString('en-US', { weekday: 'long' })
-    const timeStr = `${String(backendDate.getHours()).padStart(2, '0')}:${String(backendDate.getMinutes()).padStart(2, '0')}`
+    const timeStr = formatTimeString(backendDate)
     const startDate = getDateForDayOfWeek(backendDate.getDay(), timeStr)
 
     const backendEndDate = new Date(match.end_time)
-    const endTimeStr = `${String(backendEndDate.getHours()).padStart(2, '0')}:${String(backendEndDate.getMinutes()).padStart(2, '0')}`
+    const endTimeStr = formatTimeString(backendEndDate)
     const endDate = getDateForDayOfWeek(backendEndDate.getDay(), endTimeStr)
 
     const dateStr = formatSuggestionDate(startDate, endDate)
@@ -151,7 +79,8 @@ export function useBooking() {
       title,
       start: startDate.toISOString(),
       end: endDate.toISOString(),
-      backgroundColor: 'linear-gradient(135deg, var(--accent-gold) 0%, var(--accent-gold-light) 100%)',
+      backgroundColor:
+        'linear-gradient(135deg, var(--accent-gold) 0%, var(--accent-gold-light) 100%)',
       borderColor: 'var(--accent-gold)',
       textColor: '#fff',
       classNames: ['suggestion-exact'],
@@ -170,11 +99,11 @@ export function useBooking() {
   ): EventInput => {
     // Extract time from backend's start_time and place it in current/next week
     const backendDate = new Date(alt.start_time)
-    const timeStr = `${String(backendDate.getHours()).padStart(2, '0')}:${String(backendDate.getMinutes()).padStart(2, '0')}`
+    const timeStr = formatTimeString(backendDate)
     const startDate = getDateForDayOfWeek(backendDate.getDay(), timeStr)
 
     const backendEndDate = new Date(alt.end_time)
-    const endTimeStr = `${String(backendEndDate.getHours()).padStart(2, '0')}:${String(backendEndDate.getMinutes()).padStart(2, '0')}`
+    const endTimeStr = formatTimeString(backendEndDate)
     const endDate = getDateForDayOfWeek(backendEndDate.getDay(), endTimeStr)
     return {
       id: `suggestion-alt-${alt.teacher_id}-${slot.day_of_week}-${slot.start}`,
@@ -235,24 +164,29 @@ export function useBooking() {
     })
   })
 
-  const allEvents = computed<EventInput[]>(() => [...events.value, ...suggestionEvents.value, ...cartEvents.value])
+  const allEvents = computed<EventInput[]>(() => {
+    // Filter cart events to only show those matching the current subject selection
+    const filteredCartEvents = selectedSubjectId.value
+      ? cartEvents.value.filter((event) => {
+          // Safely extract cart ID from event ID
+          const eventId = event.id
+          if (!eventId || typeof eventId !== 'string') return false
+          const cartIdStr = eventId.replace('cart-', '')
+          const cartId = parseInt(cartIdStr, 10)
+          if (isNaN(cartId)) return false
+          const cartItem = cartItems.value.find((item) => item.id === cartId)
+          return cartItem?.subject_id === selectedSubjectId.value
+        })
+      : []
 
-  const getSlotLabel = (slot: WeeklySlot): string => {
-    return `${DAY_NAMES[slot.day_of_week]} ${slot.start} - ${slot.end}`
-  }
+    return [...events.value, ...suggestionEvents.value, ...filteredCartEvents]
+  })
+
   const resetBookingState = () => {
     showDetailedResults.value = false
     suggestions.value = null
     events.value = []
-    manualSlots.value = []
     activeTab.value = 'manual'
-  }
-  const showError = (error: unknown, defaultMessage: string): void => {
-    errorMessage.value = error instanceof Error ? error.message : defaultMessage
-  }
-  const showSuccess = (message: string): void => {
-    successMessage.value = message
-    setTimeout(() => (successMessage.value = ''), 3000)
   }
   const fetchAvailability = async (): Promise<void> => {
     try {
@@ -269,9 +203,6 @@ export function useBooking() {
     } finally {
       isLoadingTeachers.value = false
     }
-  }
-  const getTeachersBySubject = async (subjectId: number): Promise<Teacher[]> => {
-    return await teacherApi.getBySubject(subjectId)
   }
   const updateBusinessHours = (teacherId: number | null): void => {
     if (teacherId) {
@@ -315,49 +246,6 @@ export function useBooking() {
     }))
   }
 
-  const handleEvaluate = async (): Promise<void> => {
-    if (!selectedSubjectId.value || !selectedBranchId.value) {
-      showError(
-        new Error('Subject and branch must be selected'),
-        'Please select subject and branch'
-      )
-      return
-    }
-    isEvaluating.value = true
-    errorMessage.value = ''
-    successMessage.value = ''
-    try {
-      const effectiveSlots = getEffectiveSlots()
-      const response = await bookingApi.evaluate({
-        subject_id: selectedSubjectId.value,
-        branch_id: selectedBranchId.value,
-        preferred_slots: effectiveSlots,
-        duration_minutes: calculatedDuration.value,
-        preferred_teacher_id: preferredTeacherId.value ?? undefined,
-      })
-      suggestions.value = response
-      showDetailedResults.value = true
-      activeTab.value = 'ai'
-      showSuccess('Booking options generated!')
-    } catch (error) {
-      showError(error, 'Failed to generate booking options')
-    } finally {
-      isEvaluating.value = false
-    }
-  }
-  const handleAddManualSlot = (): void => {
-    if (!canAddManualSlot.value) return
-    manualSlots.value.push({
-      day_of_week: newSlotDay.value,
-      start: newSlotStart.value,
-      end: newSlotEnd.value,
-    })
-    newSlotStart.value = '09:00'
-    newSlotEnd.value = '10:00'
-  }
-  const removeManualSlot = (index: number): void => {
-    manualSlots.value.splice(index, 1)
-  }
   const addEvent = (event: EventInput): void => {
     events.value = [...events.value, event]
   }
@@ -370,6 +258,11 @@ export function useBooking() {
     subjectId?: number,
     branchId?: number
   ): void => {
+    // Prevent multiple concurrent calls
+    if (isAddingToCart.value) {
+      return
+    }
+
     const effectiveSubjectId = subjectId ?? selectedSubjectId.value
     const effectiveBranchId = branchId ?? selectedBranchId.value
     if (!effectiveBranchId || !effectiveSubjectId) {
@@ -379,6 +272,29 @@ export function useBooking() {
       )
       return
     }
+
+    isAddingToCart.value = true
+
+    // Validate date strings
+    const newStartDate = new Date(startTime)
+    const newEndDate = new Date(endTime)
+    const validation = validateDateRange(newStartDate, newEndDate)
+    if (!validation.isValid) {
+      showError(new Error(validation.error || 'Invalid date'), 'Please select valid time slots')
+      isAddingToCart.value = false
+      return
+    }
+
+    // Check for duplicate time slot in cart (same teacher + overlapping time)
+    if (hasOverlapWithCart(startTime, endTime, teacherId, cartItems.value)) {
+      showError(
+        new Error('Time slot already in cart'),
+        'This time slot is already in your cart for this teacher'
+      )
+      isAddingToCart.value = false
+      return
+    }
+
     const subject = subjects.value.find((s) => s.id === effectiveSubjectId)
     const branch = branches.value.find((b) => b.id === effectiveBranchId)
     addToCart({
@@ -393,23 +309,22 @@ export function useBooking() {
       client_name: 'Guest',
     })
     showSuccess('Added to cart!')
-    // Clear manual events after adding to cart
+    // Clear events after adding to cart
     events.value = []
-    manualSlots.value = []
+    isAddingToCart.value = false
   }
 
-  const initWatchers = () => {
-    availabilityPromise = fetchAvailability()
+  let watchersInitialized = false
+  let currentSubjectChangePromise: Promise<void> | null = null
 
-    subjectApi.getAll().then((data) => {
-      subjects.value = data
-    })
+  // Debounced handler for subject changes
+  const handleSubjectChange = debounce(async (newSubjectId: number | null) => {
+    // Cancel any pending subject change
+    if (currentSubjectChangePromise) {
+      // We'll let it complete but won't use its result
+    }
 
-    branchApi.getAll().then((data) => {
-      branches.value = data
-    })
-
-    watch(selectedSubjectId, async (newSubjectId) => {
+    currentSubjectChangePromise = (async () => {
       if (newSubjectId) {
         // Wait for availability to load before updating business hours
         if (availabilityPromise) {
@@ -426,6 +341,28 @@ export function useBooking() {
       teacherStore.setSelectedTeacherById(null)
       preferredTeacherId.value = null
       resetBookingState()
+    })()
+
+    await currentSubjectChangePromise
+  }, 200) // 200ms debounce to prevent rapid API calls
+
+  const initWatchers = () => {
+    // Prevent multiple initialization
+    if (watchersInitialized) return
+    watchersInitialized = true
+
+    availabilityPromise = fetchAvailability()
+
+    subjectApi.getAll().then((data) => {
+      subjects.value = data
+    })
+
+    branchApi.getAll().then((data) => {
+      branches.value = data
+    })
+
+    watch(selectedSubjectId, (newSubjectId) => {
+      handleSubjectChange(newSubjectId)
     })
 
     watch(selectedTeacherId, async (teacherId) => {
@@ -442,11 +379,18 @@ export function useBooking() {
       }
       resetBookingState()
     })
+
+    watch(selectedBranchId, async (newBranchId) => {
+      // Reset teacher and events when branch changes
+      if (newBranchId === null) {
+        teacherStore.setSelectedTeacherById(null)
+        resetBookingState()
+      }
+    })
   }
   return {
     calendarRef,
     activeTab,
-    isLoadingTeachers,
     isEvaluating,
     errorMessage,
     successMessage,
@@ -458,33 +402,16 @@ export function useBooking() {
     selectedSubjectId,
     selectedBranchId,
     selectedTeacherId,
-    preferredTeacherId,
-    durationMinutes,
     suggestions,
     showDetailedResults,
-    manualSlots,
-    newSlotDay,
-    newSlotStart,
-    newSlotEnd,
-    timeOptions,
-    currentStep,
-    canSelectTeacher,
-    canAddManualSlot,
-    canEvaluate,
-    calculatedDuration,
     suggestionEvents,
-    cartEvents,
     allEvents,
 
-    getSlotLabel,
     resetBookingState,
-    handleEvaluate,
-    handleAddManualSlot,
-    removeManualSlot,
     addEvent,
     addToCartDirectly,
     initWatchers,
-    getAggregatedAvailability,
-    getTeachersBySubject,
+    showSuccess,
+    showError,
   }
 }

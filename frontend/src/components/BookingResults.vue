@@ -34,13 +34,15 @@
   // Check if a booking is already in cart
   const isInCart = (teacherId: number, startTime: string): boolean => {
     return props.cartItems.some(
-      item => item.teacher_id === teacherId && item.start_time === startTime
+      (item) => item.teacher_id === teacherId && item.start_time === startTime
     )
   }
 
   // Check if a booking is already made (either in local state or cart)
   const isBooked = (teacherId: number, startTime: string): boolean => {
-    return bookedKeys.value.has(getBookingKey(teacherId, startTime)) || isInCart(teacherId, startTime)
+    return (
+      bookedKeys.value.has(getBookingKey(teacherId, startTime)) || isInCart(teacherId, startTime)
+    )
   }
 
   // Handle booking - emit event and mark as booked
@@ -58,16 +60,19 @@
   }
 
   // Clear booked state when suggestions change (new search)
-  watch(() => props.suggestions, () => {
-    bookedKeys.value.clear()
-  })
+  watch(
+    () => props.suggestions,
+    () => {
+      bookedKeys.value.clear()
+    }
+  )
 
   const getScoreColor = (score: number): string => {
     if (score >= 90) return 'score-excellent' // 90-100: Green
-    if (score >= 75) return 'score-high'     // 75-89: Light green
-    if (score >= 60) return 'score-medium'   // 60-74: Yellow
-    if (score >= 45) return 'score-low'      // 45-59: Orange
-    return 'score-poor'                       // 0-44: Red
+    if (score >= 75) return 'score-high' // 75-89: Light green
+    if (score >= 60) return 'score-medium' // 60-74: Yellow
+    if (score >= 45) return 'score-low' // 45-59: Orange
+    return 'score-poor' // 0-44: Red
   }
 
   const formatTime = (dateStr: string): string => {
@@ -167,8 +172,15 @@
           <button
             type="button"
             class="match-button"
-            :class="{ 'match-button--booked': isBooked(slotResult.exact_match.teacher_id, slotResult.exact_match.start_time) }"
-            :disabled="isBooked(slotResult.exact_match.teacher_id, slotResult.exact_match.start_time)"
+            :class="{
+              'match-button--booked': isBooked(
+                slotResult.exact_match.teacher_id,
+                slotResult.exact_match.start_time
+              ),
+            }"
+            :disabled="
+              isBooked(slotResult.exact_match.teacher_id, slotResult.exact_match.start_time)
+            "
             @click="
               handleBooking(
                 slotResult.exact_match.teacher_id,
@@ -178,7 +190,11 @@
               )
             "
           >
-            {{ isBooked(slotResult.exact_match.teacher_id, slotResult.exact_match.start_time) ? 'Booked' : 'Book Now' }}
+            {{
+              isBooked(slotResult.exact_match.teacher_id, slotResult.exact_match.start_time)
+                ? 'Booked'
+                : 'Book Now'
+            }}
           </button>
         </div>
 
@@ -222,14 +238,7 @@
               class="alternative-button"
               :class="{ 'alternative-button--booked': isBooked(alt.teacher_id, alt.start_time) }"
               :disabled="isBooked(alt.teacher_id, alt.start_time)"
-              @click="
-                handleBooking(
-                  alt.teacher_id,
-                  alt.teacher_name,
-                  alt.start_time,
-                  alt.end_time
-                )
-              "
+              @click="handleBooking(alt.teacher_id, alt.teacher_name, alt.start_time, alt.end_time)"
             >
               {{ isBooked(alt.teacher_id, alt.start_time) ? 'Booked' : 'Book Now' }}
             </button>
@@ -375,10 +384,6 @@
   }
 
   /* Result card background colors based on score */
-
-
-
-
 
   @keyframes result-card-enter {
     from {

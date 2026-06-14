@@ -3,36 +3,36 @@
 
 :root {
   /* Soft Sage Color Palette */
-  --bg-cream: #F7F9F7;
-  --bg-card: #FFFFFF;
-  --bg-subtle: #F0F4F2;
+  --bg-cream: #f7f9f7;
+  --bg-card: #ffffff;
+  --bg-subtle: #f0f4f2;
 
-  --primary-navy: #2D4A3E;
-  --primary-navy-deep: #1E3329;
-  --accent-sage: #9DB4A0;
-  --accent-sage-light: #B8C9B9;
+  --primary-navy: #2d4a3e;
+  --primary-navy-deep: #1e3329;
+  --accent-sage: #9db4a0;
+  --accent-sage-light: #b8c9b9;
   --accent-sage-soft: rgba(157, 180, 160, 0.2);
-  --accent-mint: #A8C9B8;
-  --accent-sky: #7BA3C8;
+  --accent-mint: #a8c9b8;
+  --accent-sky: #7ba3c8;
 
   /* Suggestion Colors (Yellow/Gold) */
-  --accent-gold: #F4B942;
-  --accent-gold-light: #F7C96F;
+  --accent-gold: #f4b942;
+  --accent-gold-light: #f7c96f;
   --accent-gold-soft: rgba(244, 185, 66, 0.15);
 
-  --text-primary: #1A2E28;
-  --text-secondary: #4A5C52;
-  --text-technical: #2D4A3E;
-  --text-muted: #7A8A82;
+  --text-primary: #1a2e28;
+  --text-secondary: #4a5c52;
+  --text-technical: #2d4a3e;
+  --text-muted: #7a8a82;
 
-  --border-subtle: #D8E2DC;
-  --border-medium: #B8C9B9;
-  --border-strong: #9DB4A0;
-  --border-technical: #2D4A3E;
+  --border-subtle: #d8e2dc;
+  --border-medium: #b8c9b9;
+  --border-strong: #9db4a0;
+  --border-technical: #2d4a3e;
 
   /* Coral/Terracotta for alerts and errors */
-  --accent-coral: #E8A598;
-  --accent-coral-light: #F5C7BF;
+  --accent-coral: #e8a598;
+  --accent-coral-light: #f5c7bf;
   --accent-coral-soft: rgba(232, 165, 152, 0.2);
 
   /* Shadows with soft undertone */
@@ -186,7 +186,11 @@ body {
 
 /* Today column background in time grid */
 .fc-timegrid-col.fc-day-today {
-  background: linear-gradient(180deg, rgba(157, 180, 160, 0.05) 0%, rgba(157, 180, 160, 0.12) 100%) !important;
+  background: linear-gradient(
+    180deg,
+    rgba(157, 180, 160, 0.05) 0%,
+    rgba(157, 180, 160, 0.12) 100%
+  ) !important;
 }
 
 .fc-col-header-cell .fc-col-header-cell-cushion {
@@ -358,16 +362,23 @@ body {
   letter-spacing: 0.02em;
 }
 
-
 /* Suggestion events - special styling (gold/yellow theme) */
 .fc-event.suggestion-exact {
-  background: linear-gradient(135deg, var(--accent-gold) 0%, var(--accent-gold-light) 100%) !important;
+  background: linear-gradient(
+    135deg,
+    var(--accent-gold) 0%,
+    var(--accent-gold-light) 100%
+  ) !important;
   border: 2px solid var(--accent-gold) !important;
-  box-shadow: 0 4px 16px rgba(244, 185, 66, 0.4), 0 0 0 1px rgba(244, 185, 66, 0.2) !important;
+  box-shadow:
+    0 4px 16px rgba(244, 185, 66, 0.4),
+    0 0 0 1px rgba(244, 185, 66, 0.2) !important;
 }
 
 .fc-event.suggestion-exact:hover {
-  box-shadow: 0 6px 20px rgba(244, 185, 66, 0.5), 0 0 0 2px rgba(244, 185, 66, 0.3) !important;
+  box-shadow:
+    0 6px 20px rgba(244, 185, 66, 0.5),
+    0 0 0 2px rgba(244, 185, 66, 0.3) !important;
   transform: translateY(-4px) scale(1.03) !important;
 }
 

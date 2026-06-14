@@ -1,6 +1,7 @@
 <script setup lang="ts">
   import { ref, computed } from 'vue'
   import BookingResults from './BookingResults.vue'
+  import { toMinutes } from '../utils/dateValidation'
   import type { BookingResponse } from '../types'
   import type { CartItem } from '../composables/useBookingCart'
 
@@ -92,10 +93,6 @@
   }
 
   const addTimeSlot = () => {
-    const toMinutes = (timeStr: string) => {
-      const [hour, minute] = timeStr.split(':').map(Number)
-      return hour * 60 + minute
-    }
     if (toMinutes(newSlotStart.value) >= toMinutes(newSlotEnd.value)) return
 
     timeSlots.value = [

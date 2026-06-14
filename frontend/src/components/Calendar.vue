@@ -1,9 +1,11 @@
 <script setup lang="ts">
-  import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+  import { ref, computed, watch, onUnmounted } from 'vue'
   import FullCalendar from '@fullcalendar/vue3'
   import timeGridPlugin from '@fullcalendar/timegrid'
   import interactionPlugin from '@fullcalendar/interaction'
   import { isSameDaySelection, createEvent, createOneHourEvent } from '../utils/calendarHelpers'
+  import { isValidDate, rangesOverlap } from '../utils/dateValidation'
+  import { useScreenSize } from '../composables/useScreenSize'
   import type {
     EventInput,
     DateSelectArg,
@@ -41,16 +43,11 @@
     'event-click': [info: EventClickArg]
   }>()
   const calendarRef = ref<InstanceType<typeof FullCalendar> | null>(null)
-  const screenWidth = ref(0)
-  const updateScreenWidth = () => {
-    screenWidth.value = globalThis.innerWidth
-  }
-  onMounted(() => {
-    updateScreenWidth()
-    globalThis.addEventListener('resize', updateScreenWidth)
-  })
+  const { screenWidth } = useScreenSize()
   onUnmounted(() => {
-    globalThis.removeEventListener('resize', updateScreenWidth)
+    // Clean up all event listeners
+    eventListeners.forEach((_, el) => cleanupEventListeners(el))
+    eventListeners.clear()
   })
   const dayHeaderFormat = computed(() => {
     if (screenWidth.value < 640) {
@@ -100,14 +97,19 @@
   const overlapsWithCartEvent = (start: Date, end: Date): boolean => {
     // Check both modelValue (includes cart events now) and additionalEvents (suggestions)
     const allEvents = [...(props.modelValue || []), ...(props.additionalEvents || [])]
-    const cartEvents = allEvents.filter(
-      e => e.extendedProps?.isCartItem === true
-    )
+    const cartEvents = allEvents.filter((e) => e.extendedProps?.isCartItem === true)
     for (const cartEvent of cartEvents) {
+      // Validate cart event has start/end
+      if (!cartEvent.start || !cartEvent.end) continue
+
       const cartStart = new Date(cartEvent.start as Date)
       const cartEnd = new Date(cartEvent.end as Date)
-      // Check for overlap
-      if (start < cartEnd && end > cartStart) {
+
+      // Skip if dates are invalid or no overlap
+      if (!isValidDate(cartStart) || !isValidDate(cartEnd)) continue
+
+      // Check for overlap using utility function
+      if (rangesOverlap(start, end, cartStart, cartEnd)) {
         return true
       }
     }
@@ -173,12 +175,23 @@
   }
 
   const handleEventContent = (arg: {
-    event: { start: Date | null; end: Date | null; id: string }
+    event: {
+      start: Date | null
+      end: Date | null
+      id: string
+      title: string
+      extendedProps: {
+        isTeacherAvailability?: boolean
+        teacherNames?: string
+        teacherCount?: number
+      }
+    }
   }) => {
     const start = arg.event.start
     const end = arg.event.end
     if (!start || !end) return {}
 
+    // Default event content for regular events
     const timeRange = formatTimeRange(new Date(start), new Date(end))
 
     return {
@@ -251,6 +264,21 @@
     selectedEventEl.value = null
   }
 
+  // Store event listener references for cleanup
+  const eventListeners = new Map<
+    HTMLElement,
+    { touchstart: (e: Event) => void; touchend: (e: Event) => void }
+  >()
+
+  const cleanupEventListeners = (el: HTMLElement) => {
+    const listeners = eventListeners.get(el)
+    if (listeners) {
+      el.removeEventListener('touchstart', listeners.touchstart)
+      el.removeEventListener('touchend', listeners.touchend)
+      eventListeners.delete(el)
+    }
+  }
+
   const handleEventClassNames = (arg: { event: { id: string } }): string[] => {
     const classes: string[] = []
     if (arg.event.id === selectedEventId.value) {
@@ -259,9 +287,21 @@
     return classes
   }
 
-  const handleEventDidMount = (info: { event: { id: string }; el: HTMLElement }) => {
+  const handleEventDidMount = (info: {
+    event: {
+      id: string
+      extendedProps?: {
+        isTeacherAvailability?: boolean
+        teacherNames?: string
+        teacherCount?: number
+      }
+    }
+    el: HTMLElement
+  }) => {
     const eventId = info.event.id
-    if (!eventId || eventId.startsWith('suggestion-')) return
+    if (!eventId) return
+
+    if (eventId.startsWith('suggestion-')) return
 
     // Check if this is a user event (editable)
     const isUserEvent =
@@ -272,37 +312,39 @@
     const el = info.el
     let touchStartTime = 0
 
-    el.addEventListener(
-      'touchstart',
-      (_e: Event) => {
-        touchStartTime = Date.now()
-      },
-      { passive: true }
-    )
+    const touchStartHandler = (_e: Event) => {
+      touchStartTime = Date.now()
+    }
 
-    el.addEventListener(
-      'touchend',
-      (e: Event) => {
-        const touchDuration = Date.now() - touchStartTime
+    const touchEndHandler = (e: Event) => {
+      const touchDuration = Date.now() - touchStartTime
 
-        // Quick tap = select event
-        if (touchDuration < 300) {
-          const touch = (e as TouchEvent).changedTouches[0]
-          const target = touch.target as HTMLElement
+      // Quick tap = select event
+      if (touchDuration < 300) {
+        const touch = (e as TouchEvent).changedTouches[0]
+        const target = touch.target as HTMLElement
 
-          // Don't select if tapping on resize handle
-          if (target.closest('.fc-event-resizer') || target.closest('.event-delete-btn')) {
-            return
-          }
-
-          // Select the event
-          deselectEvent()
-          selectedEventId.value = eventId
-          selectedEventEl.value = el
+        // Don't select if tapping on resize handle
+        if (target.closest('.fc-event-resizer') || target.closest('.event-delete-btn')) {
+          return
         }
-      },
-      { passive: true }
-    )
+
+        // Select the event
+        deselectEvent()
+        selectedEventId.value = eventId
+        selectedEventEl.value = el
+      }
+    }
+
+    el.addEventListener('touchstart', touchStartHandler, { passive: true })
+    el.addEventListener('touchend', touchEndHandler, { passive: true })
+
+    // Store references for cleanup
+    eventListeners.set(el, { touchstart: touchStartHandler, touchend: touchEndHandler })
+  }
+
+  const handleEventWillUnmount = (info: { event: { id: string }; el: HTMLElement }) => {
+    cleanupEventListeners(info.el)
   }
 
   const handleContainerClick = (e: MouseEvent) => {
@@ -512,6 +554,7 @@
     eventContent: handleEventContent,
     eventClassNames: handleEventClassNames,
     eventDidMount: handleEventDidMount,
+    eventWillUnmount: handleEventWillUnmount,
     businessHours: props.businessHours,
     eventConstraint: props.constraint,
     selectConstraint: props.constraint,

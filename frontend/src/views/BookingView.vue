@@ -2,11 +2,15 @@
   import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
   import { useBooking } from '../composables/useBooking'
   import { useBookingCart } from '../composables/useBookingCart'
+  import { useScreenSize } from '../composables/useScreenSize'
+  import { useTimeoutCleanup } from '../composables/useTimeoutCleanup'
+  import { toMinutes } from '../utils/dateValidation'
+  import { getErrorMessage, isNetworkError } from '../utils/errorHandler'
   import PageLayout from '../components/PageLayout.vue'
   import Calendar from '../components/Calendar.vue'
   import CalendarDisabledOverlay from '../components/CalendarDisabledOverlay.vue'
   import SmartSuggestionsPanel from '../components/SmartSuggestionsPanel.vue'
-  import type { EventClickArg } from '@fullcalendar/core'
+  import type { EventClickArg, EventInput } from '@fullcalendar/core'
 
   const {
     calendarRef,
@@ -25,7 +29,6 @@
     suggestions,
     showDetailedResults,
     suggestionEvents,
-    cartEvents,
     allEvents,
     initWatchers,
     addEvent,
@@ -34,16 +37,19 @@
   } = useBooking()
 
   const { cartItems, fetchCartItems } = useBookingCart()
+  const { isMobile, isTablet } = useScreenSize()
+  const { trackTimeout } = useTimeoutCleanup()
 
   // All events for calendar: manual events + suggestion events + cart events (for overlap prevention)
   const allCalendarEvents = computed(() => allEvents.value)
 
   const aiMode = ref<'idle' | 'expanding' | 'expanded'>('idle')
 
+  // Guard against rapid clicks on addAllSlotsToCart
+  const isAddingToCart = ref(false)
+
   // Mobile step flow: 'selection' -> 'calendar'
   const mobileStep = ref<'selection' | 'calendar'>('selection')
-  const isMobile = ref(false)
-  const isTablet = ref(false)
 
   // AI-specific time slots (subject/branch/teacher now shared with manual form)
   const aiTimeSlots = ref<Array<{ day_of_week: number; start: string; end: string }>>([])
@@ -51,22 +57,16 @@
   // Request token to guard against stale AI responses after panel is closed
   const currentAiRequestId = ref<string | null>(null)
 
-  const canProceedToCalendar = computed(() => !!selectedSubjectId.value && !!selectedBranchId.value)
-
-  // Detect mobile on mount and resize
-  const checkMobile = () => {
-    const width = globalThis.innerWidth
-    isMobile.value = width <= 425
-    isTablet.value = width > 425 && width < 1024
-  }
+  // Use != null instead of !! to allow ID 0 as valid value
+  const canProceedToCalendar = computed(
+    () => selectedSubjectId.value != null && selectedBranchId.value != null
+  )
 
   onMounted(() => {
     fetchCartItems()
-    checkMobile()
-    globalThis.addEventListener('resize', checkMobile)
   })
   onUnmounted(() => {
-    globalThis.removeEventListener('resize', checkMobile)
+    // useTimeoutCleanup and useScreenSize handle their own cleanup
   })
 
   const proceedToCalendar = () => {
@@ -145,7 +145,9 @@
       }
       addEvent(newEvent)
       successMessage.value = 'Time slot added to calendar!'
-      setTimeout(() => (successMessage.value = ''), 3000)
+      trackTimeout(() => {
+        successMessage.value = ''
+      }, 3000)
     }
   }
 
@@ -175,16 +177,23 @@
       return
     }
 
-    // Calculate duration from the first AI time slot
-    const toMinutes = (timeStr: string) => {
-      const [hour, minute] = timeStr.split(':').map(Number)
-      return hour * 60 + minute
+    // Validate all slots have valid time format and same duration
+    const durations = new Set<number>()
+    for (const slot of aiTimeSlots.value) {
+      const startMin = toMinutes(slot.start)
+      const endMin = toMinutes(slot.end)
+
+      if (isNaN(startMin) || isNaN(endMin)) {
+        errorMessage.value = 'Invalid time format. Please use HH:MM format (e.g., 09:30).'
+        return
+      }
+      if (startMin >= endMin) {
+        errorMessage.value = 'Start time must be before end time.'
+        return
+      }
+      durations.add(endMin - startMin)
     }
 
-    // Validate all slots have the same duration
-    const durations = new Set(
-      aiTimeSlots.value.map((slot) => toMinutes(slot.end) - toMinutes(slot.start))
-    )
     if (durations.size !== 1) {
       errorMessage.value = 'All AI time slots must use the same duration.'
       return
@@ -218,16 +227,16 @@
       showDetailedResults.value = true
       activeTab.value = 'ai'
       successMessage.value = `${response.results.length} teacher${response.results.length > 1 ? 's' : ''} available. Click a time slot on the calendar or a suggestion below to book.`
-      setTimeout(() => (successMessage.value = ''), 8000)
+      trackTimeout(() => {
+        successMessage.value = ''
+      }, 8000)
     } catch (error) {
-      const isNetworkError =
-        error instanceof Error &&
-        (error.message.includes('fetch') || error.message.includes('network'))
-      errorMessage.value = isNetworkError
+      errorMessage.value = isNetworkError(error)
         ? 'Network error. Check your connection and try again.'
-        : error instanceof Error
-          ? error.message
-          : 'No teachers available for those time slots. Try adding more time options or different days.'
+        : getErrorMessage(
+            error,
+            'No teachers available for those time slots. Try adding more time options or different days.'
+          )
     } finally {
       isEvaluating.value = false
     }
@@ -240,11 +249,22 @@
   // Add all selected slots to cart for a given teacher
   const addAllSlotsToCart = (teacherId: number | null) => {
     if (!teacherId) return
+    if (isAddingToCart.value) return // Guard against rapid clicks
+
     const teacher = filteredTeachers.value.find((t) => t.id === teacherId)
     if (!teacher) return
-    events.value.forEach((e) => {
-      addToCartDirectly(teacher.id, teacher.name, e.start as string, e.end as string)
-    })
+
+    isAddingToCart.value = true
+    try {
+      events.value.forEach((e) => {
+        addToCartDirectly(teacher.id, teacher.name, e.start as string, e.end as string)
+      })
+    } finally {
+      // Use timeout to reset guard, allowing for rapid sequential clicks but preventing concurrent execution
+      setTimeout(() => {
+        isAddingToCart.value = false
+      }, 300)
+    }
   }
 
   initWatchers()
@@ -515,7 +535,7 @@
           <button
             type="button"
             class="tablet-add-btn"
-            :disabled="!selectedTeacherId"
+            :disabled="!selectedTeacherId || isAddingToCart"
             @click="addAllSlotsToCart(selectedTeacherId)"
           >
             <svg class="tablet-add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -660,7 +680,7 @@
             <button
               type="button"
               class="mobile-add-button"
-              :disabled="!selectedTeacherId"
+              :disabled="!selectedTeacherId || isAddingToCart"
               @click="addAllSlotsToCart(selectedTeacherId)"
             >
               <svg class="mobile-add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
