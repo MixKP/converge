@@ -2,6 +2,7 @@
   import { ref, watch } from 'vue'
   import type { BookingResponse } from '../types'
   import type { CartItem } from '../composables/useBookingCart'
+  import { rangesOverlap } from '../utils/dateValidation'
 
   interface Props {
     suggestions: BookingResponse | null
@@ -31,17 +32,28 @@
     return `${teacherId}-${startTime}`
   }
 
-  // Check if a booking is already in cart
-  const isInCart = (teacherId: number, startTime: string): boolean => {
-    return props.cartItems.some(
-      (item) => item.teacher_id === teacherId && item.start_time === startTime
-    )
+  // Check if a booking time slot overlaps with any cart item for the same teacher
+  const isInCart = (teacherId: number, startTime: string, endTime: string): boolean => {
+    const newStart = new Date(startTime)
+    const newEnd = new Date(endTime)
+
+    return props.cartItems.some((item) => {
+      // Only check items for the same teacher
+      if (item.teacher_id !== teacherId) return false
+
+      const itemStart = new Date(item.start_time)
+      const itemEnd = new Date(item.end_time)
+
+      // Check if time slots overlap
+      return rangesOverlap(newStart, newEnd, itemStart, itemEnd)
+    })
   }
 
   // Check if a booking is already made (either in local state or cart)
-  const isBooked = (teacherId: number, startTime: string): boolean => {
+  const isBooked = (teacherId: number, startTime: string, endTime: string): boolean => {
     return (
-      bookedKeys.value.has(getBookingKey(teacherId, startTime)) || isInCart(teacherId, startTime)
+      bookedKeys.value.has(getBookingKey(teacherId, startTime)) ||
+      isInCart(teacherId, startTime, endTime)
     )
   }
 
@@ -175,11 +187,16 @@
             :class="{
               'match-button--booked': isBooked(
                 slotResult.exact_match.teacher_id,
-                slotResult.exact_match.start_time
+                slotResult.exact_match.start_time,
+                slotResult.exact_match.end_time
               ),
             }"
             :disabled="
-              isBooked(slotResult.exact_match.teacher_id, slotResult.exact_match.start_time)
+              isBooked(
+                slotResult.exact_match.teacher_id,
+                slotResult.exact_match.start_time,
+                slotResult.exact_match.end_time
+              )
             "
             @click="
               handleBooking(
@@ -191,7 +208,11 @@
             "
           >
             {{
-              isBooked(slotResult.exact_match.teacher_id, slotResult.exact_match.start_time)
+              isBooked(
+                slotResult.exact_match.teacher_id,
+                slotResult.exact_match.start_time,
+                slotResult.exact_match.end_time
+              )
                 ? 'Booked'
                 : 'Book Now'
             }}
@@ -236,11 +257,17 @@
             <button
               type="button"
               class="alternative-button"
-              :class="{ 'alternative-button--booked': isBooked(alt.teacher_id, alt.start_time) }"
-              :disabled="isBooked(alt.teacher_id, alt.start_time)"
+              :class="{
+                'alternative-button--booked': isBooked(
+                  alt.teacher_id,
+                  alt.start_time,
+                  alt.end_time
+                ),
+              }"
+              :disabled="isBooked(alt.teacher_id, alt.start_time, alt.end_time)"
               @click="handleBooking(alt.teacher_id, alt.teacher_name, alt.start_time, alt.end_time)"
             >
-              {{ isBooked(alt.teacher_id, alt.start_time) ? 'Booked' : 'Book Now' }}
+              {{ isBooked(alt.teacher_id, alt.start_time, alt.end_time) ? 'Booked' : 'Book Now' }}
             </button>
           </div>
         </div>

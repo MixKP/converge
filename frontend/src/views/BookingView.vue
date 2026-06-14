@@ -10,7 +10,7 @@
   import Calendar from '../components/Calendar.vue'
   import CalendarDisabledOverlay from '../components/CalendarDisabledOverlay.vue'
   import SmartSuggestionsPanel from '../components/SmartSuggestionsPanel.vue'
-  import type { EventClickArg, EventInput } from '@fullcalendar/core'
+  import type { EventClickArg } from '@fullcalendar/core'
 
   const {
     calendarRef,
@@ -31,7 +31,6 @@
     suggestionEvents,
     allEvents,
     initWatchers,
-    addEvent,
     addToCartDirectly,
     resetBookingState,
   } = useBooking()
@@ -136,15 +135,9 @@
   const handleSuggestionClick = (info: EventClickArg): void => {
     const props = info.event.extendedProps
     if (props?.isSuggestion) {
-      // Create event on calendar from suggestion
-      const newEvent: EventInput = {
-        id: `manual-${Date.now()}`,
-        start: info.event.startStr,
-        end: info.event.endStr,
-        title: `${props.teacherName}`,
-      }
-      addEvent(newEvent)
-      successMessage.value = 'Time slot added to calendar!'
+      // Suggestion events are read-only on calendar
+      // User must click "Book Now" in Smart Suggestions panel to add to cart
+      successMessage.value = 'Click "Book Now" in Smart Suggestions to book this slot'
       trackTimeout(() => {
         successMessage.value = ''
       }, 3000)
