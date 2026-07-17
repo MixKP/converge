@@ -1,7 +1,7 @@
 <script setup lang="ts">
   import { onMounted, onUnmounted, ref } from 'vue'
   import { useRouter } from 'vue-router'
-  import { useBookingCart } from '../composables/useBookingCart'
+  import { useBookingCart } from '../composables/useBookingCart.ts'
   import PageLayout from '../components/PageLayout.vue'
 
   const router = useRouter()

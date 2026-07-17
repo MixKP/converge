@@ -48,17 +48,7 @@ export function useSubmitAvailability() {
         return days.indexOf(a.day) - days.indexOf(b.day) || a.start.localeCompare(b.start)
       })
   })
-
-  // Alternative using calendarHelpers utility:
-  // const formattedSlots = computed(() => {
-  //   return events.value
-  //     .map(event => formatEventSlot(event))
-  //     .sort((a, b) => {
-  //       const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-  //       return days.indexOf(a.day) - days.indexOf(b.day) || a.start.localeCompare(b.start)
-  //     })
-  // })
-
+  
   watch(selectedTeacherId, () => {
     events.value = []
     errorMessage.value = ''

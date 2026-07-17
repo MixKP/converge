@@ -1,58 +1,63 @@
 import { storeToRefs } from 'pinia'
-import { useBookingStore } from '../stores/bookingStore'
-import type { CartItem } from '../stores/bookingStore'
+import { useBookingSelectionStore } from '../stores/bookingSelectionStore'
+import { useBookingCalendarStore } from '../stores/bookingCalendarStore'
+import { useBookingCartStore } from '../stores/bookingCartStore'
 
-/**
- * Booking composable wrapper.
- * All state is managed in useBookingStore (Pinia).
- * This composable provides backwards compatibility with reactive refs.
- */
 export function useBooking() {
-  const store = useBookingStore()
+  const selectionStore = useBookingSelectionStore()
+  const calendarStore = useBookingCalendarStore()
+  const cartStore = useBookingCartStore()
 
-  // Convert store state to refs for reactivity in templates
-  const refs = storeToRefs(store)
+  const selectionRefs = storeToRefs(selectionStore)
+  const calendarRefs = storeToRefs(calendarStore)
+  const cartRefs = storeToRefs(cartStore)
 
   return {
-    // UI State (as refs)
-    calendarRef: refs.calendarRef,
-    activeTab: refs.activeTab,
-    isEvaluating: refs.isEvaluating,
-    isLoadingTeachers: refs.isLoadingTeachers,
-    errorMessage: refs.errorMessage,
-    successMessage: refs.successMessage,
+    // UI State (from calendar store)
+    calendarRef: calendarRefs.calendarRef,
+    activeTab: calendarRefs.activeTab,
+    isEvaluating: calendarRefs.isEvaluating,
+    isLoadingTeachers: selectionRefs.isLoadingTeachers,
+    errorMessage: calendarRefs.errorMessage,
+    successMessage: calendarRefs.successMessage,
 
-    // Selection State (as refs)
-    events: refs.events,
-    businessHours: refs.businessHours,
-    subjects: refs.subjects,
-    branches: refs.branches,
-    filteredTeachers: refs.filteredTeachers,
-    selectedSubjectId: refs.selectedSubjectId,
-    selectedBranchId: refs.selectedBranchId,
-    selectedTeacherId: refs.selectedTeacherId,
-    suggestions: refs.suggestions,
-    showDetailedResults: refs.showDetailedResults,
-    suggestionEvents: refs.suggestionEvents,
-    allEvents: refs.allEvents,
+    // Selection State (from selection store)
+    events: calendarRefs.events,
+    businessHours: calendarRefs.businessHours,
+    subjects: selectionRefs.subjects,
+    branches: selectionRefs.branches,
+    filteredTeachers: selectionRefs.filteredTeachers,
+    selectedSubjectId: selectionRefs.selectedSubjectId,
+    selectedBranchId: selectionRefs.selectedBranchId,
+    selectedTeacherId: selectionRefs.selectedTeacherId,
+    suggestions: calendarRefs.suggestions,
+    showDetailedResults: calendarRefs.showDetailedResults,
+    suggestionEvents: calendarRefs.suggestionEvents,
+    allEvents: calendarRefs.allEvents,
 
-    // Cart (as refs)
-    cartItems: refs.cartItems,
-    cartIsLoading: refs.cartIsLoading,
+    // Cart (from cart store)
+    cartItems: cartRefs.cartItems,
+    cartIsLoading: cartRefs.cartIsLoading,
 
-    // Actions (direct functions)
-    resetBookingState: store.resetBookingState,
-    addEvent: store.addEvent,
-    addToCartDirectly: store.addToCartDirectly,
-    addToCart: store.addToCart,
-    removeItem: store.removeItem,
-    clearCart: store.clearCart,
-    submitBookings: store.submitBookings,
-    fetchCartItems: store.fetchCartItems,
-    initWatchers: store.initialize,
-    showSuccess: store.showSuccess,
-    showError: store.showError,
+    // Actions (from calendar store)
+    resetBookingState: calendarStore.resetBookingState,
+    addEvent: calendarStore.addEvent,
+    showSuccess: calendarStore.showSuccess,
+    showError: calendarStore.showError,
+    initWatchers: calendarStore.initialize,
+
+    // Actions (from selection store)
+    fetchSubjects: selectionStore.fetchSubjects,
+    fetchBranches: selectionStore.fetchBranches,
+
+    // Actions (from cart store)
+    addToCartDirectly: cartStore.addToCartDirectly,
+    addToCart: cartStore.addToCart,
+    removeItem: cartStore.removeItem,
+    clearCart: cartStore.clearCart,
+    submitBookings: cartStore.submitBookings,
+    fetchCartItems: cartStore.fetchCartItems,
   }
 }
 
-export type { CartItem }
+export type { CartItem } from '../types/booking'

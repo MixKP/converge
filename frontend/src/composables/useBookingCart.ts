@@ -1,26 +1,25 @@
 import { storeToRefs } from 'pinia'
-import { useBookingStore } from '../stores/bookingStore'
+import { useBookingCartStore } from '../stores/bookingCartStore'
+import { useBookingCalendarStore } from '../stores/bookingCalendarStore'
 
-export type { CartItem } from '../stores/bookingStore'
+export type { CartItem } from '../types/booking'
 
-/**
- * Cart composable wrapper.
- * Delegates to useBookingStore for backwards compatibility.
- * All cart state is managed in useBookingStore (Pinia).
- */
 export function useBookingCart() {
-  const store = useBookingStore()
-  const refs = storeToRefs(store)
+  const cartStore = useBookingCartStore()
+  const calendarStore = useBookingCalendarStore()
+
+  const cartRefs = storeToRefs(cartStore)
+  const calendarRefs = storeToRefs(calendarStore)
 
   return {
-    cartItems: refs.cartItems,
-    isLoading: refs.cartIsLoading,
-    errorMessage: refs.errorMessage,
-    successMessage: refs.successMessage,
-    fetchCartItems: store.fetchCartItems,
-    addToCart: store.addToCart,
-    removeItem: store.removeItem,
-    clearCart: store.clearCart,
-    submitBookings: store.submitBookings,
+    cartItems: cartRefs.cartItems,
+    isLoading: cartRefs.cartIsLoading,
+    errorMessage: calendarRefs.errorMessage,
+    successMessage: calendarRefs.successMessage,
+    fetchCartItems: cartStore.fetchCartItems,
+    addToCart: cartStore.addToCart,
+    removeItem: cartStore.removeItem,
+    clearCart: cartStore.clearCart,
+    submitBookings: cartStore.submitBookings,
   }
 }

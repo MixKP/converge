@@ -33,6 +33,8 @@
     initWatchers,
     addToCartDirectly,
     resetBookingState,
+    fetchSubjects,
+    fetchBranches,
   } = useBooking()
 
   const { cartItems, fetchCartItems } = useBookingCart()
@@ -63,6 +65,8 @@
 
   onMounted(() => {
     fetchCartItems()
+    fetchSubjects()
+    fetchBranches()
   })
   onUnmounted(() => {
     // useTimeoutCleanup and useScreenSize handle their own cleanup

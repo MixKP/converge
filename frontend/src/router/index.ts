@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import SubmitAvailability from '../views/SubmitAvailability.vue'
 import BookingView from '../views/BookingView.vue'
-import BookingConfirm from '../views/BookingConfirm.vue'
+import BookingConfirm from '../views/BookingCart.vue'
 
 const router = createRouter({
   history: createWebHistory(),
