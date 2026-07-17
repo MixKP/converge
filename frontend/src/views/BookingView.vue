@@ -4,8 +4,7 @@
   import { useBookingCart } from '../composables/useBookingCart'
   import { useScreenSize } from '../composables/useScreenSize'
   import { useTimeoutCleanup } from '../composables/useTimeoutCleanup'
-  import { toMinutes } from '../utils/dateValidation'
-  import { getErrorMessage, isNetworkError } from '../utils/errorHandler'
+  import { useAISuggestions } from '../composables/useAISuggestions'
   import PageLayout from '../components/PageLayout.vue'
   import Calendar from '../components/Calendar.vue'
   import CalendarDisabledOverlay from '../components/CalendarDisabledOverlay.vue'
@@ -40,6 +39,7 @@
   const { cartItems, fetchCartItems } = useBookingCart()
   const { isMobile, isTablet } = useScreenSize()
   const { trackTimeout } = useTimeoutCleanup()
+  const { getSuggestions, invalidateRequest } = useAISuggestions()
 
   // All events for calendar: manual events + suggestion events + cart events (for overlap prevention)
   const allCalendarEvents = computed(() => allEvents.value)
@@ -54,9 +54,6 @@
 
   // AI-specific time slots (subject/branch/teacher now shared with manual form)
   const aiTimeSlots = ref<Array<{ day_of_week: number; start: string; end: string }>>([])
-
-  // Request token to guard against stale AI responses after panel is closed
-  const currentAiRequestId = ref<string | null>(null)
 
   // Use != null instead of !! to allow ID 0 as valid value
   const canProceedToCalendar = computed(
@@ -85,36 +82,6 @@
   // Focus management
   const previouslyFocusedElement = ref<HTMLElement | null>(null)
 
-  // Keyboard shortcuts
-  const handleKeyDown = (event: KeyboardEvent) => {
-    // Cmd/Ctrl + K to open AI mode
-    if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
-      event.preventDefault()
-      if (aiMode.value === 'idle') {
-        openAIMode()
-      }
-    }
-    // Escape to close AI mode or dismiss messages
-    if (event.key === 'Escape') {
-      if (aiMode.value !== 'idle') {
-        closeAIMode()
-        previouslyFocusedElement.value?.focus()
-      } else if (errorMessage.value) {
-        errorMessage.value = ''
-      } else if (successMessage.value) {
-        successMessage.value = ''
-      }
-    }
-  }
-
-  onMounted(() => {
-    globalThis.addEventListener('keydown', handleKeyDown)
-  })
-
-  onUnmounted(() => {
-    globalThis.removeEventListener('keydown', handleKeyDown)
-  })
-
   const openAIMode = () => {
     previouslyFocusedElement.value = globalThis.document.activeElement as HTMLElement
     aiMode.value = 'expanding'
@@ -126,7 +93,7 @@
   const closeAIMode = () => {
     aiMode.value = 'idle'
     aiTimeSlots.value = []
-    currentAiRequestId.value = null // Invalidate any in-flight AI requests
+    invalidateRequest() // Cancel any in-flight AI requests
     resetBookingState()
     previouslyFocusedElement.value?.focus()
     previouslyFocusedElement.value = null
@@ -139,8 +106,6 @@
   const handleSuggestionClick = (info: EventClickArg): void => {
     const props = info.event.extendedProps
     if (props?.isSuggestion) {
-      // Suggestion events are read-only on calendar
-      // User must click "Book Now" in Smart Suggestions panel to add to cart
       successMessage.value = 'Click "Book Now" in Smart Suggestions to book this slot'
       trackTimeout(() => {
         successMessage.value = ''
@@ -164,83 +129,12 @@
     )
   }
 
-  const handleGetAISuggestions = async () => {
-    if (!selectedSubjectId.value || !selectedBranchId.value || aiTimeSlots.value.length === 0) {
-      const missing = []
-      if (!selectedSubjectId.value) missing.push('a subject')
-      if (!selectedBranchId.value) missing.push('a branch')
-      if (aiTimeSlots.value.length === 0) missing.push('at least one time slot')
-      errorMessage.value = `To find teachers, please select ${missing.join(' and ')}`
-      return
-    }
-
-    // Validate all slots have valid time format and same duration
-    const durations = new Set<number>()
-    for (const slot of aiTimeSlots.value) {
-      const startMin = toMinutes(slot.start)
-      const endMin = toMinutes(slot.end)
-
-      if (isNaN(startMin) || isNaN(endMin)) {
-        errorMessage.value = 'Invalid time format. Please use HH:MM format (e.g., 09:30).'
-        return
-      }
-      if (startMin >= endMin) {
-        errorMessage.value = 'Start time must be before end time.'
-        return
-      }
-      durations.add(endMin - startMin)
-    }
-
-    if (durations.size !== 1) {
-      errorMessage.value = 'All AI time slots must use the same duration.'
-      return
-    }
-    const aiDuration = [...durations][0]
-
-    isEvaluating.value = true
-    errorMessage.value = ''
-    successMessage.value = ''
-
-    // Generate unique request ID to guard against stale responses
-    const requestId = Math.random().toString(36).substring(7)
-    currentAiRequestId.value = requestId
-
-    try {
-      const { bookingApi } = await import('../services/bookingApi')
-      const response = await bookingApi.evaluate({
-        subject_id: selectedSubjectId.value!,
-        branch_id: selectedBranchId.value!,
-        preferred_slots: aiTimeSlots.value,
-        duration_minutes: aiDuration,
-        preferred_teacher_id: selectedTeacherId.value ?? undefined,
-      })
-
-      // Only apply results if this is still the current request
-      if (currentAiRequestId.value !== requestId) {
-        return // Request was cancelled/invalidated by closing the panel
-      }
-
-      suggestions.value = response
-      showDetailedResults.value = true
-      activeTab.value = 'ai'
-      successMessage.value = `${response.results.length} teacher${response.results.length > 1 ? 's' : ''} available. Click a time slot on the calendar or a suggestion below to book.`
-      trackTimeout(() => {
-        successMessage.value = ''
-      }, 8000)
-    } catch (error) {
-      errorMessage.value = isNetworkError(error)
-        ? 'Network error. Check your connection and try again.'
-        : getErrorMessage(
-            error,
-            'No teachers available for those time slots. Try adding more time options or different days.'
-          )
-    } finally {
-      isEvaluating.value = false
-    }
+  const handleGetAISuggestions = () => {
+    getSuggestions(aiTimeSlots.value)
   }
 
   const retryAISearch = () => {
-    handleGetAISuggestions()
+    getSuggestions(aiTimeSlots.value)
   }
 
   // Add all selected slots to cart for a given teacher
