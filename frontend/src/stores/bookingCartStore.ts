@@ -6,9 +6,6 @@ import { getErrorMessage } from '../utils/errorHandler'
 import { validateDateRange, hasOverlapWithCart } from '../utils/dateValidation'
 import type { CartItem } from '../types/booking'
 
-// Static imports for cross-store access — Pinia store singletons are
-// initialized by the time any function body executes, so circular imports
-// resolve correctly through ESM live bindings.
 import { useBookingCalendarStore } from './bookingCalendarStore'
 import { useBookingSelectionStore } from './bookingSelectionStore'
 
@@ -139,7 +136,10 @@ export const useBookingCartStore = defineStore('bookingCart', () => {
     const newEndDate = new Date(endTime)
     const validation = validateDateRange(newStartDate, newEndDate)
     if (!validation.isValid) {
-      calendar.showError(new Error(validation.error || 'Invalid date'), 'Please select valid time slots')
+      calendar.showError(
+        new Error(validation.error || 'Invalid date'),
+        'Please select valid time slots'
+      )
       calendar.isAddingToCart = false
       return
     }

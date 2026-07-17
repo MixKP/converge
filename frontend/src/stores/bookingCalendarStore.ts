@@ -4,12 +4,7 @@ import { availabilityApi } from '../services/availabilityApi'
 import { bookingApi } from '../services/bookingApi'
 import { transformBackendAvailability } from '../utils/availabilityTransform'
 import type { EventInput, BusinessHoursInput } from '@fullcalendar/core'
-import type {
-  WeeklySlot,
-  BookingResponse,
-  BookingAlternative,
-  Booking,
-} from '../types'
+import type { WeeklySlot, BookingResponse, BookingAlternative, Booking } from '../types'
 import {
   getNextDateForDayOfWeek,
   formatTimeString,
@@ -367,36 +362,46 @@ export const useBookingCalendarStore = defineStore('bookingCalendar', () => {
     availabilityPromise = fetchAvailability()
     fetchConfirmedBookings()
 
-    // Use getter functions for watch sources — Pinia unwraps refs through the
-    // store interface, so we pass () => store.ref to avoid type issues.
-    watch(() => useBookingSelectionStore().selectedSubjectId, () => {
-      resetBookingState()
-    })
-
-    watch(() => useBookingSelectionStore().selectedTeacherId, async (teacherId) => {
-      if (availabilityPromise) {
-        await availabilityPromise
-      }
-      if (teacherId) {
-        updateBusinessHours(teacherId)
-      } else if (useBookingSelectionStore().selectedSubjectId) {
-        updateBusinessHoursFromTeachers(useBookingSelectionStore().filteredTeachers)
-      } else {
-        businessHours.value = []
-      }
-      resetBookingState()
-    })
-
-    watch(() => useBookingSelectionStore().filteredTeachers, (teachers) => {
-      updateBusinessHoursFromTeachers(teachers)
-    })
-
-    watch(() => useBookingSelectionStore().selectedBranchId, async (newBranchId) => {
-      if (newBranchId === null) {
-        useBookingSelectionStore().selectedTeacherId = null
+    watch(
+      () => useBookingSelectionStore().selectedSubjectId,
+      () => {
         resetBookingState()
       }
-    })
+    )
+
+    watch(
+      () => useBookingSelectionStore().selectedTeacherId,
+      async (teacherId) => {
+        if (availabilityPromise) {
+          await availabilityPromise
+        }
+        if (teacherId) {
+          updateBusinessHours(teacherId)
+        } else if (useBookingSelectionStore().selectedSubjectId) {
+          updateBusinessHoursFromTeachers(useBookingSelectionStore().filteredTeachers)
+        } else {
+          businessHours.value = []
+        }
+        resetBookingState()
+      }
+    )
+
+    watch(
+      () => useBookingSelectionStore().filteredTeachers,
+      (teachers) => {
+        updateBusinessHoursFromTeachers(teachers)
+      }
+    )
+
+    watch(
+      () => useBookingSelectionStore().selectedBranchId,
+      async (newBranchId) => {
+        if (newBranchId === null) {
+          useBookingSelectionStore().selectedTeacherId = null
+          resetBookingState()
+        }
+      }
+    )
   }
 
   return {

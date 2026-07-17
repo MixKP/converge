@@ -18,7 +18,11 @@ export function useAISuggestions() {
     slots: Array<{ day_of_week: number; start: string; end: string }>
   ): Promise<boolean> => {
     // Validate selection
-    if (!selectionStore.selectedSubjectId || !selectionStore.selectedBranchId || slots.length === 0) {
+    if (
+      !selectionStore.selectedSubjectId ||
+      !selectionStore.selectedBranchId ||
+      slots.length === 0
+    ) {
       const missing = []
       if (!selectionStore.selectedSubjectId) missing.push('a subject')
       if (!selectionStore.selectedBranchId) missing.push('a branch')
@@ -44,10 +48,7 @@ export function useAISuggestions() {
         return false
       }
       if (startMin >= endMin) {
-        calendarStore.showError(
-          new Error('Invalid range'),
-          'Start time must be before end time.'
-        )
+        calendarStore.showError(new Error('Invalid range'), 'Start time must be before end time.')
         return false
       }
       durations.add(endMin - startMin)
@@ -97,7 +98,10 @@ export function useAISuggestions() {
         error,
         isNetworkError(error)
           ? 'Network error. Check your connection and try again.'
-          : getErrorMessage(error, 'No teachers available for those time slots. Try adding more time options or different days.')
+          : getErrorMessage(
+              error,
+              'No teachers available for those time slots. Try adding more time options or different days.'
+            )
       )
       return false
     } finally {

@@ -48,7 +48,7 @@ export function useSubmitAvailability() {
         return days.indexOf(a.day) - days.indexOf(b.day) || a.start.localeCompare(b.start)
       })
   })
-  
+
   watch(selectedTeacherId, () => {
     events.value = []
     errorMessage.value = ''

@@ -10,7 +10,6 @@ import type { Subject, Teacher, Branch } from '../types'
 export const useBookingSelectionStore = defineStore('bookingSelection', () => {
   const teacherStore = useTeacherStore()
 
-  // Selection State
   const subjects = ref<Subject[]>([])
   const branches = ref<Branch[]>([])
   const filteredTeachers = ref<Teacher[]>([])
@@ -19,13 +18,11 @@ export const useBookingSelectionStore = defineStore('bookingSelection', () => {
   const preferredTeacherId = ref<number | null>(null)
   const isLoadingTeachers = ref(false)
 
-  // Computed
   const selectedTeacherId = computed({
     get: () => teacherStore.selectedTeacherId,
     set: (val) => teacherStore.setSelectedTeacherById(val),
   })
 
-  // Actions
   const fetchSubjects = async () => {
     const data = await subjectApi.getAll()
     subjects.value = data
@@ -47,7 +44,6 @@ export const useBookingSelectionStore = defineStore('bookingSelection', () => {
 
   let currentSubjectChangePromise: Promise<void> | null = null
 
-  // Debounced handler for subject changes — only handles selection state
   const handleSubjectChange = debounce(async (newSubjectId: number | null) => {
     currentSubjectChangePromise = (async () => {
       if (newSubjectId) {
@@ -63,7 +59,6 @@ export const useBookingSelectionStore = defineStore('bookingSelection', () => {
     await currentSubjectChangePromise
   }, 200)
 
-  // Watcher
   watch(selectedSubjectId, (newSubjectId) => {
     handleSubjectChange(newSubjectId)
   })
