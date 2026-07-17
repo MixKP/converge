@@ -13,7 +13,6 @@
 
   const {
     calendarRef,
-    activeTab,
     isEvaluating,
     errorMessage,
     successMessage,
