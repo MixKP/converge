@@ -1050,11 +1050,6 @@
   height: 1rem;
 }
 
-.view-arrow-icon {
-  width: 1rem;
-  height: 1rem;
-}
-
 /* Toast - consistent with SubmitAvailability */
 .toast {
   position: fixed;

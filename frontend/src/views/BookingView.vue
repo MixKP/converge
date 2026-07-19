@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
+  import { ref, computed, nextTick, onMounted } from 'vue'
   import { useBooking } from '../composables/useBooking'
   import { useBookingCart } from '../composables/useBookingCart'
   import { useScreenSize } from '../composables/useScreenSize'
@@ -48,35 +48,14 @@
   // Guard against rapid clicks on addAllSlotsToCart
   const isAddingToCart = ref(false)
 
-  // Mobile step flow: 'selection' -> 'calendar'
-  const mobileStep = ref<'selection' | 'calendar'>('selection')
-
   // AI-specific time slots (subject/branch/teacher now shared with manual form)
   const aiTimeSlots = ref<Array<{ day_of_week: number; start: string; end: string }>>([])
-
-  // Use != null instead of !! to allow ID 0 as valid value
-  const canProceedToCalendar = computed(
-    () => selectedSubjectId.value != null && selectedBranchId.value != null
-  )
 
   onMounted(() => {
     fetchCartItems()
     fetchSubjects()
     fetchBranches()
   })
-  onUnmounted(() => {
-    // useTimeoutCleanup and useScreenSize handle their own cleanup
-  })
-
-  const proceedToCalendar = () => {
-    if (canProceedToCalendar.value) {
-      mobileStep.value = 'calendar'
-    }
-  }
-
-  const backToSelection = () => {
-    mobileStep.value = 'selection'
-  }
 
   // Focus management
   const previouslyFocusedElement = ref<HTMLElement | null>(null)
@@ -468,36 +447,16 @@
       <!-- Desktop Layout (>768px) -->
       <div v-else class="booking-layout">
         <!-- Calendar Section -->
-        <div
-          class="calendar-section"
-          :class="{ 'calendar-section--hidden-mobile': isMobile && mobileStep === 'selection' }"
-        >
+        <div class="calendar-section">
           <div class="section-header">
             <div class="header-title">
               <h2 class="title">Availability</h2>
               <p class="subtitle">Select your preferred time slot</p>
             </div>
             <div class="header-actions">
-              <!-- Mobile: Edit Selection button -->
-              <button
-                v-if="isMobile && mobileStep === 'calendar' && aiMode === 'idle'"
-                type="button"
-                class="edit-selection-btn"
-                @click="backToSelection"
-              >
-                <svg class="edit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
-                  />
-                </svg>
-                Edit Selection
-              </button>
               <!-- Smart Suggestions button -->
               <button
-                v-if="aiMode === 'idle' && (!isMobile || mobileStep === 'selection')"
+                v-if="aiMode === 'idle'"
                 type="button"
                 class="ai-button"
                 aria-label="Open smart booking suggestions"
@@ -522,19 +481,6 @@
             </div>
           </div>
 
-          <!-- Mobile: Calendar hint -->
-          <div v-if="isMobile && mobileStep === 'calendar'" class="mobile-calendar-hint">
-            <svg class="hint-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"
-              />
-            </svg>
-            <span>Tap & drag on a time slot to select</span>
-          </div>
-
           <div class="calendar-wrapper">
             <div class="calendar-inner">
               <Calendar
@@ -555,42 +501,10 @@
               <CalendarDisabledOverlay v-else message="Select a subject to view availability" />
             </div>
           </div>
-
-          <!-- Mobile: Add to Booking section (shows after selecting time slots) -->
-          <div
-            v-if="isMobile && mobileStep === 'calendar' && events.length > 0"
-            class="mobile-add-to-cart"
-          >
-            <div class="mobile-slots-info">
-              <span class="mobile-slots-count">{{ events.length }}</span>
-              <span class="mobile-slots-label"
-                >slot{{ events.length > 1 ? 's' : '' }} selected</span
-              >
-            </div>
-            <button
-              type="button"
-              class="mobile-add-button"
-              :disabled="!selectedTeacherId || isAddingToCart"
-              @click="addAllSlotsToCart(selectedTeacherId)"
-            >
-              <svg class="mobile-add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M12 4.5v15m7.5-7.5h-15"
-                />
-              </svg>
-              <span>{{ selectedTeacherId ? 'Add to Booking' : 'Select a Teacher' }}</span>
-            </button>
-          </div>
         </div>
 
         <!-- Manual Booking Panel -->
-        <div
-          v-if="aiMode === 'idle' && (!isMobile || mobileStep === 'selection')"
-          class="control-panel"
-        >
+        <div v-if="aiMode === 'idle'" class="control-panel">
           <div class="panel-content">
             <!-- Selection Form -->
             <div class="selection-form">
@@ -659,25 +573,6 @@
                   </select>
                 </div>
               </div>
-
-              <!-- Mobile: View Availability button -->
-              <button
-                v-if="isMobile && mobileStep === 'selection'"
-                type="button"
-                class="view-availability-btn"
-                :disabled="!canProceedToCalendar"
-                @click="proceedToCalendar"
-              >
-                <span>View Availability</span>
-                <svg class="view-arrow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
-                  />
-                </svg>
-              </button>
             </div>
 
             <!-- Action Button -->
@@ -739,14 +634,17 @@
         </div>
       </div>
 
-      <!-- Desktop AI Panel Overlay (remove this, now using swap) -->
       <!-- Mobile Sticky Bottom Button -->
       <button
         v-if="isMobile"
         type="button"
         class="mobile-sticky-add-btn"
         :disabled="
-          !selectedSubjectId || !selectedBranchId || !selectedTeacherId || events.length === 0
+          !selectedSubjectId ||
+          !selectedBranchId ||
+          !selectedTeacherId ||
+          events.length === 0 ||
+          isAddingToCart
         "
         @click="addAllSlotsToCart(selectedTeacherId)"
       >
@@ -767,7 +665,11 @@
         type="button"
         class="tablet-sticky-add-btn"
         :disabled="
-          !selectedSubjectId || !selectedBranchId || !selectedTeacherId || events.length === 0
+          !selectedSubjectId ||
+          !selectedBranchId ||
+          !selectedTeacherId ||
+          events.length === 0 ||
+          isAddingToCart
         "
         @click="addAllSlotsToCart(selectedTeacherId)"
       >

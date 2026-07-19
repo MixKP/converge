@@ -16,6 +16,12 @@ export async function postApi<T>(endpoint: string, payload: unknown): Promise<T>
     body: JSON.stringify(payload),
   })
 }
+// Fetch a list endpoint, coalescing a null/absent body (e.g. a backend nil
+// slice serialized as JSON null) to an empty array so callers can safely map/filter.
+export async function fetchList<T>(endpoint: string, options?: RequestInit): Promise<T[]> {
+  const data = await fetchApi<T[] | null>(endpoint, options)
+  return data ?? []
+}
 export function createApiGetAll<T>(endpoint: string): () => Promise<T[]> {
-  return () => fetchApi<T[]>(endpoint)
+  return () => fetchList<T>(endpoint)
 }

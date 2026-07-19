@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { onMounted, onUnmounted, ref } from 'vue'
+  import { onMounted, ref } from 'vue'
   import { useRouter } from 'vue-router'
   import { useBookingCart } from '../composables/useBookingCart.ts'
   import PageLayout from '../components/PageLayout.vue'
@@ -64,20 +64,6 @@
       hour12: false,
     })
   }
-
-  const handleKeydown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      showClearConfirm.value = false
-    }
-  }
-
-  onMounted(() => {
-    window.addEventListener('keydown', handleKeydown)
-  })
-
-  onUnmounted(() => {
-    window.removeEventListener('keydown', handleKeydown)
-  })
 </script>
 
 <template>

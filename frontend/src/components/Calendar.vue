@@ -26,7 +26,7 @@
   interface Props {
     editable?: boolean
     businessHours?: BusinessHoursInput
-    constraint?: string | 'businessHours'
+    constraint?: string
     modelValue?: EventInput[]
     additionalEvents?: EventInput[]
   }
@@ -43,18 +43,21 @@
     'event-click': [info: EventClickArg]
   }>()
   const calendarRef = ref<InstanceType<typeof FullCalendar> | null>(null)
-  const { screenWidth } = useScreenSize()
+  // screenWidth kept only for the resize watcher trigger; all breakpoint
+  // decisions below use isMobile/isTablet/isDesktop from useScreenSize so
+  // this component never disagrees with the page-level layout breakpoints.
+  const { screenWidth, isMobile, isDesktop } = useScreenSize()
   onUnmounted(() => {
     // Clean up all event listeners
     eventListeners.forEach((_, el) => cleanupEventListeners(el))
     eventListeners.clear()
   })
   const dayHeaderFormat = computed(() => {
-    if (screenWidth.value < 640) {
+    if (isMobile.value) {
       // Mobile: S 7
       return { weekday: 'narrow' as const, day: 'numeric' as const }
     }
-    if (screenWidth.value < 1024) {
+    if (!isDesktop.value) {
       // Tablet: Sun 7
       return { weekday: 'short' as const, day: 'numeric' as const }
     }
@@ -64,8 +67,12 @@
 
   const initialView = computed(() => {
     // Mobile: show day view, Tablet/Desktop: show week view
-    return screenWidth.value < 768 ? 'timeGridDay' : 'timeGridWeek'
+    return isMobile.value ? 'timeGridDay' : 'timeGridWeek'
   })
+
+  // Touch-oriented long-press delays and double-click-to-delete are both
+  // mobile-only behaviors; tablet and desktop share the "pointer" behavior.
+  const longPressDelay = computed(() => (isMobile.value ? 400 : 50))
   const showDeleteDialog = ref(false)
   const eventToDelete = ref<string | null>(null)
   const cancelBtnRef = ref<HTMLButtonElement | null>(null)
@@ -231,12 +238,11 @@
       return
     }
 
-    // Check for double click (desktop only)
+    // Check for double click (non-mobile only)
     const timeSinceLastClick = now - lastClickTime.value
     const isDoubleClick = timeSinceLastClick < DOUBLE_CLICK_DELAY && lastClickedEventId.value === id
-    const isDesktop = screenWidth.value >= 768
 
-    if (isDesktop && isDoubleClick) {
+    if (!isMobile.value && isDoubleClick) {
       // Double click → show delete dialog
       eventToDelete.value = id
       showDeleteDialog.value = true
@@ -411,6 +417,22 @@
     lastDragTime.value = Date.now()
     handleEventChange()
   }
+
+  const hasAvailabilityForDay = (
+    dayOfWeek: number,
+    businessHours: BusinessHoursInput | undefined
+  ): boolean => {
+    const businessHoursArray = (
+      Array.isArray(businessHours) ? businessHours : []
+    ) as BusinessHourItem[]
+    return businessHoursArray.some((hour: BusinessHourItem) => {
+      if (Array.isArray(hour.daysOfWeek)) {
+        return hour.daysOfWeek.includes(dayOfWeek)
+      }
+      return false
+    })
+  }
+
   const handleDayHeaderDidMount = (info: { el: HTMLElement }) => {
     if (!props.businessHours) return
     const api = calendarRef.value?.getApi()
@@ -419,17 +441,7 @@
     const headerDate = new Date(info.el.getAttribute('data-date') || '')
     const dayOfWeek = headerDate.getDay()
 
-    const businessHoursArray = (
-      Array.isArray(props.businessHours) ? props.businessHours : []
-    ) as BusinessHourItem[]
-    const hasAvailability = businessHoursArray.some((hour: BusinessHourItem) => {
-      if (Array.isArray(hour.daysOfWeek)) {
-        return hour.daysOfWeek.includes(dayOfWeek)
-      }
-      return false
-    })
-
-    if (hasAvailability) {
+    if (hasAvailabilityForDay(dayOfWeek, props.businessHours)) {
       info.el.classList.add('has-availability')
     }
   }
@@ -451,9 +463,6 @@
     slotDuration: '00:30:00',
     snapDuration: '01:00:00',
     dayHeaderDidMount: handleDayHeaderDidMount,
-    longPressDelay: screenWidth.value < 768 ? 400 : 50,
-    eventLongPressDelay: screenWidth.value < 768 ? 400 : 50,
-    selectLongPressDelay: screenWidth.value < 768 ? 400 : 50,
     selectMinDistance: 5,
     eventOverlap: false,
   } as const
@@ -523,17 +532,7 @@
           const headerDate = new Date(dateStr)
           const dayOfWeek = headerDate.getDay()
 
-          const businessHoursArray = (
-            Array.isArray(newBusinessHours) ? newBusinessHours : []
-          ) as BusinessHourItem[]
-          const hasAvailability = businessHoursArray.some((hour: BusinessHourItem) => {
-            if (Array.isArray(hour.daysOfWeek)) {
-              return hour.daysOfWeek.includes(dayOfWeek)
-            }
-            return false
-          })
-
-          if (hasAvailability) {
+          if (hasAvailabilityForDay(dayOfWeek, newBusinessHours)) {
             headerEl.classList.add('has-availability')
           } else {
             headerEl.classList.remove('has-availability')
@@ -567,6 +566,9 @@
     eventResizeStart: handleEventResizeStart,
     eventResize: handleEventResize,
     dayHeaderFormat: dayHeaderFormat.value,
+    longPressDelay: longPressDelay.value,
+    eventLongPressDelay: longPressDelay.value,
+    selectLongPressDelay: longPressDelay.value,
   }))
 
   const setOption = <K extends keyof CalendarOptions>(key: K, value: CalendarOptions[K]) => {
@@ -576,9 +578,15 @@
     }
   }
 
-  // Watch for screen width changes to update day header format and view
+  // Watch for screen size changes to update day header format, view, and
+  // touch delays. isMobile/isTablet/isDesktop already update reactively from
+  // useScreenSize, but FullCalendar's imperative API options (view, longPressDelay)
+  // need to be explicitly re-applied when those refs change.
   watch(screenWidth, () => {
     setOption('dayHeaderFormat', dayHeaderFormat.value)
+    setOption('longPressDelay', longPressDelay.value)
+    setOption('eventLongPressDelay', longPressDelay.value)
+    setOption('selectLongPressDelay', longPressDelay.value)
     // Change view based on screen size
     const api = calendarRef.value?.getApi()
     if (api) {
@@ -613,7 +621,7 @@
       leave-to-class="opacity-0"
     >
       <button
-        v-if="selectedEventId && screenWidth < 768"
+        v-if="selectedEventId && isMobile"
         type="button"
         class="mobile-delete-btn"
         @click="handleDeleteButtonClick($event, selectedEventId)"
@@ -765,83 +773,6 @@
 
   .mobile-delete-btn:active {
     transform: translateX(-50%) scale(0.96);
-  }
-
-  /* Event action menu */
-  .event-action-menu {
-    position: absolute;
-    bottom: 1rem;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 30;
-    width: calc(100% - 2rem);
-    max-width: 320px;
-  }
-
-  .event-action-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border-subtle);
-    border-radius: 16px;
-    padding: 1rem 1.25rem;
-    box-shadow: var(--shadow-elevated);
-  }
-
-  .event-action-title {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-    margin-bottom: 0.75rem;
-    text-align: center;
-  }
-
-  .event-action-buttons {
-    display: flex;
-    gap: 0.75rem;
-  }
-
-  .event-action-btn {
-    flex: 1;
-    padding: 0.75rem 1rem;
-    font-size: 0.875rem;
-    font-weight: 600;
-    font-family: 'Inter', sans-serif;
-    border-radius: 12px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-
-  .event-action-btn--cancel {
-    color: var(--text-primary);
-    background: var(--bg-subtle);
-    border: 2px solid var(--border-subtle);
-  }
-
-  .event-action-btn--cancel:hover {
-    background: var(--border-subtle);
-  }
-
-  .event-action-btn--delete {
-    color: white;
-    background: linear-gradient(135deg, #e8a598 0%, #f5c7bf 100%);
-    border: none;
-    box-shadow: 0 4px 12px rgba(232, 165, 152, 0.3);
-  }
-
-  .event-action-btn--delete:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 16px rgba(232, 165, 152, 0.4);
-  }
-
-  .event-action-btn--resize {
-    color: white;
-    background: linear-gradient(135deg, var(--accent-sage) 0%, var(--accent-mint) 100%);
-    border: none;
-    box-shadow: 0 4px 12px rgba(157, 180, 160, 0.3);
-  }
-
-  .event-action-btn--resize:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 16px rgba(157, 180, 160, 0.4);
   }
 
   /* Show resize handles on selected events */
