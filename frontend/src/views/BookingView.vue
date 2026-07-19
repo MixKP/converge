@@ -25,7 +25,7 @@
     selectedTeacherId,
     suggestions,
     showDetailedResults,
-    suggestionEvents,
+    filteredSuggestionEvents,
     allEvents,
     initialize,
     resetBookingState,
@@ -39,7 +39,9 @@
   const { trackTimeout } = useTimeoutCleanup()
   const { getSuggestions, invalidateRequest } = useAISuggestions()
 
-  // All events for calendar: manual events + suggestion events + cart events (for overlap prevention)
+  // Model events for the calendar: manual events + cart events + booked events
+  // (cart events are included for overlap prevention). Suggestions are passed
+  // separately via :additional-events="filteredSuggestionEvents".
   const allCalendarEvents = computed(() => allEvents.value)
 
   const aiMode = ref<'idle' | 'expanding' | 'expanded'>('idle')
@@ -246,7 +248,7 @@
             <Calendar
               ref="calendarRef"
               :model-value="allCalendarEvents"
-              :additional-events="suggestionEvents"
+              :additional-events="filteredSuggestionEvents"
               :editable="!!selectedBranchId && !!selectedTeacherId"
               :business-hours="businessHours"
               constraint="businessHours"
@@ -380,7 +382,7 @@
             <Calendar
               ref="calendarRef"
               :model-value="allCalendarEvents"
-              :additional-events="suggestionEvents"
+              :additional-events="filteredSuggestionEvents"
               :editable="!!selectedBranchId && !!selectedTeacherId"
               :business-hours="businessHours"
               constraint="businessHours"
@@ -486,7 +488,7 @@
                 v-if="selectedSubjectId"
                 ref="calendarRef"
                 :model-value="allCalendarEvents"
-                :additional-events="suggestionEvents"
+                :additional-events="filteredSuggestionEvents"
                 :editable="!!selectedBranchId && !!selectedTeacherId"
                 :business-hours="businessHours"
                 constraint="businessHours"

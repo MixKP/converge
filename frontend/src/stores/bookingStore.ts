@@ -174,6 +174,29 @@ export const useBookingStore = defineStore('booking', () => {
     return result
   })
 
+  // Suggestions actually rendered on the calendar. A suggestion is hidden once
+  // its teacher already has a slot in the cart, so re-running a search for a
+  // slot that is already in the cart no longer resurfaces the yellow event.
+  const filteredSuggestionEvents = computed<EventInput[]>(() => {
+    // Lazy-access cart store to avoid circular dependency at module init
+    const cartStore = useCartStore()
+    const cartTeacherIds = new Set(cartStore.cartItems.map((item) => item.teacher_id))
+
+    return suggestionEvents.value.filter((event) => {
+      const teacherId = event.extendedProps?.teacherId
+
+      if (teacherId && cartTeacherIds.has(teacherId)) {
+        return false
+      }
+
+      if (selectedTeacherId.value) {
+        return teacherId === selectedTeacherId.value
+      }
+
+      return true
+    })
+  })
+
   // --- Cart & booked event mappers (shared by allEvents) ---
   const mapCartItemToEvent = (item: CartItem): EventInput => {
     const startDate = new Date(item.start_time)
@@ -247,22 +270,6 @@ export const useBookingStore = defineStore('booking', () => {
       return false
     })
 
-    const cartTeacherIds = new Set(cartStore.cartItems.map((item) => item.teacher_id))
-
-    const filteredSuggestionEvents = suggestionEvents.value.filter((event) => {
-      const teacherId = event.extendedProps?.teacherId
-
-      if (teacherId && cartTeacherIds.has(teacherId)) {
-        return false
-      }
-
-      if (selectedTeacherId.value) {
-        return teacherId === selectedTeacherId.value
-      }
-
-      return true
-    })
-
     const filteredBookedEvents = bookedEvents.value.filter((event) => {
       const props = event.extendedProps
       if (!props) return false
@@ -281,12 +288,10 @@ export const useBookingStore = defineStore('booking', () => {
       return false
     })
 
-    return [
-      ...events.value,
-      ...filteredSuggestionEvents,
-      ...filteredCartEvents,
-      ...filteredBookedEvents,
-    ]
+    // Suggestions are supplied separately via filteredSuggestionEvents (bound to
+    // the calendar's additional-events), so they are intentionally not included
+    // here.
+    return [...events.value, ...filteredCartEvents, ...filteredBookedEvents]
   })
 
   // --- Availability actions ---
@@ -416,6 +421,7 @@ export const useBookingStore = defineStore('booking', () => {
     suggestions,
     showDetailedResults,
     suggestionEvents,
+    filteredSuggestionEvents,
     allEvents,
     bookedEvents,
 

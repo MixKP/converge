@@ -1,27 +1,18 @@
 <script setup lang="ts">
-  import { ref, computed, watch, onUnmounted } from 'vue'
+  import { ref, computed } from 'vue'
   import FullCalendar from '@fullcalendar/vue3'
   import timeGridPlugin from '@fullcalendar/timegrid'
   import interactionPlugin from '@fullcalendar/interaction'
-  import { isSameDaySelection, createEvent, createOneHourEvent } from '../utils/calendarHelpers'
-  import { isValidDate, rangesOverlap } from '../utils/dateValidation'
-  import { useScreenSize } from '../composables/useScreenSize'
+  import { useCalendarResponsive } from '../composables/useCalendarResponsive'
+  import { useCalendarEventSync } from '../composables/useCalendarEventSync'
+  import { useBusinessHoursHeaders } from '../composables/useBusinessHoursHeaders'
+  import { useCalendarInteraction } from '../composables/useCalendarInteraction'
   import type {
     EventInput,
-    DateSelectArg,
     EventClickArg,
-    EventDropArg,
     BusinessHoursInput,
     CalendarOptions,
   } from '@fullcalendar/core'
-
-  interface BusinessHourItem {
-    daysOfWeek: number[]
-    startTime?: string
-    endTime?: string
-    start?: string
-    end?: string
-  }
 
   interface Props {
     editable?: boolean
@@ -42,129 +33,64 @@
     'update:modelValue': [value: EventInput[]]
     'event-click': [info: EventClickArg]
   }>()
+
   const calendarRef = ref<InstanceType<typeof FullCalendar> | null>(null)
-  // screenWidth kept only for the resize watcher trigger; all breakpoint
-  // decisions below use isMobile/isTablet/isDesktop from useScreenSize so
-  // this component never disagrees with the page-level layout breakpoints.
-  const { screenWidth, isMobile, isDesktop } = useScreenSize()
-  onUnmounted(() => {
-    // Clean up all event listeners
-    eventListeners.forEach((_, el) => cleanupEventListeners(el))
-    eventListeners.clear()
-  })
-  const dayHeaderFormat = computed(() => {
-    if (isMobile.value) {
-      // Mobile: S 7
-      return { weekday: 'narrow' as const, day: 'numeric' as const }
-    }
-    if (!isDesktop.value) {
-      // Tablet: Sun 7
-      return { weekday: 'short' as const, day: 'numeric' as const }
-    }
-    // Desktop: Sunday 7
-    return { weekday: 'long' as const, day: 'numeric' as const }
-  })
-
-  const initialView = computed(() => {
-    // Mobile: show day view, Tablet/Desktop: show week view
-    return isMobile.value ? 'timeGridDay' : 'timeGridWeek'
-  })
-
-  // Touch-oriented long-press delays and double-click-to-delete are both
-  // mobile-only behaviors; tablet and desktop share the "pointer" behavior.
-  const longPressDelay = computed(() => (isMobile.value ? 400 : 50))
-  const showDeleteDialog = ref(false)
-  const eventToDelete = ref<string | null>(null)
+  // Bound via the template; the interaction composable focuses it when the
+  // delete dialog opens.
   const cancelBtnRef = ref<HTMLButtonElement | null>(null)
-  const previouslyFocused = ref<HTMLElement | null>(null)
-  const selectedEventId = ref<string | null>(null)
-  const selectedEventEl = ref<HTMLElement | null>(null)
-  const lastDragTime = ref(0)
-  const handleEscapeKey = () => {
-    if (showDeleteDialog.value) {
-      closeDeleteDialog()
-    } else if (selectedEventId.value) {
-      deselectEvent()
-    }
-  }
-  const getCurrentEvents = (): EventInput[] => {
-    const api = calendarRef.value?.getApi()
-    if (!api) return []
-    return api
-      .getEvents()
-      .filter((e) => e.start != null && e.end != null)
-      .map((e) => ({
-        id: e.id,
-        start: e.start!,
-        end: e.end!,
-        title: e.title,
-      }))
-  }
-  // Check if time range overlaps with any cart event
-  const overlapsWithCartEvent = (start: Date, end: Date): boolean => {
-    // Check both modelValue (includes cart events now) and additionalEvents (suggestions)
-    const allEvents = [...(props.modelValue || []), ...(props.additionalEvents || [])]
-    const cartEvents = allEvents.filter((e) => e.extendedProps?.isCartItem === true)
-    for (const cartEvent of cartEvents) {
-      // Validate cart event has start/end
-      if (!cartEvent.start || !cartEvent.end) continue
 
-      const cartStart = new Date(cartEvent.start as Date)
-      const cartEnd = new Date(cartEvent.end as Date)
+  // Screen-size dependent options (view, header format, long-press delays).
+  const { isMobile, dayHeaderFormat, initialView, longPressDelay } =
+    useCalendarResponsive(calendarRef)
 
-      // Skip if dates are invalid or no overlap
-      if (!isValidDate(cartStart) || !isValidDate(cartEnd)) continue
+  // Availability decoration on day headers.
+  const { handleDayHeaderDidMount } = useBusinessHoursHeaders(
+    calendarRef,
+    () => props.businessHours
+  )
 
-      // Check for overlap using utility function
-      if (rangesOverlap(start, end, cartStart, cartEnd)) {
-        return true
-      }
-    }
-    return false
-  }
+  // All editable-event interaction: create, move/resize, select, delete, touch.
+  const {
+    selectedEventId,
+    showDeleteDialog,
+    handleContainerClick,
+    handleEscapeKey,
+    handleDeleteButtonClick,
+    closeDeleteDialog,
+    confirmDelete,
+    handleDateSelect,
+    handleSelectAllow,
+    handleEventAllow,
+    handleSlotClick,
+    handleEventClick,
+    handleEventDrop,
+    handleEventResizeStart,
+    handleEventResize,
+    handleEventClassNames,
+    handleEventDidMount,
+    handleEventWillUnmount,
+  } = useCalendarInteraction({
+    calendarRef,
+    isMobile,
+    cancelBtnRef,
+    isEditable: () => props.editable,
+    getModelValue: () => props.modelValue ?? [],
+    getAdditionalEvents: () => props.additionalEvents ?? [],
+    onUpdate: (events) => emit('update:modelValue', events),
+    onEventClick: (info) => emit('event-click', info),
+  })
 
-  const handleDateSelect = (selectInfo: DateSelectArg) => {
-    if (!props.editable) return
-    // Check for overlap with cart events
-    if (overlapsWithCartEvent(selectInfo.start, selectInfo.end)) {
-      return
-    }
-    const calendar = selectInfo.view.calendar
-    calendar.unselect()
-
-    const newEvent = createEvent(selectInfo.start, selectInfo.end)
-    emit('update:modelValue', [...(props.modelValue || []), newEvent])
-  }
-
-  const handleSelectAllow = (selectInfo: { start: Date; end: Date }) => {
-    if (!isSameDaySelection(selectInfo.start, selectInfo.end)) return false
-    // Also prevent selection if it overlaps with cart events
-    if (overlapsWithCartEvent(selectInfo.start, selectInfo.end)) return false
-    return true
-  }
-
-  const handleEventAllow = (dropInfo: { start: Date | null; end: Date | null }) => {
-    const start = dropInfo.start
-    const end = dropInfo.end
-    if (!start || !end) return false
-    if (!isSameDay(start, end)) return false
-    // Also prevent if it overlaps with cart events
-    if (overlapsWithCartEvent(start, end)) return false
-    return true
-  }
-
-  const handleSlotClick = (arg: { dateStr: string }) => {
-    if (!props.editable) return
-    const clickDate = new Date(arg.dateStr)
-    const endDate = new Date(clickDate)
-    endDate.setHours(clickDate.getHours() + 1)
-    // Check for overlap with cart events
-    if (overlapsWithCartEvent(clickDate, endDate)) {
-      return
-    }
-    const newEvent = createOneHourEvent(new Date(arg.dateStr))
-    emit('update:modelValue', [...(props.modelValue || []), newEvent])
-  }
+  // Keep the calendar in sync with the editable model events and the read-only
+  // suggestion events (the latter are added as non-editable).
+  useCalendarEventSync(calendarRef, () => props.modelValue)
+  useCalendarEventSync(
+    calendarRef,
+    () => props.additionalEvents,
+    (event) => ({
+      ...event,
+      editable: false,
+    })
+  )
 
   const formatTimeRange = (start: Date, end: Date): string => {
     const startHours = start.getHours()
@@ -181,268 +107,18 @@
     return `${startFormatted} ${startAmpm} - ${endFormatted} ${endAmpm}`
   }
 
-  const handleEventContent = (arg: {
-    event: {
-      start: Date | null
-      end: Date | null
-      id: string
-      title: string
-      extendedProps: {
-        isTeacherAvailability?: boolean
-        teacherNames?: string
-        teacherCount?: number
-      }
-    }
-  }) => {
+  const handleEventContent = (arg: { event: { start: Date | null; end: Date | null } }) => {
     const start = arg.event.start
     const end = arg.event.end
     if (!start || !end) return {}
 
-    // Default event content for regular events
     const timeRange = formatTimeRange(new Date(start), new Date(end))
-
     return {
       html: `
         <div class="custom-event-content">
           <div class="event-time-range">${timeRange}</div>
         </div>
       `,
-    }
-  }
-  const lastClickTime = ref(0)
-  const lastClickedEventId = ref<string | null>(null)
-  const DOUBLE_CLICK_DELAY = 300
-
-  const handleEventClick = (clickInfo: EventClickArg) => {
-    const id = clickInfo.event.id
-    if (!id) return
-
-    // Ignore clicks right after drag/resize
-    const now = Date.now()
-    if (now - lastDragTime.value < 200) {
-      return
-    }
-
-    // Check if clicking on resize handle or delete button
-    const target = clickInfo.jsEvent.target as HTMLElement
-    if (target.closest('.fc-event-resizer') || target.closest('.event-delete-btn')) {
-      return
-    }
-
-    const isSuggestionEvent =
-      id.startsWith('suggestion-') ||
-      !Array.isArray(props.modelValue) ||
-      !props.modelValue.some((e) => e.id === id)
-    if (isSuggestionEvent) {
-      emit('event-click', clickInfo)
-      return
-    }
-
-    // Check for double click (non-mobile only)
-    const timeSinceLastClick = now - lastClickTime.value
-    const isDoubleClick = timeSinceLastClick < DOUBLE_CLICK_DELAY && lastClickedEventId.value === id
-
-    if (!isMobile.value && isDoubleClick) {
-      // Double click → show delete dialog
-      eventToDelete.value = id
-      showDeleteDialog.value = true
-      deselectEvent()
-    } else {
-      // Single click → select event (show resize handles)
-      deselectEvent()
-      selectedEventId.value = id
-      selectedEventEl.value = clickInfo.el as HTMLElement
-    }
-
-    lastClickTime.value = now
-    lastClickedEventId.value = id
-  }
-
-  const handleDeleteButtonClick = (e: MouseEvent, eventId: string) => {
-    e.stopPropagation()
-    eventToDelete.value = eventId
-    showDeleteDialog.value = true
-    deselectEvent()
-  }
-
-  const deselectEvent = () => {
-    selectedEventId.value = null
-    selectedEventEl.value = null
-  }
-
-  // Store event listener references for cleanup
-  const eventListeners = new Map<
-    HTMLElement,
-    { touchstart: (e: Event) => void; touchend: (e: Event) => void }
-  >()
-
-  const cleanupEventListeners = (el: HTMLElement) => {
-    const listeners = eventListeners.get(el)
-    if (listeners) {
-      el.removeEventListener('touchstart', listeners.touchstart)
-      el.removeEventListener('touchend', listeners.touchend)
-      eventListeners.delete(el)
-    }
-  }
-
-  const handleEventClassNames = (arg: { event: { id: string } }): string[] => {
-    const classes: string[] = []
-    if (arg.event.id === selectedEventId.value) {
-      classes.push('fc-event-selected')
-    }
-    return classes
-  }
-
-  const handleEventDidMount = (info: {
-    event: {
-      id: string
-      extendedProps?: {
-        isTeacherAvailability?: boolean
-        teacherNames?: string
-        teacherCount?: number
-      }
-    }
-    el: HTMLElement
-  }) => {
-    const eventId = info.event.id
-    if (!eventId) return
-
-    if (eventId.startsWith('suggestion-')) return
-
-    // Check if this is a user event (editable)
-    const isUserEvent =
-      Array.isArray(props.modelValue) && props.modelValue.some((e) => e.id === eventId)
-    if (!isUserEvent) return
-
-    // Add click handler for touch devices
-    const el = info.el
-    let touchStartTime = 0
-
-    const touchStartHandler = (_e: Event) => {
-      touchStartTime = Date.now()
-    }
-
-    const touchEndHandler = (e: Event) => {
-      const touchDuration = Date.now() - touchStartTime
-
-      // Quick tap = select event
-      if (touchDuration < 300) {
-        const touch = (e as TouchEvent).changedTouches[0]
-        const target = touch.target as HTMLElement
-
-        // Don't select if tapping on resize handle
-        if (target.closest('.fc-event-resizer') || target.closest('.event-delete-btn')) {
-          return
-        }
-
-        // Select the event
-        deselectEvent()
-        selectedEventId.value = eventId
-        selectedEventEl.value = el
-      }
-    }
-
-    el.addEventListener('touchstart', touchStartHandler, { passive: true })
-    el.addEventListener('touchend', touchEndHandler, { passive: true })
-
-    // Store references for cleanup
-    eventListeners.set(el, { touchstart: touchStartHandler, touchend: touchEndHandler })
-  }
-
-  const handleEventWillUnmount = (info: { event: { id: string }; el: HTMLElement }) => {
-    cleanupEventListeners(info.el)
-  }
-
-  const handleContainerClick = (e: MouseEvent) => {
-    // If clicking on the container (not an event), deselect
-    if ((e.target as HTMLElement).classList.contains('calendar-container')) {
-      deselectEvent()
-    }
-  }
-
-  const confirmDelete = () => {
-    if (eventToDelete.value) {
-      const filteredEvents = (props.modelValue || []).filter((e) => e.id !== eventToDelete.value)
-      emit('update:modelValue', filteredEvents)
-    }
-    closeDeleteDialog()
-  }
-
-  const closeDeleteDialog = () => {
-    showDeleteDialog.value = false
-    eventToDelete.value = null
-  }
-  const isSameDay = (date1: Date, date2: Date): boolean => {
-    return (
-      date1.getFullYear() === date2.getFullYear() &&
-      date1.getMonth() === date2.getMonth() &&
-      date1.getDate() === date2.getDate()
-    )
-  }
-
-  const handleEventChange = () => {
-    emit('update:modelValue', getCurrentEvents())
-  }
-  const handleEventDrop = (info: EventDropArg) => {
-    const oldStart = info.oldEvent.start
-    const newStart = info.event.start
-    if (!oldStart || !newStart) {
-      info.revert()
-      return
-    }
-    if (!isSameDay(oldStart, newStart)) {
-      info.revert()
-      return
-    }
-    lastDragTime.value = Date.now()
-    handleEventChange()
-  }
-  const handleEventResizeStart = () => {
-    // Don't deselect when entering resize mode - keeps selection visible
-  }
-  const handleEventResize = (info: {
-    event: { start: Date | null; end: Date | null }
-    revert: () => void
-  }) => {
-    const start = info.event.start
-    const end = info.event.end
-    if (!start || !end) {
-      info.revert()
-      return
-    }
-    if (!isSameDay(start, end)) {
-      info.revert()
-      return
-    }
-    lastDragTime.value = Date.now()
-    handleEventChange()
-  }
-
-  const hasAvailabilityForDay = (
-    dayOfWeek: number,
-    businessHours: BusinessHoursInput | undefined
-  ): boolean => {
-    const businessHoursArray = (
-      Array.isArray(businessHours) ? businessHours : []
-    ) as BusinessHourItem[]
-    return businessHoursArray.some((hour: BusinessHourItem) => {
-      if (Array.isArray(hour.daysOfWeek)) {
-        return hour.daysOfWeek.includes(dayOfWeek)
-      }
-      return false
-    })
-  }
-
-  const handleDayHeaderDidMount = (info: { el: HTMLElement }) => {
-    if (!props.businessHours) return
-    const api = calendarRef.value?.getApi()
-    if (!api) return
-
-    const headerDate = new Date(info.el.getAttribute('data-date') || '')
-    const dayOfWeek = headerDate.getDay()
-
-    if (hasAvailabilityForDay(dayOfWeek, props.businessHours)) {
-      info.el.classList.add('has-availability')
     }
   }
 
@@ -466,81 +142,7 @@
     selectMinDistance: 5,
     eventOverlap: false,
   } as const
-  watch(
-    () => props.modelValue,
-    (newEvents, oldEvents) => {
-      const api = calendarRef.value?.getApi()
-      if (!api) return
-      const oldIds = new Set(
-        (oldEvents ?? []).map((e) => e.id).filter((id): id is string => id != null)
-      )
-      const newIds = new Set(
-        (newEvents ?? []).map((e) => e.id).filter((id): id is string => id != null)
-      )
-      for (const id of oldIds) {
-        if (!newIds.has(id)) {
-          api.getEventById(id)?.remove()
-        }
-      }
-      for (const event of newEvents ?? []) {
-        if (!event.id) continue
-        const existing = api.getEventById(event.id)
-        if (!existing) {
-          api.addEvent(event)
-        }
-      }
-    },
-    { immediate: true }
-  )
-  watch(
-    () => props.additionalEvents,
-    (newEvents, oldEvents) => {
-      const api = calendarRef.value?.getApi()
-      if (!api) return
-      const oldIds = new Set(
-        (oldEvents ?? []).map((e) => e.id).filter((id): id is string => id != null)
-      )
-      const newIds = new Set(
-        (newEvents ?? []).map((e) => e.id).filter((id): id is string => id != null)
-      )
-      for (const id of oldIds) {
-        if (!newIds.has(id)) {
-          api.getEventById(id)?.remove()
-        }
-      }
-      for (const event of newEvents ?? []) {
-        if (!event.id) continue
-        const existing = api.getEventById(event.id)
-        if (!existing) {
-          api.addEvent({ ...event, editable: false })
-        }
-      }
-    },
-    { immediate: true }
-  )
-  watch(
-    () => props.businessHours,
-    (newBusinessHours) => {
-      const api = calendarRef.value?.getApi()
-      if (api) {
-        api.setOption('businessHours', newBusinessHours)
-        // Update day header classes based on availability
-        const headerEls = api.el.querySelectorAll('.fc-col-header-cell') as NodeListOf<HTMLElement>
-        headerEls.forEach((headerEl) => {
-          const dateStr = headerEl.getAttribute('data-date')
-          if (!dateStr) return
-          const headerDate = new Date(dateStr)
-          const dayOfWeek = headerDate.getDay()
 
-          if (hasAvailabilityForDay(dayOfWeek, newBusinessHours)) {
-            headerEl.classList.add('has-availability')
-          } else {
-            headerEl.classList.remove('has-availability')
-          }
-        })
-      }
-    }
-  )
   const calendarOptions = computed(() => ({
     plugins: [timeGridPlugin, interactionPlugin],
     ...CALENDAR_DEFAULT_OPTIONS,
@@ -578,33 +180,6 @@
     }
   }
 
-  // Watch for screen size changes to update day header format, view, and
-  // touch delays. isMobile/isTablet/isDesktop already update reactively from
-  // useScreenSize, but FullCalendar's imperative API options (view, longPressDelay)
-  // need to be explicitly re-applied when those refs change.
-  watch(screenWidth, () => {
-    setOption('dayHeaderFormat', dayHeaderFormat.value)
-    setOption('longPressDelay', longPressDelay.value)
-    setOption('eventLongPressDelay', longPressDelay.value)
-    setOption('selectLongPressDelay', longPressDelay.value)
-    // Change view based on screen size
-    const api = calendarRef.value?.getApi()
-    if (api) {
-      const newView = initialView.value
-      if (api.view.type !== newView) {
-        api.changeView(newView)
-      }
-    }
-  })
-
-  watch(showDeleteDialog, (isOpen) => {
-    if (isOpen) {
-      cancelBtnRef.value?.focus()
-    } else {
-      previouslyFocused.value?.focus()
-      previouslyFocused.value = null
-    }
-  })
   defineExpose({ setOption })
 </script>
 <template>

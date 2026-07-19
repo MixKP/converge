@@ -23,6 +23,7 @@ export function useBooking() {
     suggestions: refs.suggestions,
     showDetailedResults: refs.showDetailedResults,
     suggestionEvents: refs.suggestionEvents,
+    filteredSuggestionEvents: refs.filteredSuggestionEvents,
     allEvents: refs.allEvents,
 
     // Actions
