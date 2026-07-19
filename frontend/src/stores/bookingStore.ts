@@ -174,9 +174,22 @@ export const useBookingStore = defineStore('booking', () => {
     return result
   })
 
+  // Weekday + time-of-day key for a teacher's slot. Suggestion starts are
+  // projected to the next occurrence of their weekday, so a confirmed booking
+  // (which carries an absolute date) is matched on weekday + time rather than
+  // on the exact date.
+  const slotKey = (teacherId: number, date: Date): string =>
+    `${teacherId}-${date.getDay()}-${date.getHours()}:${date.getMinutes()}`
+
+  const bookedSlotKeys = computed<Set<string>>(
+    () =>
+      new Set(confirmedBookings.value.map((b) => slotKey(b.teacher_id, new Date(b.start_time))))
+  )
+
   // Suggestions actually rendered on the calendar. A suggestion is hidden once
-  // its teacher already has a slot in the cart, so re-running a search for a
-  // slot that is already in the cart no longer resurfaces the yellow event.
+  // its teacher already has that slot in the cart OR has already confirmed a
+  // booking for it, so it no longer resurfaces the yellow event — including
+  // after the cart item is confirmed and cleared.
   const filteredSuggestionEvents = computed<EventInput[]>(() => {
     // Lazy-access cart store to avoid circular dependency at module init
     const cartStore = useCartStore()
@@ -186,6 +199,15 @@ export const useBookingStore = defineStore('booking', () => {
       const teacherId = event.extendedProps?.teacherId
 
       if (teacherId && cartTeacherIds.has(teacherId)) {
+        return false
+      }
+
+      // Hide a suggestion whose exact slot has since been booked.
+      if (
+        teacherId &&
+        event.start &&
+        bookedSlotKeys.value.has(slotKey(teacherId, new Date(event.start as string)))
+      ) {
         return false
       }
 

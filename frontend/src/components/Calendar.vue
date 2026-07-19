@@ -183,7 +183,10 @@
   defineExpose({ setOption })
 </script>
 <template>
-  <div class="calendar-container" @click="handleContainerClick">
+  <div
+    class="calendar-container h-full overflow-x-hidden overflow-y-auto md:overflow-y-hidden rounded-2xl border border-(--border-subtle) bg-(--paper-white) shadow-[0_4px_16px_rgba(45,74,62,0.06)] [-webkit-tap-highlight-color:transparent] [&_*]:[-webkit-tap-highlight-color:transparent]"
+    @click="handleContainerClick"
+  >
     <FullCalendar ref="calendarRef" :options="calendarOptions" />
 
     <!-- Mobile delete button (appears when event is selected on mobile) -->
@@ -198,7 +201,8 @@
       <button
         v-if="selectedEventId && isMobile"
         type="button"
-        class="mobile-delete-btn"
+        class="fixed bottom-8 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-6 py-3.5 text-[0.9375rem] font-semibold text-white rounded-2xl shadow-[0_6px_20px_rgba(232,165,152,0.4)] cursor-pointer transition-all duration-200 active:scale-[0.96] [-webkit-tap-highlight-color:transparent]"
+        style="background: linear-gradient(135deg, #e8a598 0%, #f5c7bf 100%)"
         @click="handleDeleteButtonClick($event, selectedEventId)"
       >
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -287,25 +291,11 @@
 </template>
 
 <style scoped>
-  .calendar-container {
-    border: 1px solid var(--border-subtle);
-    border-radius: 16px;
-    overflow: hidden;
-    height: 100%;
-    background: var(--paper-white, #fff);
-    box-shadow: 0 4px 16px rgba(45, 74, 62, 0.06);
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .calendar-container * {
-    -webkit-tap-highlight-color: transparent;
-  }
+  /* FullCalendar renders its own DOM at runtime, so these overrides target its
+     internal elements via :deep() and must stay as CSS — they cannot be moved
+     onto utility classes in a template we don't own. */
 
   @media (max-width: 767px) {
-    .calendar-container {
-      overflow-y: auto;
-    }
-
     /* Visual feedback during drag/resize on mobile */
     :deep(.fc-event.fc-event-selected) {
       opacity: 1;
@@ -320,34 +310,6 @@
       border: 2px solid white !important;
       opacity: 1 !important;
     }
-  }
-
-  /* Mobile delete button */
-  .mobile-delete-btn {
-    position: fixed;
-    bottom: 2rem;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 30;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.875rem 1.5rem;
-    font-size: 0.9375rem;
-    font-weight: 600;
-    font-family: 'Inter', sans-serif;
-    color: white;
-    background: linear-gradient(135deg, #e8a598 0%, #f5c7bf 100%);
-    border: none;
-    border-radius: 16px;
-    box-shadow: 0 6px 20px rgba(232, 165, 152, 0.4);
-    cursor: pointer;
-    transition: all 0.2s ease;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .mobile-delete-btn:active {
-    transform: translateX(-50%) scale(0.96);
   }
 
   /* Show resize handles on selected events */

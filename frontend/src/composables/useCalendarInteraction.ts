@@ -62,6 +62,14 @@ export function useCalendarInteraction(options: InteractionOptions) {
     return false
   }
 
+  // Read-only decoration events (cart items, confirmed bookings, suggestions)
+  // are passed in via modelValue/additional-events for display and overlap
+  // checks, but they are NOT part of the user's editable selection. They must
+  // never be echoed back through update:modelValue, or the parent would treat
+  // them as user-drawn slots (e.g. add booked/cart slots to the cart again).
+  const editableModelValue = (): EventInput[] =>
+    getModelValue().filter((e) => e.editable !== false)
+
   // ---- Event creation & constraints ---------------------------------------
 
   const handleDateSelect = (selectInfo: DateSelectArg) => {
@@ -69,7 +77,7 @@ export function useCalendarInteraction(options: InteractionOptions) {
     if (overlapsWithCartEvent(selectInfo.start, selectInfo.end)) return
 
     selectInfo.view.calendar.unselect()
-    onUpdate([...getModelValue(), createEvent(selectInfo.start, selectInfo.end)])
+    onUpdate([...editableModelValue(), createEvent(selectInfo.start, selectInfo.end)])
   }
 
   const handleSelectAllow = (selectInfo: { start: Date; end: Date }) => {
@@ -94,7 +102,7 @@ export function useCalendarInteraction(options: InteractionOptions) {
     endDate.setHours(clickDate.getHours() + 1)
     if (overlapsWithCartEvent(clickDate, endDate)) return
 
-    onUpdate([...getModelValue(), createOneHourEvent(new Date(arg.dateStr))])
+    onUpdate([...editableModelValue(), createOneHourEvent(new Date(arg.dateStr))])
   }
 
   // ---- Move / resize ------------------------------------------------------
@@ -107,6 +115,14 @@ export function useCalendarInteraction(options: InteractionOptions) {
     return api
       .getEvents()
       .filter((e) => e.start != null && e.end != null)
+      // Exclude read-only decoration events (cart/booked/suggestions) so they
+      // are never emitted back as user-editable slots.
+      .filter(
+        (e) =>
+          !e.extendedProps?.isCartItem &&
+          !e.extendedProps?.isBooked &&
+          !e.extendedProps?.isSuggestion
+      )
       .map((e) => ({ id: e.id, start: e.start!, end: e.end!, title: e.title }))
   }
 
@@ -196,7 +212,7 @@ export function useCalendarInteraction(options: InteractionOptions) {
 
   const confirmDelete = () => {
     if (eventToDelete.value) {
-      onUpdate(getModelValue().filter((e) => e.id !== eventToDelete.value))
+      onUpdate(editableModelValue().filter((e) => e.id !== eventToDelete.value))
     }
     closeDeleteDialog()
   }
