@@ -4,18 +4,21 @@ import { bookingApi } from '../services/bookingApi'
 import { getValidatedArray, setItem } from '../utils/storage'
 import { getErrorMessage } from '../utils/errorHandler'
 import { validateDateRange, hasOverlapWithCart } from '../utils/dateValidation'
+import { useNotification } from '../composables/useNotification'
 import type { CartItem } from '../types/booking'
 
-import { useBookingCalendarStore } from './bookingCalendarStore'
-import { useBookingSelectionStore } from './bookingSelectionStore'
+import { useBookingStore } from './bookingStore'
 
-export const useBookingCartStore = defineStore('bookingCart', () => {
+export const useCartStore = defineStore('cart', () => {
+  const { errorMessage, showSuccess, showError, clearMessages } = useNotification()
+
   // Cart State
   const cartItems = ref<CartItem[]>([])
-  const cartIsLoading = ref(false)
+  const isConfirming = ref(false)
 
   // Internal state
   let cartIdCounter = 0
+  let isAddingToCart = false
 
   // Type guard
   const isCartItem = (value: unknown): value is CartItem => {
@@ -48,7 +51,7 @@ export const useBookingCartStore = defineStore('bookingCart', () => {
   }
 
   // Persistence
-  const fetchCartItems = () => {
+  const loadCart = () => {
     const loaded = getValidatedArray('bookingCart', isCartItem)
     cartItems.value = loaded
     // Sync counter to avoid ID collisions with persisted items
@@ -95,10 +98,10 @@ export const useBookingCartStore = defineStore('bookingCart', () => {
     cartItems.value.push(newItem)
     saveCart()
 
-    useBookingCalendarStore().showSuccess('Added to cart', 2000)
+    showSuccess('Added to cart', 2000)
   }
 
-  const removeItem = (id: number) => {
+  const removeCartItem = (id: number) => {
     cartItems.value = cartItems.value.filter((item) => item.id !== id)
     saveCart()
   }
@@ -108,7 +111,7 @@ export const useBookingCartStore = defineStore('bookingCart', () => {
     saveCart()
   }
 
-  const addToCartDirectly = (
+  const addSlotToCart = (
     teacherId: number,
     teacherName: string,
     startTime: string,
@@ -116,45 +119,41 @@ export const useBookingCartStore = defineStore('bookingCart', () => {
     subjectId?: number,
     branchId?: number
   ): void => {
-    const calendar = useBookingCalendarStore()
-    if (calendar.isAddingToCart) return
+    if (isAddingToCart) return
 
-    const selection = useBookingSelectionStore()
-    const effectiveSubjectId = subjectId ?? selection.selectedSubjectId
-    const effectiveBranchId = branchId ?? selection.selectedBranchId
+    const booking = useBookingStore()
+    const effectiveSubjectId = subjectId ?? booking.selectedSubjectId
+    const effectiveBranchId = branchId ?? booking.selectedBranchId
     if (!effectiveBranchId || !effectiveSubjectId) {
-      calendar.showError(
+      showError(
         new Error('Branch and subject must be selected'),
         'Please select branch and subject before adding to cart'
       )
       return
     }
 
-    calendar.isAddingToCart = true
+    isAddingToCart = true
 
     const newStartDate = new Date(startTime)
     const newEndDate = new Date(endTime)
     const validation = validateDateRange(newStartDate, newEndDate)
     if (!validation.isValid) {
-      calendar.showError(
-        new Error(validation.error || 'Invalid date'),
-        'Please select valid time slots'
-      )
-      calendar.isAddingToCart = false
+      showError(new Error(validation.error || 'Invalid date'), 'Please select valid time slots')
+      isAddingToCart = false
       return
     }
 
     if (hasOverlapWithCart(startTime, endTime, teacherId, cartItems.value)) {
-      calendar.showError(
+      showError(
         new Error('Time slot already in cart'),
         'This time slot is already in your cart for this teacher'
       )
-      calendar.isAddingToCart = false
+      isAddingToCart = false
       return
     }
 
-    const subject = selection.subjects.find((s: { id: number }) => s.id === effectiveSubjectId)
-    const branch = selection.branches.find((b: { id: number }) => b.id === effectiveBranchId)
+    const subject = booking.subjects.find((s) => s.id === effectiveSubjectId)
+    const branch = booking.branches.find((b) => b.id === effectiveBranchId)
     addToCart({
       teacher_id: teacherId,
       teacher_name: teacherName,
@@ -166,20 +165,19 @@ export const useBookingCartStore = defineStore('bookingCart', () => {
       end_time: endTime,
       client_name: 'Guest',
     })
-    calendar.showSuccess('Added to cart!')
-    calendar.events = []
-    calendar.isAddingToCart = false
+    showSuccess('Added to cart!')
+    booking.events = []
+    isAddingToCart = false
   }
 
-  const submitBookings = async () => {
+  const confirmBookings = async () => {
     if (cartItems.value.length === 0) return
-    if (cartIsLoading.value) return
+    if (isConfirming.value) return
 
-    const calendar = useBookingCalendarStore()
+    const booking = useBookingStore()
 
-    cartIsLoading.value = true
-    calendar.errorMessage = ''
-    calendar.successMessage = ''
+    isConfirming.value = true
+    clearMessages()
 
     try {
       const promises = cartItems.value.map((item) =>
@@ -226,38 +224,37 @@ export const useBookingCartStore = defineStore('bookingCart', () => {
       const successCount = successfulItemIds.size
 
       if (conflictCount > 0) {
-        calendar.errorMessage = 'You already booked this subject'
+        errorMessage.value = 'You already booked this subject'
         setTimeout(() => {
-          calendar.errorMessage = ''
+          errorMessage.value = ''
         }, 4000)
       } else if (successCount > 0 && otherFailedCount === 0) {
-        calendar.successMessage = `Successfully confirmed ${successCount} booking(s)!`
-        calendar.fetchConfirmedBookings()
+        showSuccess(`Successfully confirmed ${successCount} booking(s)!`)
+        booking.fetchConfirmedBookings()
       } else if (otherFailedCount > 0) {
-        calendar.errorMessage = `${otherFailedCount} booking(s) failed. ${successCount} confirmed.`
+        errorMessage.value = `${otherFailedCount} booking(s) failed. ${successCount} confirmed.`
         setTimeout(() => {
-          calendar.errorMessage = ''
+          errorMessage.value = ''
         }, 4000)
       }
     } catch (error) {
-      calendar.errorMessage = getErrorMessage(error, 'Failed to confirm bookings')
+      showError(error, getErrorMessage(error, 'Failed to confirm bookings'))
     } finally {
-      cartIsLoading.value = false
+      isConfirming.value = false
     }
   }
 
   return {
     // State
     cartItems,
-    cartIsLoading,
+    isConfirming,
 
     // Actions
-    fetchCartItems,
+    loadCart,
     addToCart,
-    addToCartDirectly,
-    removeItem,
+    addSlotToCart,
+    removeCartItem,
     clearCart,
-    submitBookings,
-    saveCart,
+    confirmBookings,
   }
 })

@@ -1,62 +1,36 @@
 import { storeToRefs } from 'pinia'
-import { useBookingSelectionStore } from '../stores/bookingSelectionStore'
-import { useBookingCalendarStore } from '../stores/bookingCalendarStore'
-import { useBookingCartStore } from '../stores/bookingCartStore'
+import { useBookingStore } from '../stores/bookingStore'
 
 export function useBooking() {
-  const selectionStore = useBookingSelectionStore()
-  const calendarStore = useBookingCalendarStore()
-  const cartStore = useBookingCartStore()
-
-  const selectionRefs = storeToRefs(selectionStore)
-  const calendarRefs = storeToRefs(calendarStore)
-  const cartRefs = storeToRefs(cartStore)
+  const bookingStore = useBookingStore()
+  const refs = storeToRefs(bookingStore)
 
   return {
-    // UI State (from calendar store)
-    calendarRef: calendarRefs.calendarRef,
-    activeTab: calendarRefs.activeTab,
-    isEvaluating: calendarRefs.isEvaluating,
-    isLoadingTeachers: selectionRefs.isLoadingTeachers,
-    errorMessage: calendarRefs.errorMessage,
-    successMessage: calendarRefs.successMessage,
+    // Selection State
+    subjects: refs.subjects,
+    branches: refs.branches,
+    filteredTeachers: refs.filteredTeachers,
+    selectedSubjectId: refs.selectedSubjectId,
+    selectedBranchId: refs.selectedBranchId,
+    selectedTeacherId: refs.selectedTeacherId,
+    isLoadingTeachers: refs.isLoadingTeachers,
 
-    // Selection State (from selection store)
-    events: calendarRefs.events,
-    businessHours: calendarRefs.businessHours,
-    subjects: selectionRefs.subjects,
-    branches: selectionRefs.branches,
-    filteredTeachers: selectionRefs.filteredTeachers,
-    selectedSubjectId: selectionRefs.selectedSubjectId,
-    selectedBranchId: selectionRefs.selectedBranchId,
-    selectedTeacherId: selectionRefs.selectedTeacherId,
-    suggestions: calendarRefs.suggestions,
-    showDetailedResults: calendarRefs.showDetailedResults,
-    suggestionEvents: calendarRefs.suggestionEvents,
-    allEvents: calendarRefs.allEvents,
+    // Calendar & Availability State
+    calendarRef: refs.calendarRef,
+    isEvaluating: refs.isEvaluating,
+    events: refs.events,
+    businessHours: refs.businessHours,
+    suggestions: refs.suggestions,
+    showDetailedResults: refs.showDetailedResults,
+    suggestionEvents: refs.suggestionEvents,
+    allEvents: refs.allEvents,
 
-    // Cart (from cart store)
-    cartItems: cartRefs.cartItems,
-    cartIsLoading: cartRefs.cartIsLoading,
-
-    // Actions (from calendar store)
-    resetBookingState: calendarStore.resetBookingState,
-    addEvent: calendarStore.addEvent,
-    showSuccess: calendarStore.showSuccess,
-    showError: calendarStore.showError,
-    initWatchers: calendarStore.initialize,
-
-    // Actions (from selection store)
-    fetchSubjects: selectionStore.fetchSubjects,
-    fetchBranches: selectionStore.fetchBranches,
-
-    // Actions (from cart store)
-    addToCartDirectly: cartStore.addToCartDirectly,
-    addToCart: cartStore.addToCart,
-    removeItem: cartStore.removeItem,
-    clearCart: cartStore.clearCart,
-    submitBookings: cartStore.submitBookings,
-    fetchCartItems: cartStore.fetchCartItems,
+    // Actions
+    fetchSubjects: bookingStore.fetchSubjects,
+    fetchBranches: bookingStore.fetchBranches,
+    resetBookingState: bookingStore.resetBookingState,
+    fetchConfirmedBookings: bookingStore.fetchConfirmedBookings,
+    initialize: bookingStore.initialize,
   }
 }
 

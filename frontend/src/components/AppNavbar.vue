@@ -1,7 +1,7 @@
 <script setup lang="ts">
   import { computed, onMounted } from 'vue'
   import { useRouter } from 'vue-router'
-  import { useBookingCart } from '../composables/useBookingCart'
+  import { useCart } from '../composables/useCart'
 
   interface Props {
     title: string
@@ -13,7 +13,7 @@
   })
 
   const router = useRouter()
-  const { cartItems, fetchCartItems } = useBookingCart()
+  const { cartItems, loadCart } = useCart()
   const cartCount = computed(() => cartItems.value.length)
 
   const goToCart = () => {
@@ -21,7 +21,7 @@
   }
 
   onMounted(() => {
-    fetchCartItems()
+    loadCart()
   })
 </script>
 

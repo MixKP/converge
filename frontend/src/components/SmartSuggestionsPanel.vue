@@ -3,7 +3,7 @@
   import BookingResults from './BookingResults.vue'
   import { toMinutes } from '../utils/dateValidation'
   import type { BookingResponse } from '../types'
-  import type { CartItem } from '../composables/useBookingCart'
+  import type { CartItem } from '../types/booking'
 
   interface TimeSlot {
     day_of_week: number

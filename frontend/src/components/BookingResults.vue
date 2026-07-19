@@ -1,7 +1,7 @@
 <script setup lang="ts">
   import { ref, watch } from 'vue'
   import type { BookingResponse } from '../types'
-  import type { CartItem } from '../composables/useBookingCart'
+  import type { CartItem } from '../types/booking'
   import { rangesOverlap } from '../utils/dateValidation'
 
   interface Props {

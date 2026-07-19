@@ -1,29 +1,23 @@
 <script setup lang="ts">
   import { onMounted, ref } from 'vue'
   import { useRouter } from 'vue-router'
-  import { useBookingCart } from '../composables/useBookingCart.ts'
+  import { useCart } from '../composables/useCart'
+  import { useNotification } from '../composables/useNotification'
   import PageLayout from '../components/PageLayout.vue'
 
   const router = useRouter()
-  const {
-    cartItems,
-    isLoading,
-    errorMessage,
-    successMessage,
-    fetchCartItems,
-    removeItem,
-    clearCart,
-    submitBookings,
-  } = useBookingCart()
+  const { cartItems, isConfirming, loadCart, removeCartItem, clearCart, confirmBookings } =
+    useCart()
+  const { successMessage, errorMessage } = useNotification()
 
   const showClearConfirm = ref(false)
 
   onMounted(() => {
-    fetchCartItems()
+    loadCart()
   })
 
   const handleRemove = (id: number) => {
-    removeItem(id)
+    removeCartItem(id)
   }
 
   const handleClearAll = () => {
@@ -37,7 +31,7 @@
   }
 
   const handleSubmit = async () => {
-    await submitBookings()
+    await confirmBookings()
     if (!errorMessage.value) {
       setTimeout(() => {
         router.push('/booking')
@@ -69,7 +63,7 @@
 <template>
   <PageLayout title="Confirm Bookings">
     <div class="confirm-container">
-      <div v-if="cartItems.length === 0 && !isLoading" class="empty-state">
+      <div v-if="cartItems.length === 0 && !isConfirming" class="empty-state">
         <div class="empty-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <path
@@ -160,14 +154,14 @@
           </button>
           <button
             type="button"
-            :disabled="isLoading || cartItems.length === 0"
+            :disabled="isConfirming || cartItems.length === 0"
             class="action-btn action-btn--primary"
             @click="handleSubmit"
           >
-            <span v-if="!isLoading">Confirm Booking</span>
+            <span v-if="!isConfirming">Confirm Booking</span>
             <span v-else>Processing...</span>
             <svg
-              v-if="!isLoading"
+              v-if="!isConfirming"
               class="btn-icon"
               viewBox="0 0 24 24"
               fill="none"

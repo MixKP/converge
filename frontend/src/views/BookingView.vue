@@ -1,7 +1,8 @@
 <script setup lang="ts">
   import { ref, computed, nextTick, onMounted } from 'vue'
   import { useBooking } from '../composables/useBooking'
-  import { useBookingCart } from '../composables/useBookingCart'
+  import { useCart } from '../composables/useCart'
+  import { useNotification } from '../composables/useNotification'
   import { useScreenSize } from '../composables/useScreenSize'
   import { useTimeoutCleanup } from '../composables/useTimeoutCleanup'
   import { useAISuggestions } from '../composables/useAISuggestions'
@@ -14,8 +15,6 @@
   const {
     calendarRef,
     isEvaluating,
-    errorMessage,
-    successMessage,
     events,
     businessHours,
     subjects,
@@ -28,14 +27,14 @@
     showDetailedResults,
     suggestionEvents,
     allEvents,
-    initWatchers,
-    addToCartDirectly,
+    initialize,
     resetBookingState,
     fetchSubjects,
     fetchBranches,
   } = useBooking()
 
-  const { cartItems, fetchCartItems } = useBookingCart()
+  const { cartItems, loadCart, addSlotToCart } = useCart()
+  const { successMessage, errorMessage } = useNotification()
   const { isMobile, isTablet } = useScreenSize()
   const { trackTimeout } = useTimeoutCleanup()
   const { getSuggestions, invalidateRequest } = useAISuggestions()
@@ -52,7 +51,7 @@
   const aiTimeSlots = ref<Array<{ day_of_week: number; start: string; end: string }>>([])
 
   onMounted(() => {
-    fetchCartItems()
+    loadCart()
     fetchSubjects()
     fetchBranches()
   })
@@ -97,7 +96,7 @@
     startTime: string,
     endTime: string
   ): void => {
-    addToCartDirectly(
+    addSlotToCart(
       teacherId,
       teacherName,
       startTime,
@@ -126,7 +125,7 @@
     isAddingToCart.value = true
     try {
       events.value.forEach((e) => {
-        addToCartDirectly(teacher.id, teacher.name, e.start as string, e.end as string)
+        addSlotToCart(teacher.id, teacher.name, e.start as string, e.end as string)
       })
     } finally {
       // Use timeout to reset guard, allowing for rapid sequential clicks but preventing concurrent execution
@@ -136,7 +135,7 @@
     }
   }
 
-  initWatchers()
+  initialize()
 </script>
 
 <template>
