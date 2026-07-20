@@ -35,21 +35,16 @@
   }>()
 
   const calendarRef = ref<InstanceType<typeof FullCalendar> | null>(null)
-  // Bound via the template; the interaction composable focuses it when the
-  // delete dialog opens.
   const cancelBtnRef = ref<HTMLButtonElement | null>(null)
 
-  // Screen-size dependent options (view, header format, long-press delays).
   const { isMobile, dayHeaderFormat, initialView, longPressDelay } =
     useCalendarResponsive(calendarRef)
 
-  // Availability decoration on day headers.
   const { handleDayHeaderDidMount } = useBusinessHoursHeaders(
     calendarRef,
     () => props.businessHours
   )
 
-  // All editable-event interaction: create, move/resize, select, delete, touch.
   const {
     selectedEventId,
     showDeleteDialog,
@@ -78,8 +73,6 @@
     onEventClick: (info) => emit('event-click', info),
   })
 
-  // Keep the calendar in sync with the editable model events and the read-only
-  // suggestion events (the latter are added as non-editable).
   useCalendarEventSync(calendarRef, () => props.modelValue)
   useCalendarEventSync(
     calendarRef,

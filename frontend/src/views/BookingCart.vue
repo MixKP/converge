@@ -285,9 +285,6 @@
 </template>
 
 <style scoped>
-  /* Entrance animations: keyframes + spring easing don't map cleanly to
-     utilities, so the animation shorthands stay here and are applied via
-     these helper classes in the markup above. */
   @keyframes cart-fade-in {
     from {
       opacity: 0;

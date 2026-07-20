@@ -18,9 +18,7 @@ export const requiredId = (label: string) =>
     .nullable()
     .refine((v): v is number => v !== null, `Please select ${label}`)
 
-export const isoDateTime = z
-  .string()
-  .refine((s) => !Number.isNaN(new Date(s).getTime()), 'Invalid date format')
+export const isoDateTime = z.iso.datetime({ error: () => 'Invalid date format' })
 
 export const dateRangeSchema = z
   .object({ start_time: isoDateTime, end_time: isoDateTime })

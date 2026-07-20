@@ -232,7 +232,6 @@
 </template>
 
 <style scoped>
-  /* Component-specific entrance animations. */
   @keyframes submit-toast-in {
     from {
       opacity: 0;

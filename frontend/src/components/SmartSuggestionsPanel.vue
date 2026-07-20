@@ -43,9 +43,6 @@
     'confirm-booking': [teacherId: number, teacherName: string, startTime: string, endTime: string]
   }>()
 
-  // Validation layer. State stays owned by the parent (bookingStore) via the
-  // controlled props/emit below; the form mirrors those values so vee-validate
-  // can surface per-field errors and gate submission.
   const { errors, submitCount, setFieldValue, handleSubmit: veeHandleSubmit } = useForm({
     validationSchema: toTypedSchema(aiSuggestionsFormSchema),
     initialValues: {
@@ -76,8 +73,6 @@
     set: (val) => emit('update:modelValue', val),
   })
 
-  // Keep the hidden `slots` field in sync so array-level rules (min 1 slot,
-  // equal duration) drive form validity and error messages.
   watch(
     () => props.modelValue,
     (slots) => setFieldValue('slots', slots),
@@ -87,7 +82,6 @@
   const slotsError = computed(() => errors.value.slots)
   const draftError = ref('')
 
-  // Only surface zod field errors after the first submit attempt, then live.
   const showErrors = computed(() => submitCount.value > 0)
 
   const DAY_NAMES = [
@@ -161,8 +155,6 @@
     emit('confirm-booking', teacherId, teacherName, startTime, endTime)
   }
 
-  // Only block on the in-flight request; validation errors now surface per-field
-  // when the user submits an incomplete form.
   const isSubmitDisabled = computed(() => props.isEvaluating)
 
   const cssClass = computed(() => {

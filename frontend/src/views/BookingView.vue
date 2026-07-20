@@ -5,7 +5,6 @@
   import { useCart } from '../composables/useCart'
   import { useNotification } from '../composables/useNotification'
   import { useScreenSize } from '../composables/useScreenSize'
-  import { useTimeoutCleanup } from '../composables/useTimeoutCleanup'
   import { useAISuggestions } from '../composables/useAISuggestions'
   import PageLayout from '../components/PageLayout.vue'
   import Calendar from '../components/Calendar.vue'
@@ -38,9 +37,8 @@
   } = useBooking()
 
   const { cartItems, loadCart, addSlotToCart } = useCart()
-  const { successMessage, errorMessage } = useNotification()
+  const { successMessage, errorMessage, showSuccess } = useNotification()
   const { isMobile, isTablet } = useScreenSize()
-  const { trackTimeout } = useTimeoutCleanup()
   const { getSuggestions, invalidateRequest } = useAISuggestions()
 
   const allCalendarEvents = computed(() => allEvents.value)
@@ -99,10 +97,7 @@
   const handleSuggestionClick = (info: EventClickArg): void => {
     const props = info.event.extendedProps
     if (props?.isSuggestion) {
-      successMessage.value = 'Click "Book Now" in Smart Suggestions to book this slot'
-      trackTimeout(() => {
-        successMessage.value = ''
-      }, 3000)
+      showSuccess('Click "Book Now" in Smart Suggestions to book this slot', 3000)
     }
   }
 
@@ -870,7 +865,6 @@
 </template>
 
 <style scoped>
-  /* Component entrance animations. */
   @keyframes booking-toast-in {
     from {
       opacity: 0;
@@ -901,16 +895,10 @@
     animation: booking-panel-fade-in 0.3s cubic-bezier(0.25, 1, 0.5, 1);
   }
 
-  /* FullCalendar renders its own DOM at runtime, so these responsive overrides
-     target its internal elements via :deep() and must stay as CSS — they cannot
-     be moved onto utility classes in markup we don't own. */
-
-  /* Desktop calendar toolbar override */
   .calendar-inner :deep(.fc .fc-toolbar.fc-header-toolbar) {
     margin: 0 !important;
   }
 
-  /* Mobile calendar wrapper */
   .mobile-calendar-wrapper > div {
     height: 100% !important;
     display: flex !important;
@@ -1020,7 +1008,6 @@
     font-size: 1em !important;
   }
 
-  /* Tablet calendar wrapper */
   .tablet-calendar-wrapper :deep(.fc) {
     height: 100% !important;
     font-size: 0.875rem;
@@ -1099,7 +1086,6 @@
     font-size: 1em !important;
   }
 
-  /* Desktop AI panel entrance */
   @media (min-width: 1024px) {
     .anim-panel-fade {
       animation: booking-panel-fade-in 0.3s cubic-bezier(0.25, 1, 0.5, 1);

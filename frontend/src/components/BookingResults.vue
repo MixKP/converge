@@ -24,32 +24,26 @@
     (e: 'reset'): void
   }>()
 
-  // Track booked items to prevent duplicate bookings
   const bookedKeys = ref<Set<string>>(new Set())
 
-  // Generate unique key for a booking
   const getBookingKey = (teacherId: number, startTime: string): string => {
     return `${teacherId}-${startTime}`
   }
 
-  // Check if a booking time slot overlaps with any cart item for the same teacher
   const isInCart = (teacherId: number, startTime: string, endTime: string): boolean => {
     const newStart = new Date(startTime)
     const newEnd = new Date(endTime)
 
     return props.cartItems.some((item) => {
-      // Only check items for the same teacher
       if (item.teacher_id !== teacherId) return false
 
       const itemStart = new Date(item.start_time)
       const itemEnd = new Date(item.end_time)
 
-      // Check if time slots overlap
       return rangesOverlap(newStart, newEnd, itemStart, itemEnd)
     })
   }
 
-  // Check if a booking is already made (either in local state or cart)
   const isBooked = (teacherId: number, startTime: string, endTime: string): boolean => {
     return (
       bookedKeys.value.has(getBookingKey(teacherId, startTime)) ||
@@ -57,7 +51,6 @@
     )
   }
 
-  // Handle booking - emit event and mark as booked
   const handleBooking = (
     teacherId: number,
     teacherName: string,
@@ -71,7 +64,6 @@
     }
   }
 
-  // Clear booked state when suggestions change (new search)
   watch(
     () => props.suggestions,
     () => {
