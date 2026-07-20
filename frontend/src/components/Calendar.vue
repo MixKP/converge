@@ -184,7 +184,7 @@
 </script>
 <template>
   <div
-    class="calendar-container h-full overflow-x-hidden overflow-y-auto md:overflow-y-hidden rounded-2xl border border-(--border-subtle) bg-(--paper-white) shadow-[0_4px_16px_rgba(45,74,62,0.06)] [-webkit-tap-highlight-color:transparent] [&_*]:[-webkit-tap-highlight-color:transparent]"
+    class="calendar-container h-full overflow-x-hidden overflow-y-auto rounded-2xl border border-(--border-subtle) bg-(--paper-white) shadow-[0_4px_16px_rgba(45,74,62,0.06)] [-webkit-tap-highlight-color:transparent] md:overflow-y-hidden **:[-webkit-tap-highlight-color:transparent]"
     @click="handleContainerClick"
   >
     <FullCalendar ref="calendarRef" :options="calendarOptions" />
@@ -201,11 +201,11 @@
       <button
         v-if="selectedEventId && isMobile"
         type="button"
-        class="fixed bottom-8 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-6 py-3.5 text-[0.9375rem] font-semibold text-white rounded-2xl shadow-[0_6px_20px_rgba(232,165,152,0.4)] cursor-pointer transition-all duration-200 active:scale-[0.96] [-webkit-tap-highlight-color:transparent]"
+        class="fixed bottom-8 left-1/2 z-30 flex -translate-x-1/2 cursor-pointer items-center gap-2 rounded-2xl px-6 py-3.5 text-[0.9375rem] font-semibold text-white shadow-[0_6px_20px_rgba(232,165,152,0.4)] transition-all duration-200 [-webkit-tap-highlight-color:transparent] active:scale-[0.96]"
         style="background: linear-gradient(135deg, #e8a598 0%, #f5c7bf 100%)"
         @click="handleDeleteButtonClick($event, selectedEventId)"
       >
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             stroke-linecap="round"
             stroke-linejoin="round"
@@ -234,14 +234,14 @@
         @keydown.esc="handleEscapeKey"
       >
         <div
-          class="transition-all duration-300 ease-out scale-in bg-(--paper-white) rounded-2xl shadow-2xl border border-(--border-subtle) p-8 w-full max-w-sm mx-4"
+          class="scale-in mx-4 w-full max-w-sm rounded-2xl border border-(--border-subtle) bg-(--paper-white) p-8 shadow-2xl transition-all duration-300 ease-out"
         >
-          <div class="flex items-start gap-4 mb-5">
+          <div class="mb-5 flex items-start gap-4">
             <div
-              class="shrink-0 w-12 h-12 rounded-sm bg-red-50 flex items-center justify-center border border-red-100"
+              class="flex h-12 w-12 shrink-0 items-center justify-center rounded-sm border border-red-100 bg-red-50"
             >
               <svg
-                class="w-6 h-6 text-red-600"
+                class="h-6 w-6 text-red-600"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -257,27 +257,27 @@
             <div class="flex-1">
               <h3
                 id="deleteDialogTitle"
-                class="text-lg font-semibold text-(--ink-primary) mb-1.5 tracking-tight"
+                class="mb-1.5 text-lg font-semibold tracking-tight text-(--ink-primary)"
               >
                 Delete Time Slot
               </h3>
-              <p class="text-sm text-(--text-secondary) leading-relaxed">
+              <p class="text-sm leading-relaxed text-(--text-secondary)">
                 Are you sure you want to delete this time slot? This action cannot be undone.
               </p>
             </div>
           </div>
-          <div class="flex gap-3 justify-end">
+          <div class="flex justify-end gap-3">
             <button
               ref="cancelBtnRef"
               type="button"
-              class="px-5 py-2.5 text-sm font-semibold text-(--ink-primary) bg-white border-2 border-(--border-subtle) rounded-xl hover:bg-(--paper-cream) focus:ring-2 focus:ring-(--accent-sage) transition-all"
+              class="rounded-xl border-2 border-(--border-subtle) bg-white px-5 py-2.5 text-sm font-semibold text-(--ink-primary) transition-all hover:bg-(--paper-cream) focus:ring-2 focus:ring-(--accent-sage)"
               @click="closeDeleteDialog"
             >
               Cancel
             </button>
             <button
               type="button"
-              class="px-5 py-2.5 text-sm font-semibold text-white rounded-xl hover:opacity-90 focus:ring-2 focus:ring-(--accent-sage) transition-all shadow-md tracking-wide"
+              class="rounded-xl px-5 py-2.5 text-sm font-semibold tracking-wide text-white shadow-md transition-all hover:opacity-90 focus:ring-2 focus:ring-(--accent-sage)"
               style="background: linear-gradient(135deg, #e8a598 0%, #f5c7bf 100%)"
               @click="confirmDelete"
             >
