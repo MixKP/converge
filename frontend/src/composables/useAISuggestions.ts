@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import { useBookingStore } from '../stores/bookingStore'
 import { useNotification } from './useNotification'
 import { toMinutes } from '../utils/dateValidation'
+import { bookingRequestSchema } from '../schemas/booking'
 import { getErrorMessage, isNetworkError } from '../utils/errorHandler'
 
 export function useAISuggestions() {
@@ -17,44 +18,26 @@ export function useAISuggestions() {
   const getSuggestions = async (
     slots: Array<{ day_of_week: number; start: string; end: string }>
   ): Promise<boolean> => {
-    // Validate selection
-    if (!bookingStore.selectedSubjectId || !bookingStore.selectedBranchId || slots.length === 0) {
-      const missing = []
-      if (!bookingStore.selectedSubjectId) missing.push('a subject')
-      if (!bookingStore.selectedBranchId) missing.push('a branch')
-      if (slots.length === 0) missing.push('at least one time slot')
+    // Form-level validation (subject/branch/slots, time format, equal duration)
+    // is enforced by aiSuggestionsFormSchema in SmartSuggestionsPanel before
+    // this runs. Duration is uniform across slots, so derive it from the first.
+    const firstSlot = slots[0]
+    const aiDuration = firstSlot ? toMinutes(firstSlot.end) - toMinutes(firstSlot.start) : undefined
+
+    const request = bookingRequestSchema.safeParse({
+      subject_id: bookingStore.selectedSubjectId,
+      branch_id: bookingStore.selectedBranchId,
+      preferred_slots: slots,
+      duration_minutes: aiDuration,
+      preferred_teacher_id: bookingStore.selectedTeacherId ?? undefined,
+    })
+    if (!request.success) {
       showError(
-        new Error('Missing selection'),
-        `To find teachers, please select ${missing.join(' and ')}`
+        new Error('Invalid request'),
+        'Please select a subject, a branch, and at least one time slot.'
       )
       return false
     }
-
-    // Validate all slots have valid time format and same duration
-    const durations = new Set<number>()
-    for (const slot of slots) {
-      const startMin = toMinutes(slot.start)
-      const endMin = toMinutes(slot.end)
-
-      if (isNaN(startMin) || isNaN(endMin)) {
-        showError(
-          new Error('Invalid time'),
-          'Invalid time format. Please use HH:MM format (e.g., 09:30).'
-        )
-        return false
-      }
-      if (startMin >= endMin) {
-        showError(new Error('Invalid range'), 'Start time must be before end time.')
-        return false
-      }
-      durations.add(endMin - startMin)
-    }
-
-    if (durations.size !== 1) {
-      showError(new Error('Mixed duration'), 'All AI time slots must use the same duration.')
-      return false
-    }
-    const aiDuration = [...durations][0]
 
     // Generate unique request ID to guard against stale responses
     const requestId = Math.random().toString(36).substring(7)
@@ -65,13 +48,7 @@ export function useAISuggestions() {
 
     try {
       const { bookingApi } = await import('../services/bookingApi')
-      const response = await bookingApi.evaluate({
-        subject_id: bookingStore.selectedSubjectId!,
-        branch_id: bookingStore.selectedBranchId!,
-        preferred_slots: slots,
-        duration_minutes: aiDuration,
-        preferred_teacher_id: bookingStore.selectedTeacherId ?? undefined,
-      })
+      const response = await bookingApi.evaluate(request.data)
 
       // Only apply results if this is still the current request
       if (currentRequestId.value !== requestId) {

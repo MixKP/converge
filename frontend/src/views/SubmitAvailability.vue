@@ -2,6 +2,7 @@
   import PageLayout from '../components/PageLayout.vue'
   import Calendar from '../components/Calendar.vue'
   import CalendarDisabledOverlay from '../components/CalendarDisabledOverlay.vue'
+  import FormSelect from '../components/form/FormSelect.vue'
   import { useSubmitAvailability } from '../composables/useSubmitAvailability'
 
   const {
@@ -14,6 +15,7 @@
     selectedTeacherId,
     selectedTeacher,
     canSubmit,
+    weeklyError,
     formattedSlots,
     handleSubmit,
     confirmSubmit,
@@ -35,8 +37,13 @@
           class="flex shrink-0 items-center gap-6 border-b border-(--border-subtle) bg-[linear-gradient(180deg,rgba(157,180,160,0.04)_0%,transparent_100%)] px-8 py-5 max-md:justify-between max-md:gap-2 max-md:px-4 max-md:py-3"
         >
           <!-- Teacher Selector -->
-          <div class="flex min-w-0 flex-1 items-center max-md:flex-auto">
-            <select v-model="selectedTeacherId" class="teacher-select" aria-label="Select teacher">
+          <div class="flex min-w-0 flex-1 flex-col max-md:flex-auto">
+            <FormSelect
+              v-model="selectedTeacherId"
+              name="teacher_id"
+              select-class="teacher-select"
+              aria-label="Select teacher"
+            >
               <option :value="null">Select Teacher</option>
               <option
                 v-for="teacher in teacherStore.teachers"
@@ -45,7 +52,14 @@
               >
                 {{ teacher.name }}
               </option>
-            </select>
+            </FormSelect>
+            <p
+              v-if="weeklyError"
+              class="mt-1.5 text-xs font-medium text-(--accent-coral)"
+              role="alert"
+            >
+              {{ weeklyError }}
+            </p>
           </div>
 
           <!-- Submit Button -->
@@ -225,55 +239,6 @@
 </template>
 
 <style scoped>
-  /* Native <select> is styled in CSS: the dropdown arrow is an inline SVG
-     data-URI and `appearance: none` / form-control resets don't map cleanly to
-     utilities. */
-  .teacher-select {
-    width: 100%;
-    max-width: 320px;
-    padding: 0.875rem 2.75rem 0.875rem 1.25rem;
-    font-size: 0.9rem;
-    font-family: Inter, sans-serif;
-    font-weight: 500;
-    color: var(--text-primary);
-    background-color: var(--bg-card);
-    border: 2px solid var(--border-subtle);
-    border-radius: 12px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%234A5C52' viewBox='0 0 24 24'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2.5' d='M8 10l4 4 4-4'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 1rem center;
-    background-size: 1rem;
-  }
-
-  .teacher-select:hover {
-    border-color: var(--accent-sage);
-    background-color: var(--bg-subtle);
-    transform: translateY(-1px);
-  }
-
-  .teacher-select:focus {
-    outline: none;
-    border-color: var(--accent-sage);
-    box-shadow: 0 0 0 4px rgba(157, 180, 160, 0.2);
-    background-color: var(--bg-card);
-  }
-
-  @media (max-width: 767px) {
-    .teacher-select {
-      padding: 0.625rem 2.5rem 0.625rem 0.875rem;
-    }
-  }
-
-  @media (max-width: 480px) {
-    .teacher-select {
-      padding: 0.5rem 2.25rem 0.5rem 0.75rem;
-      font-size: 0.8rem;
-    }
-  }
-
   /* Component-specific entrance animations. */
   @keyframes submit-toast-in {
     from {

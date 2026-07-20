@@ -1,72 +1,20 @@
-import type { WeeklySlot } from './calendar'
+import type { z } from 'zod'
+import type {
+  cartItemSchema,
+  bookingRequestSchema,
+  bookingAlternativeSchema,
+  slotResultSchema,
+  bookingResponseSchema,
+  confirmBookingRequestSchema,
+  bookingSchema,
+  branchSchema,
+} from '../schemas/booking'
 
-export interface CartItem {
-  id: number
-  teacher_id: number
-  teacher_name: string
-  branch_id: number
-  branch_name: string
-  subject_id: number
-  subject_name: string
-  start_time: string
-  end_time: string
-  client_name: string
-  status: 'pending' | 'confirmed'
-}
-
-export interface BookingRequest {
-  subject_id: number
-  branch_id: number
-  preferred_slots: WeeklySlot[]
-  duration_minutes?: number
-  preferred_teacher_id?: number
-}
-
-export interface BookingAlternative {
-  teacher_id: number
-  teacher_name: string
-  branch_id: number
-  subject_id: number
-  start_time: string
-  end_time: string
-  score: number
-  reasons: string[]
-  room_available?: boolean
-  commute_minutes?: number
-}
-
-export interface SlotResult {
-  slot: WeeklySlot
-  exact_match?: BookingAlternative
-  alternatives?: BookingAlternative[]
-  message: string
-}
-
-export interface BookingResponse {
-  results: SlotResult[]
-}
-
-export interface ConfirmBookingRequest {
-  teacher_id: number
-  branch_id: number
-  subject_id: number
-  start_time: string
-  end_time: string
-  client_name: string
-}
-
-export interface Booking {
-  id: number
-  teacher_id: number
-  branch_id: number
-  subject_id: number
-  start_time: string
-  end_time: string
-  client_name: string
-  created_at: string
-}
-
-export interface Branch {
-  id: number
-  name: string
-}
+export type CartItem = z.infer<typeof cartItemSchema>
+export type BookingRequest = z.infer<typeof bookingRequestSchema>
+export type BookingAlternative = z.infer<typeof bookingAlternativeSchema>
+export type SlotResult = z.infer<typeof slotResultSchema>
+export type BookingResponse = z.infer<typeof bookingResponseSchema>
+export type ConfirmBookingRequest = z.infer<typeof confirmBookingRequestSchema>
+export type Booking = z.infer<typeof bookingSchema>
+export type Branch = z.infer<typeof branchSchema>

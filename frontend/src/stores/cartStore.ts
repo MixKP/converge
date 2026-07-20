@@ -3,8 +3,10 @@ import { ref } from 'vue'
 import { bookingApi } from '../services/bookingApi'
 import { getValidatedArray, setItem } from '../utils/storage'
 import { getErrorMessage } from '../utils/errorHandler'
-import { validateDateRange, hasOverlapWithCart } from '../utils/dateValidation'
+import { hasOverlapWithCart } from '../utils/dateValidation'
 import { useNotification } from '../composables/useNotification'
+import { cartItemSchema, cartItemInputSchema } from '../schemas/booking'
+import { dateRangeSchema } from '../schemas/common'
 import type { CartItem } from '../types/booking'
 
 import { useBookingStore } from './bookingStore'
@@ -21,34 +23,7 @@ export const useCartStore = defineStore('cart', () => {
   let isAddingToCart = false
 
   // Type guard
-  const isCartItem = (value: unknown): value is CartItem => {
-    return (
-      value !== null &&
-      typeof value === 'object' &&
-      'id' in value &&
-      typeof value.id === 'number' &&
-      'teacher_id' in value &&
-      typeof value.teacher_id === 'number' &&
-      'teacher_name' in value &&
-      typeof value.teacher_name === 'string' &&
-      'branch_id' in value &&
-      typeof value.branch_id === 'number' &&
-      'branch_name' in value &&
-      typeof value.branch_name === 'string' &&
-      'subject_id' in value &&
-      typeof value.subject_id === 'number' &&
-      'subject_name' in value &&
-      typeof value.subject_name === 'string' &&
-      'start_time' in value &&
-      typeof value.start_time === 'string' &&
-      'end_time' in value &&
-      typeof value.end_time === 'string' &&
-      'client_name' in value &&
-      typeof value.client_name === 'string' &&
-      'status' in value &&
-      (value.status === 'pending' || value.status === 'confirmed')
-    )
-  }
+  const isCartItem = (value: unknown): value is CartItem => cartItemSchema.safeParse(value).success
 
   // Persistence
   const loadCart = () => {
@@ -67,31 +42,14 @@ export const useCartStore = defineStore('cart', () => {
 
   // Cart CRUD
   const addToCart = (item: Omit<CartItem, 'id' | 'status'>) => {
-    if (!item || typeof item !== 'object') {
-      console.error('Invalid cart item: not an object')
+    const parsed = cartItemInputSchema.safeParse(item)
+    if (!parsed.success) {
+      console.error('Invalid cart item:', parsed.error.issues)
       return
     }
 
-    const requiredFields: (keyof Omit<CartItem, 'id' | 'status'>)[] = [
-      'teacher_id',
-      'teacher_name',
-      'branch_id',
-      'branch_name',
-      'subject_id',
-      'subject_name',
-      'start_time',
-      'end_time',
-      'client_name',
-    ]
-    for (const field of requiredFields) {
-      if (!(field in item) || item[field] === null || item[field] === undefined) {
-        console.error(`Invalid cart item: missing or invalid field "${field}"`)
-        return
-      }
-    }
-
     const newItem: CartItem = {
-      ...item,
+      ...parsed.data,
       id: ++cartIdCounter,
       status: 'pending',
     }
@@ -114,8 +72,8 @@ export const useCartStore = defineStore('cart', () => {
   const addSlotToCart = (
     teacherId: number,
     teacherName: string,
-    startTime: string,
-    endTime: string,
+    startTime: string | Date,
+    endTime: string | Date,
     subjectId?: number,
     branchId?: number
   ): void => {
@@ -134,16 +92,25 @@ export const useCartStore = defineStore('cart', () => {
 
     isAddingToCart = true
 
-    const newStartDate = new Date(startTime)
-    const newEndDate = new Date(endTime)
-    const validation = validateDateRange(newStartDate, newEndDate)
-    if (!validation.isValid) {
-      showError(new Error(validation.error || 'Invalid date'), 'Please select valid time slots')
+    // The calendar hands back Date objects; normalize to ISO strings so
+    // validation, cart storage, and the confirm API all use one string format.
+    const toIso = (value: string | Date): string | null => {
+      const date = new Date(value)
+      return Number.isNaN(date.getTime()) ? null : date.toISOString()
+    }
+    const startIso = toIso(startTime)
+    const endIso = toIso(endTime)
+
+    const validation = dateRangeSchema.safeParse({ start_time: startIso, end_time: endIso })
+    if (!validation.success) {
+      const error = validation.error.issues[0]?.message || 'Invalid date'
+      showError(new Error(error), 'Please select valid time slots')
       isAddingToCart = false
       return
     }
+    const { start_time: normalizedStart, end_time: normalizedEnd } = validation.data
 
-    if (hasOverlapWithCart(startTime, endTime, teacherId, cartItems.value)) {
+    if (hasOverlapWithCart(normalizedStart, normalizedEnd, teacherId, cartItems.value)) {
       showError(
         new Error('Time slot already in cart'),
         'This time slot is already in your cart for this teacher'
@@ -161,8 +128,8 @@ export const useCartStore = defineStore('cart', () => {
       branch_name: branch?.name || '',
       subject_id: effectiveSubjectId,
       subject_name: subject?.name || '',
-      start_time: startTime,
-      end_time: endTime,
+      start_time: normalizedStart,
+      end_time: normalizedEnd,
       client_name: 'Guest',
     })
     showSuccess('Added to cart!')

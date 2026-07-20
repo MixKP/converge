@@ -16,8 +16,10 @@
     "@tailwindcss/vite": "^4.2.4",
     "pinia": "^3.0.4",
     "tailwindcss": "^4.2.4",
+    "vee-validate": "^4.15.1",
     "vue": "^3.5.32",
-    "vue-router": "^5.0.7"
+    "vue-router": "^5.0.7",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

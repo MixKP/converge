@@ -1,18 +1,16 @@
 <script setup lang="ts">
-  import { ref, computed } from 'vue'
+  import { ref, computed, watch } from 'vue'
+  import { useForm } from 'vee-validate'
   import BookingResults from './BookingResults.vue'
-  import { toMinutes } from '../utils/dateValidation'
-  import type { BookingResponse } from '../types'
+  import FormSelect from './form/FormSelect.vue'
+  import { aiSuggestionsFormSchema } from '../schemas/forms'
+  import { weeklySlotSchema } from '../schemas/calendar'
+  import { toTypedSchema } from '../schemas/veeValidate'
+  import type { BookingResponse, WeeklySlot } from '../types'
   import type { CartItem } from '../types/booking'
 
-  interface TimeSlot {
-    day_of_week: number
-    start: string
-    end: string
-  }
-
   interface Props {
-    modelValue: TimeSlot[]
+    modelValue: WeeklySlot[]
     selectedSubjectId: number | null
     selectedBranchId: number | null
     selectedTeacherId: number | null
@@ -35,7 +33,7 @@
   })
 
   const emit = defineEmits<{
-    'update:modelValue': [value: TimeSlot[]]
+    'update:modelValue': [value: WeeklySlot[]]
     'update:selectedSubjectId': [value: number | null]
     'update:selectedBranchId': [value: number | null]
     'update:selectedTeacherId': [value: number | null]
@@ -44,6 +42,19 @@
     reset: []
     'confirm-booking': [teacherId: number, teacherName: string, startTime: string, endTime: string]
   }>()
+
+  // Validation layer. State stays owned by the parent (bookingStore) via the
+  // controlled props/emit below; the form mirrors those values so vee-validate
+  // can surface per-field errors and gate submission.
+  const { errors, setFieldValue, handleSubmit: veeHandleSubmit } = useForm({
+    validationSchema: toTypedSchema(aiSuggestionsFormSchema),
+    initialValues: {
+      subject_id: props.selectedSubjectId,
+      branch_id: props.selectedBranchId,
+      teacher_id: props.selectedTeacherId,
+      slots: props.modelValue,
+    },
+  })
 
   const localSubjectId = computed({
     get: () => props.selectedSubjectId,
@@ -64,6 +75,17 @@
     get: () => props.modelValue,
     set: (val) => emit('update:modelValue', val),
   })
+
+  // Keep the hidden `slots` field in sync so array-level rules (min 1 slot,
+  // equal duration) drive form validity and error messages.
+  watch(
+    () => props.modelValue,
+    (slots) => setFieldValue('slots', slots),
+    { deep: true }
+  )
+
+  const slotsError = computed(() => errors.value.slots)
+  const draftError = ref('')
 
   const DAY_NAMES = [
     'Sunday',
@@ -93,16 +115,19 @@
   }
 
   const addTimeSlot = () => {
-    if (toMinutes(newSlotStart.value) >= toMinutes(newSlotEnd.value)) return
+    const draft = {
+      day_of_week: newSlotDay.value,
+      start: newSlotStart.value,
+      end: newSlotEnd.value,
+    }
+    const parsed = weeklySlotSchema.safeParse(draft)
+    if (!parsed.success) {
+      draftError.value = parsed.error.issues[0]?.message || 'Invalid time slot'
+      return
+    }
+    draftError.value = ''
 
-    timeSlots.value = [
-      ...timeSlots.value,
-      {
-        day_of_week: newSlotDay.value,
-        start: newSlotStart.value,
-        end: newSlotEnd.value,
-      },
-    ]
+    timeSlots.value = [...timeSlots.value, parsed.data]
     newSlotDay.value = (newSlotDay.value + 1) % 7
     newSlotStart.value = '09:00'
     newSlotEnd.value = '10:00'
@@ -112,9 +137,9 @@
     timeSlots.value = timeSlots.value.filter((_, i) => i !== index)
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = veeHandleSubmit(() => {
     emit('submit')
-  }
+  })
 
   const handleClose = () => {
     emit('close')
@@ -133,14 +158,9 @@
     emit('confirm-booking', teacherId, teacherName, startTime, endTime)
   }
 
-  const isSubmitDisabled = computed(() => {
-    return (
-      !props.selectedSubjectId ||
-      !props.selectedBranchId ||
-      timeSlots.value.length === 0 ||
-      props.isEvaluating
-    )
-  })
+  // Only block on the in-flight request; validation errors now surface per-field
+  // when the user submits an incomplete form.
+  const isSubmitDisabled = computed(() => props.isEvaluating)
 
   const cssClass = computed(() => {
     return `smart-suggestions-panel smart-suggestions-panel--${props.layout}`
@@ -179,15 +199,19 @@
     <div v-if="!showDetailedResults && !isEvaluating" :class="getCls('form')">
       <!-- Subject -->
       <div :class="getCls('field')">
-        <label :class="getCls('label')" :for="`${layout}-ai-subject`">
+        <label :class="getCls('label')">
           Subject <span :class="getCls('required')">*</span>
         </label>
-        <select :id="`${layout}-ai-subject`" v-model="localSubjectId" :class="getCls('select')">
+        <FormSelect
+          v-model="localSubjectId"
+          name="subject_id"
+          :select-class="getCls('select')"
+        >
           <option :value="null">Select subject</option>
           <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
             {{ subject.name }}
           </option>
-        </select>
+        </FormSelect>
       </div>
 
       <!-- Time Slots -->
@@ -250,6 +274,13 @@
           </button>
         </div>
 
+        <p v-if="draftError" class="mt-1.5 text-xs font-medium text-(--accent-coral)" role="alert">
+          {{ draftError }}
+        </p>
+        <p v-if="slotsError" class="mt-1.5 text-xs font-medium text-(--accent-coral)" role="alert">
+          {{ slotsError }}
+        </p>
+
         <!-- Added Slots -->
         <div v-if="timeSlots.length > 0" :class="getCls('slot-list')">
           <div v-for="(slot, index) in timeSlots" :key="index" :class="getCls('slot-item')">
@@ -277,29 +308,29 @@
 
       <!-- Branch -->
       <div :class="getCls('field')">
-        <label :class="getCls('label')" :for="`${layout}-ai-branch`">
+        <label :class="getCls('label')">
           Branch <span :class="getCls('required')">*</span>
         </label>
-        <select
-          :id="`${layout}-ai-branch`"
+        <FormSelect
           v-model="localBranchId"
-          :class="getCls('select')"
+          name="branch_id"
+          :select-class="getCls('select')"
           :disabled="!selectedSubjectId"
         >
           <option :value="null">Select branch</option>
           <option v-for="branch in branches" :key="branch.id" :value="branch.id">
             {{ branch.name }}
           </option>
-        </select>
+        </FormSelect>
       </div>
 
       <!-- Teacher (Optional) -->
       <div v-if="layout !== 'mobile'" :class="getCls('field')">
-        <label :class="getCls('label')" :for="`${layout}-ai-teacher`"> Teacher (Optional) </label>
-        <select
-          :id="`${layout}-ai-teacher`"
+        <label :class="getCls('label')"> Teacher (Optional) </label>
+        <FormSelect
           v-model="localTeacherId"
-          :class="getCls('select')"
+          name="teacher_id"
+          :select-class="getCls('select')"
           :disabled="!selectedSubjectId"
         >
           <option :value="null">
@@ -308,7 +339,7 @@
           <option v-for="teacher in filteredTeachers" :key="teacher.id" :value="teacher.id">
             {{ teacher.name }}
           </option>
-        </select>
+        </FormSelect>
       </div>
 
       <!-- Submit Button -->
@@ -454,33 +485,6 @@
     color: var(--text-secondary);
     margin: 0;
     font-family: 'Inter', sans-serif;
-  }
-
-  .smart-suggestions-panel--mobile__select {
-    width: 100%;
-    padding: 0.625rem 0.875rem;
-    font-size: 0.875rem;
-    font-weight: 400;
-    color: var(--text-primary);
-    background: var(--bg-card);
-    border: 1px solid var(--border-subtle);
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    font-family: 'Inter', sans-serif;
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%23585863' viewBox='0 0 24 24'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M8 10l4 4 4-4'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 0.625rem center;
-    background-size: 1rem;
-    padding-right: 2rem;
-    touch-action: manipulation;
-  }
-
-  .smart-suggestions-panel--mobile__select:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    background-color: var(--bg-subtle);
   }
 
   .smart-suggestions-panel--mobile__slot-controls {
@@ -739,33 +743,6 @@
     font-family: 'Inter', sans-serif;
   }
 
-  .smart-suggestions-panel--tablet__select {
-    width: 100%;
-    padding: 0.625rem 0.875rem;
-    font-size: 0.875rem;
-    font-weight: 400;
-    color: var(--text-primary);
-    background: var(--bg-card);
-    border: 1px solid var(--border-subtle);
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    font-family: 'Inter', sans-serif;
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%23585863' viewBox='0 0 24 24'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M8 10l4 4 4-4'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 0.625rem center;
-    background-size: 1rem;
-    padding-right: 2rem;
-    touch-action: manipulation;
-  }
-
-  .smart-suggestions-panel--tablet__select:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    background-color: var(--bg-subtle);
-  }
-
   .smart-suggestions-panel--tablet__slot-controls {
     display: flex;
     flex-wrap: wrap;
@@ -1016,36 +993,6 @@
     font-size: 0.8125rem;
     color: var(--text-muted);
     line-height: 1.4;
-  }
-
-  .smart-suggestions-panel--desktop__select {
-    width: 100%;
-    padding: 0.625rem 0.875rem;
-    font-size: 0.8125rem;
-    color: var(--text-primary);
-    background: var(--bg-card);
-    border: 1px solid var(--border-medium);
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-family: 'Inter', sans-serif;
-    touch-action: manipulation;
-  }
-
-  .smart-suggestions-panel--desktop__select:hover {
-    border-color: var(--primary-indigo);
-  }
-
-  .smart-suggestions-panel--desktop__select:focus {
-    outline: none;
-    border-color: var(--primary-indigo);
-    box-shadow: 0 0 0 3px rgba(62, 76, 122, 0.1);
-  }
-
-  .smart-suggestions-panel--desktop__select:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    background: var(--bg-card);
   }
 
   .smart-suggestions-panel--desktop__slot-controls {

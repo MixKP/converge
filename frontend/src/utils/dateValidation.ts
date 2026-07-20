@@ -2,22 +2,6 @@ export function isValidDate(date: Date): boolean {
   return date instanceof Date && !isNaN(date.getTime())
 }
 
-export function validateDateRange(
-  start: Date,
-  end: Date
-): {
-  isValid: boolean
-  error?: string
-} {
-  if (!isValidDate(start) || !isValidDate(end)) {
-    return { isValid: false, error: 'Invalid date format' }
-  }
-  if (start >= end) {
-    return { isValid: false, error: 'Start time must be before end time' }
-  }
-  return { isValid: true }
-}
-
 export function rangesOverlap(start1: Date, end1: Date, start2: Date, end2: Date): boolean {
   if (!isValidDate(start1) || !isValidDate(end1) || !isValidDate(start2) || !isValidDate(end2)) {
     return false

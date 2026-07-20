@@ -1,9 +1,5 @@
-export interface WeeklySlot {
-  day_of_week: number
-  start: string
-  end: string
-}
-export interface AvailabilityPayload {
-  teacher_id: number
-  weekly: WeeklySlot[]
-}
+import type { z } from 'zod'
+import type { weeklySlotSchema, availabilityPayloadSchema } from '../schemas/calendar'
+
+export type WeeklySlot = z.infer<typeof weeklySlotSchema>
+export type AvailabilityPayload = z.infer<typeof availabilityPayloadSchema>

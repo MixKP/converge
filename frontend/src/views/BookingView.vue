@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import { ref, computed, nextTick, onMounted } from 'vue'
+  import { useForm } from 'vee-validate'
   import { useBooking } from '../composables/useBooking'
   import { useCart } from '../composables/useCart'
   import { useNotification } from '../composables/useNotification'
@@ -10,6 +11,9 @@
   import Calendar from '../components/Calendar.vue'
   import CalendarDisabledOverlay from '../components/CalendarDisabledOverlay.vue'
   import SmartSuggestionsPanel from '../components/SmartSuggestionsPanel.vue'
+  import FormSelect from '../components/form/FormSelect.vue'
+  import { manualBookingFormSchema } from '../schemas/forms'
+  import { toTypedSchema } from '../schemas/veeValidate'
   import type { EventClickArg } from '@fullcalendar/core'
 
   const {
@@ -48,6 +52,25 @@
 
   // Guard against rapid clicks on addAllSlotsToCart
   const isAddingToCart = ref(false)
+
+  // Manual booking selection form. The three ids are shared with bookingStore
+  // (and the AI panel) via the computed v-models below; keepValuesOnUnmount
+  // preserves them as the mutually-exclusive mobile/tablet/desktop layouts
+  // mount and unmount on breakpoint changes.
+  const { meta: bookingFormMeta } = useForm({
+    validationSchema: toTypedSchema(manualBookingFormSchema),
+    keepValuesOnUnmount: true,
+    initialValues: {
+      subject_id: selectedSubjectId.value,
+      branch_id: selectedBranchId.value,
+      teacher_id: selectedTeacherId.value,
+    },
+  })
+
+  // Single source of truth for the "Add to Booking" button across all layouts.
+  const canAddToBooking = computed(
+    () => bookingFormMeta.value.valid && events.value.length > 0 && !isAddingToCart.value
+  )
 
   // AI-specific time slots (subject/branch/teacher now shared with manual form)
   const aiTimeSlots = ref<Array<{ day_of_week: number; start: string; end: string }>>([])
@@ -158,12 +181,17 @@
               <span class="h-1 w-1 rounded-full bg-(--text-muted)"></span>
               <span>SUBJECT</span>
             </label>
-            <select v-model="selectedSubjectId" class="mobile-select" aria-label="Select subject">
+            <FormSelect
+              v-model="selectedSubjectId"
+              name="subject_id"
+              select-class="mobile-select"
+              aria-label="Select subject"
+            >
               <option :value="null">Select subject</option>
               <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
                 {{ subject.name }}
               </option>
-            </select>
+            </FormSelect>
           </div>
 
           <!-- Branch + Teacher - 2 Columns -->
@@ -175,17 +203,18 @@
                 <span class="h-1 w-1 rounded-full bg-(--text-muted)"></span>
                 <span>BRANCH</span>
               </label>
-              <select
+              <FormSelect
                 v-model="selectedBranchId"
+                name="branch_id"
                 :disabled="!selectedSubjectId"
-                class="mobile-select"
+                select-class="mobile-select"
                 aria-label="Select branch"
               >
                 <option :value="null">Select branch</option>
                 <option v-for="branch in branches" :key="branch.id" :value="branch.id">
                   {{ branch.name }}
                 </option>
-              </select>
+              </FormSelect>
             </div>
             <div class="flex flex-col gap-2">
               <label
@@ -194,17 +223,18 @@
                 <span class="h-1 w-1 rounded-full bg-(--text-muted)"></span>
                 <span>TEACHER</span>
               </label>
-              <select
+              <FormSelect
                 v-model="selectedTeacherId"
+                name="teacher_id"
                 :disabled="!selectedSubjectId"
-                class="mobile-select"
+                select-class="mobile-select"
                 aria-label="Select teacher"
               >
                 <option :value="null">All teachers</option>
                 <option v-for="teacher in filteredTeachers" :key="teacher.id" :value="teacher.id">
                   {{ teacher.name }}
                 </option>
-              </select>
+              </FormSelect>
             </div>
           </div>
         </div>
@@ -329,46 +359,53 @@
                 class="font-[Inter,sans-serif] text-xs font-semibold tracking-wider text-(--text-muted) uppercase"
                 >Subject</label
               >
-              <select v-model="selectedSubjectId" class="tablet-select" aria-label="Select subject">
+              <FormSelect
+                v-model="selectedSubjectId"
+                name="subject_id"
+                select-class="tablet-select"
+                aria-label="Select subject"
+              >
                 <option :value="null">Select subject</option>
                 <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
                   {{ subject.name }}
                 </option>
-              </select>
+              </FormSelect>
             </div>
             <div class="flex flex-col gap-2.5">
               <label
                 class="font-[Inter,sans-serif] text-xs font-semibold tracking-wider text-(--text-muted) uppercase"
                 >Branch</label
               >
-              <select
+              <FormSelect
                 v-model="selectedBranchId"
+                name="branch_id"
                 :disabled="!selectedSubjectId"
-                class="tablet-select"
+                select-class="tablet-select"
                 aria-label="Select branch"
               >
                 <option :value="null">Select branch</option>
                 <option v-for="branch in branches" :key="branch.id" :value="branch.id">
                   {{ branch.name }}
                 </option>
-              </select>
+              </FormSelect>
             </div>
             <div class="flex flex-col gap-2.5">
               <label
                 class="font-[Inter,sans-serif] text-xs font-semibold tracking-wider text-(--text-muted) uppercase"
                 >Teacher</label
               >
-              <select
+              <FormSelect
                 v-model="selectedTeacherId"
+                name="teacher_id"
                 :disabled="!selectedSubjectId"
-                class="tablet-select"
+                select-class="tablet-select"
                 aria-label="Select teacher"
               >
                 <option :value="null">All teachers</option>
                 <option v-for="teacher in filteredTeachers" :key="teacher.id" :value="teacher.id">
                   {{ teacher.name }}
                 </option>
-              </select>
+              </FormSelect>
             </div>
           </div>
         </div>
@@ -602,17 +639,17 @@
                       >Subject</span
                     >
                   </div>
-                  <select
-                    id="subject-select"
+                  <FormSelect
                     v-model="selectedSubjectId"
-                    class="field-select"
+                    name="subject_id"
+                    select-class="field-select"
                     aria-label="Select subject"
                   >
                     <option :value="null">Select subject</option>
                     <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
                       {{ subject.name }}
                     </option>
-                  </select>
+                  </FormSelect>
                 </div>
               </div>
 
@@ -627,18 +664,18 @@
                       >Branch</span
                     >
                   </div>
-                  <select
-                    id="branch-select"
+                  <FormSelect
                     v-model="selectedBranchId"
+                    name="branch_id"
                     :disabled="!selectedSubjectId"
-                    class="field-select"
+                    select-class="field-select"
                     aria-label="Select branch"
                   >
                     <option :value="null">Select branch</option>
                     <option v-for="branch in branches" :key="branch.id" :value="branch.id">
                       {{ branch.name }}
                     </option>
-                  </select>
+                  </FormSelect>
                 </div>
               </div>
 
@@ -653,11 +690,11 @@
                       >Teacher</span
                     >
                   </div>
-                  <select
-                    id="teacher-select"
+                  <FormSelect
                     v-model="selectedTeacherId"
+                    name="teacher_id"
                     :disabled="!selectedSubjectId"
-                    class="field-select"
+                    select-class="field-select"
                     aria-label="Select teacher"
                   >
                     <option :value="null">Show all available teachers</option>
@@ -668,7 +705,7 @@
                     >
                       {{ teacher.name }}
                     </option>
-                  </select>
+                  </FormSelect>
                 </div>
               </div>
             </div>
@@ -677,13 +714,7 @@
             <button
               type="button"
               class="flex touch-manipulation items-center justify-center gap-2 rounded-md border-none bg-(--accent-sage) px-5 py-3.5 font-[Inter,sans-serif] text-sm font-medium text-white shadow-[0_2px_8px_rgba(122,139,109,0.2)] transition-all duration-200 ease-[cubic-bezier(0.25,1,0.5,1)] focus-visible:shadow-[0_0_0_3px_rgba(122,139,109,0.4),0_2px_8px_rgba(122,139,109,0.2)] focus-visible:outline-none enabled:hover:-translate-y-px enabled:hover:shadow-[0_3px_12px_rgba(122,139,109,0.25)] enabled:hover:brightness-90 disabled:transform-none disabled:cursor-not-allowed disabled:opacity-40"
-              :disabled="
-                !selectedSubjectId ||
-                !selectedBranchId ||
-                !selectedTeacherId ||
-                events.length === 0 ||
-                isAddingToCart
-              "
+              :disabled="!canAddToBooking"
               :aria-label="'Add to booking'"
               @click="addAllSlotsToCart(selectedTeacherId)"
             >
@@ -740,13 +771,7 @@
         v-if="isMobile"
         type="button"
         class="fixed right-0 bottom-[env(safe-area-inset-bottom)] left-0 z-10 flex touch-manipulation items-center justify-center gap-2 border-0 border-t border-t-[rgba(0,0,0,0.05)] bg-(--primary-indigo) px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] font-[Inter,sans-serif] text-[0.9375rem] font-medium text-white transition-all duration-150 enabled:hover:bg-(--primary-indigo-deep) enabled:active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-        :disabled="
-          !selectedSubjectId ||
-          !selectedBranchId ||
-          !selectedTeacherId ||
-          events.length === 0 ||
-          isAddingToCart
-        "
+        :disabled="!canAddToBooking"
         @click="addAllSlotsToCart(selectedTeacherId)"
       >
         <svg class="h-4.5 w-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -765,13 +790,7 @@
         v-else-if="isTablet"
         type="button"
         class="fixed right-0 bottom-[env(safe-area-inset-bottom)] left-0 z-10 flex touch-manipulation items-center justify-center gap-2 border-0 border-t border-t-[rgba(0,0,0,0.05)] bg-(--primary-indigo) px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] font-[Inter,sans-serif] text-[0.9375rem] font-medium text-white transition-all duration-150 enabled:hover:bg-(--primary-indigo-deep) enabled:active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-        :disabled="
-          !selectedSubjectId ||
-          !selectedBranchId ||
-          !selectedTeacherId ||
-          events.length === 0 ||
-          isAddingToCart
-        "
+        :disabled="!canAddToBooking"
         @click="addAllSlotsToCart(selectedTeacherId)"
       >
         <svg class="h-4.5 w-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -853,119 +872,6 @@
 </template>
 
 <style scoped>
-  /* Native <select> elements are styled in CSS: the dropdown arrow is an inline
-     SVG data-URI and `appearance: none` doesn't map cleanly to utilities. */
-  .mobile-select {
-    width: 100%;
-    padding: 0.625rem 2rem 0.625rem 0.875rem;
-    font-size: 0.875rem;
-    font-weight: 400;
-    color: var(--text-primary);
-    background: var(--bg-card);
-    border: 1px solid var(--border-subtle);
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    font-family: 'Inter', sans-serif;
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%237A8A82' viewBox='0 0 24 24'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M8 10l4 4 4-4'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 0.625rem center;
-    background-size: 1rem;
-  }
-
-  .mobile-select:hover {
-    border-color: var(--primary-navy);
-  }
-
-  .mobile-select:focus {
-    outline: none;
-    border-color: var(--primary-navy);
-    box-shadow: 0 0 0 2px rgba(45, 74, 62, 0.1);
-  }
-
-  .mobile-select:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    background-color: var(--bg-subtle);
-  }
-
-  .tablet-select {
-    width: 100%;
-    padding: 0.75rem 2.5rem 0.75rem 1rem;
-    font-size: 0.9375rem;
-    font-weight: 400;
-    color: var(--text-primary);
-    background: var(--bg-card);
-    border: 1px solid var(--border-subtle);
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-family: 'Inter', sans-serif;
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%237A8A82' viewBox='0 0 24 24'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M8 10l4 4 4-4'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 0.75rem center;
-    background-size: 1rem;
-    touch-action: manipulation;
-  }
-
-  .tablet-select:hover {
-    border-color: var(--primary-navy);
-  }
-
-  .tablet-select:focus {
-    outline: none;
-    border-color: var(--primary-navy);
-    box-shadow: 0 0 0 3px rgba(45, 74, 62, 0.1);
-  }
-
-  .tablet-select:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    background-color: var(--bg-subtle);
-  }
-
-  .field-select {
-    width: 100%;
-    padding: 0.75rem 2rem 0.75rem 0.875rem;
-    font-size: 0.875rem;
-    color: var(--text-primary);
-    background-color: var(--bg-cream);
-    border: none;
-    border-radius: 10px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-family: 'Inter', sans-serif;
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%232D4A3E' viewBox='0 0 24 24'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M8 10l4 4 4-4'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 0.75rem center;
-    background-size: 0.875rem;
-    touch-action: manipulation;
-  }
-
-  .field-select:hover {
-    border-color: var(--primary-navy);
-  }
-
-  .field-select:focus {
-    outline: none;
-    border-color: var(--primary-navy);
-    box-shadow: 0 0 0 3px rgba(45, 74, 62, 0.1);
-  }
-
-  .field-select:focus-visible {
-    outline: none;
-    border-color: var(--primary-indigo);
-    box-shadow: 0 0 0 3px rgba(45, 74, 62, 0.3);
-  }
-
-  .field-select:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
   /* Component entrance animations. */
   @keyframes booking-toast-in {
     from {
