@@ -24,18 +24,18 @@
 <template>
   <PageLayout title="Submit Availability" :show-cart="false">
     <div
-      class="flex justify-center p-8 max-md:p-4 max-[480px]:p-3 h-[calc(100dvh-60px)] overflow-hidden"
+      class="flex h-[calc(100dvh-60px)] justify-center overflow-hidden p-8 max-[480px]:p-3 max-md:p-4"
     >
       <!-- Unified Card Container -->
       <div
-        class="flex flex-col w-full max-w-[1400px] h-full bg-(--bg-card) border border-(--border-subtle) rounded-[20px] max-md:rounded-2xl overflow-hidden shadow-[0_8px_32px_rgba(45,74,62,0.08),0_2px_8px_rgba(45,74,62,0.04)]"
+        class="flex h-full w-full max-w-350 flex-col overflow-hidden rounded-[20px] border border-(--border-subtle) bg-(--bg-card) shadow-[0_8px_32px_rgba(45,74,62,0.08),0_2px_8px_rgba(45,74,62,0.04)] max-md:rounded-2xl"
       >
         <!-- Toolbar -->
         <div
-          class="flex items-center gap-6 px-8 py-5 max-md:justify-between max-md:gap-2 max-md:px-4 max-md:py-3 border-b border-(--border-subtle) shrink-0 bg-[linear-gradient(180deg,rgba(157,180,160,0.04)_0%,transparent_100%)]"
+          class="flex shrink-0 items-center gap-6 border-b border-(--border-subtle) bg-[linear-gradient(180deg,rgba(157,180,160,0.04)_0%,transparent_100%)] px-8 py-5 max-md:justify-between max-md:gap-2 max-md:px-4 max-md:py-3"
         >
           <!-- Teacher Selector -->
-          <div class="flex items-center flex-1 min-w-0 max-md:flex-auto">
+          <div class="flex min-w-0 flex-1 items-center max-md:flex-auto">
             <select v-model="selectedTeacherId" class="teacher-select" aria-label="Select teacher">
               <option :value="null">Select Teacher</option>
               <option
@@ -49,17 +49,17 @@
           </div>
 
           <!-- Submit Button -->
-          <div class="flex items-center shrink-0 max-md:flex-none">
+          <div class="flex shrink-0 items-center max-md:flex-none">
             <button
               type="submit"
               :disabled="!canSubmit"
               :aria-busy="isLoading"
-              class="group relative flex items-center justify-center px-6 py-3.5 max-[480px]:px-3 max-[480px]:py-2 font-[Inter,sans-serif] text-sm max-[480px]:text-xs font-medium text-white bg-(--primary-indigo) rounded-md cursor-pointer overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] shadow-[0_2px_8px_rgba(62,76,122,0.2),inset_0_-1px_0_rgba(0,0,0,0.1)] enabled:hover:bg-(--primary-indigo-deep) enabled:hover:-translate-y-0.5 enabled:hover:shadow-[0_4px_16px_rgba(62,76,122,0.3),inset_0_-1px_0_rgba(0,0,0,0.1)] enabled:active:translate-y-0 enabled:active:shadow-[0_2px_8px_rgba(62,76,122,0.2),inset_0_1px_0_rgba(0,0,0,0.1)] disabled:opacity-40 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none focus-visible:outline-none focus-visible:shadow-[0_0_0_3px_rgba(62,76,122,0.3),0_2px_8px_rgba(62,76,122,0.2)]"
+              class="group relative flex cursor-pointer items-center justify-center overflow-hidden rounded-md bg-(--primary-indigo) px-6 py-3.5 font-[Inter,sans-serif] text-sm font-medium text-white shadow-[0_2px_8px_rgba(62,76,122,0.2),inset_0_-1px_0_rgba(0,0,0,0.1)] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] focus-visible:shadow-[0_0_0_3px_rgba(62,76,122,0.3),0_2px_8px_rgba(62,76,122,0.2)] focus-visible:outline-none enabled:hover:-translate-y-0.5 enabled:hover:bg-(--primary-indigo-deep) enabled:hover:shadow-[0_4px_16px_rgba(62,76,122,0.3),inset_0_-1px_0_rgba(0,0,0,0.1)] enabled:active:translate-y-0 enabled:active:shadow-[0_2px_8px_rgba(62,76,122,0.2),inset_0_1px_0_rgba(0,0,0,0.1)] disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none max-[480px]:px-3 max-[480px]:py-2 max-[480px]:text-xs"
               :class="{ 'pointer-events-none': isLoading }"
               @click="handleSubmit"
             >
-              <span class="flex items-center gap-2 relative z-[1]">
-                <svg v-if="isLoading" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <span class="relative z-1 flex items-center gap-2">
+                <svg v-if="isLoading" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
                   <circle
                     class="opacity-25"
                     cx="12"
@@ -79,7 +79,7 @@
                 }}</span>
               </span>
               <span
-                class="absolute top-0 -left-full w-full h-full bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.1),transparent)] transition-[left] duration-[600ms] ease-[ease] group-[:hover:not(:disabled)]:left-full"
+                class="absolute top-0 -left-full h-full w-full bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.1),transparent)] transition-[left] duration-600 ease-[ease] group-[:hover:not(:disabled)]:left-full"
               ></span>
             </button>
           </div>
@@ -87,7 +87,7 @@
 
         <!-- Calendar -->
         <div
-          class="relative flex flex-col flex-1 min-h-0 p-0 md:px-4 md:py-2 lg:px-6 overflow-hidden max-md:overflow-y-auto bg-[linear-gradient(135deg,rgba(157,180,160,0.03)_0%,rgba(168,201,184,0.02)_100%)]"
+          class="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-[linear-gradient(135deg,rgba(157,180,160,0.03)_0%,rgba(168,201,184,0.02)_100%)] p-0 max-md:overflow-y-auto md:px-4 md:py-2 lg:px-6"
         >
           <Calendar
             v-if="selectedTeacherId"
@@ -102,34 +102,34 @@
       <!-- Confirm Dialog -->
       <div
         v-if="showConfirm"
-        class="anim-fade-in fixed inset-0 flex items-center justify-center z-[200] bg-[rgba(45,74,62,0.5)] backdrop-blur-[8px]"
+        class="anim-fade-in fixed inset-0 z-200 flex items-center justify-center bg-[rgba(45,74,62,0.5)] backdrop-blur-sm"
         role="dialog"
         aria-modal="true"
         aria-labelledby="confirm-title"
         @click.self="cancelConfirm"
       >
         <div
-          class="anim-dialog-in bg-(--bg-card) border border-(--border-subtle) border-t-4 border-t-(--accent-sage) rounded-2xl p-8 max-md:p-7 max-w-[420px] mx-4 shadow-[var(--shadow-elevated)]"
+          class="anim-dialog-in mx-4 max-w-105 rounded-2xl border border-t-4 border-(--border-subtle) border-t-(--accent-sage) bg-(--bg-card) p-8 shadow-(--shadow-elevated) max-md:p-7"
         >
           <h3
             id="confirm-title"
-            class="text-lg font-semibold font-['Instrument_Sans',sans-serif] text-(--text-primary) m-0 mb-5"
+            class="m-0 mb-5 font-['Instrument_Sans',sans-serif] text-lg font-semibold text-(--text-primary)"
           >
             Confirm Availability
           </h3>
-          <div class="flex flex-col gap-3.5 mb-6">
-            <div class="flex justify-between items-center py-2">
+          <div class="mb-6 flex flex-col gap-3.5">
+            <div class="flex items-center justify-between py-2">
               <span
-                class="font-['JetBrains_Mono',monospace] text-[0.6875rem] font-semibold tracking-[0.1em] text-(--text-secondary) uppercase"
+                class="font-['JetBrains_Mono',monospace] text-[0.6875rem] font-semibold tracking-widest text-(--text-secondary) uppercase"
                 >TEACHER</span
               >
               <span class="text-[0.9375rem] font-medium text-(--text-primary)">{{
                 selectedTeacher?.name
               }}</span>
             </div>
-            <div class="flex justify-between items-center py-2">
+            <div class="flex items-center justify-between py-2">
               <span
-                class="font-['JetBrains_Mono',monospace] text-[0.6875rem] font-semibold tracking-[0.1em] text-(--text-secondary) uppercase"
+                class="font-['JetBrains_Mono',monospace] text-[0.6875rem] font-semibold tracking-widest text-(--text-secondary) uppercase"
                 >TIME SLOTS</span
               >
               <span class="text-[0.9375rem] font-medium text-(--text-primary)"
@@ -137,28 +137,28 @@
               >
             </div>
             <div
-              class="flex flex-col gap-2 p-4 bg-[linear-gradient(135deg,rgba(157,180,160,0.08)_0%,rgba(157,180,160,0.04)_100%)] rounded-[10px] border border-(--border-subtle)"
+              class="flex flex-col gap-2 rounded-[10px] border border-(--border-subtle) bg-[linear-gradient(135deg,rgba(157,180,160,0.08)_0%,rgba(157,180,160,0.04)_100%)] p-4"
             >
               <div
                 v-for="(slot, index) in formattedSlots"
                 :key="index"
-                class="font-['JetBrains_Mono',monospace] text-[0.8125rem] text-(--text-primary) py-1"
+                class="py-1 font-['JetBrains_Mono',monospace] text-[0.8125rem] text-(--text-primary)"
               >
                 {{ slot.day }} {{ slot.start }}-{{ slot.end }}
               </div>
             </div>
           </div>
-          <div class="flex gap-3.5 justify-end">
+          <div class="flex justify-end gap-3.5">
             <button
               type="button"
-              class="px-5 py-3 text-sm font-semibold font-[Inter,sans-serif] rounded-[10px] cursor-pointer transition-all duration-300 text-(--text-primary) bg-(--bg-subtle) border-2 border-(--border-subtle) hover:bg-(--border-subtle) hover:border-(--border-medium)"
+              class="cursor-pointer rounded-[10px] border-2 border-(--border-subtle) bg-(--bg-subtle) px-5 py-3 font-[Inter,sans-serif] text-sm font-semibold text-(--text-primary) transition-all duration-300 hover:border-(--border-medium) hover:bg-(--border-subtle)"
               @click="cancelConfirm"
             >
               Cancel
             </button>
             <button
               type="button"
-              class="px-5 py-3 text-sm font-semibold font-[Inter,sans-serif] rounded-[10px] cursor-pointer transition-all duration-300 text-white border-none bg-[linear-gradient(135deg,var(--accent-sage)_0%,var(--accent-mint)_100%)] shadow-[0_4px_12px_rgba(157,180,160,0.3)] hover:-translate-y-0.5 hover:shadow-[0_6px_16px_rgba(157,180,160,0.4)]"
+              class="cursor-pointer rounded-[10px] border-none bg-[linear-gradient(135deg,var(--accent-sage)_0%,var(--accent-mint)_100%)] px-5 py-3 font-[Inter,sans-serif] text-sm font-semibold text-white shadow-[0_4px_12px_rgba(157,180,160,0.3)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_6px_16px_rgba(157,180,160,0.4)]"
               @click="confirmSubmit"
             >
               Confirm
@@ -170,12 +170,12 @@
       <!-- Toast Notifications -->
       <div
         v-if="successMessage"
-        class="anim-toast-in fixed bottom-8 right-8 max-md:left-4 max-md:right-4 max-md:bottom-4 flex items-center gap-3 px-6 py-4 rounded-xl shadow-[var(--shadow-elevated)] z-[100] text-sm font-medium text-white bg-[linear-gradient(135deg,var(--accent-sage)_0%,var(--accent-mint)_100%)]"
+        class="anim-toast-in fixed right-8 bottom-8 z-100 flex items-center gap-3 rounded-xl bg-[linear-gradient(135deg,var(--accent-sage)_0%,var(--accent-mint)_100%)] px-6 py-4 text-sm font-medium text-white shadow-(--shadow-elevated) max-md:right-4 max-md:bottom-4 max-md:left-4"
         role="status"
         aria-live="polite"
       >
         <svg
-          class="w-5 h-5 shrink-0"
+          class="h-5 w-5 shrink-0"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -193,12 +193,12 @@
 
       <div
         v-if="errorMessage"
-        class="anim-toast-in fixed bottom-8 right-8 max-md:left-4 max-md:right-4 max-md:bottom-4 flex items-center gap-3 px-6 py-4 rounded-xl shadow-[var(--shadow-elevated)] z-[100] text-sm font-medium text-white bg-[linear-gradient(135deg,var(--accent-coral)_0%,var(--accent-coral-light)_100%)]"
+        class="anim-toast-in fixed right-8 bottom-8 z-100 flex items-center gap-3 rounded-xl bg-[linear-gradient(135deg,var(--accent-coral)_0%,var(--accent-coral-light)_100%)] px-6 py-4 text-sm font-medium text-white shadow-(--shadow-elevated) max-md:right-4 max-md:bottom-4 max-md:left-4"
         role="alert"
         aria-live="assertive"
       >
         <svg
-          class="w-5 h-5 shrink-0"
+          class="h-5 w-5 shrink-0"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -213,7 +213,7 @@
         </svg>
         {{ errorMessage }}
         <button
-          class="ml-3 text-[rgba(255,255,255,0.8)] bg-transparent border-none text-xl cursor-pointer w-6 h-6 flex items-center justify-center rounded-[3px] transition-all duration-200 hover:bg-[rgba(255,255,255,0.15)] focus-visible:outline-none focus-visible:text-white focus-visible:bg-[rgba(255,255,255,0.2)]"
+          class="ml-3 flex h-6 w-6 cursor-pointer items-center justify-center rounded-[3px] border-none bg-transparent text-xl text-[rgba(255,255,255,0.8)] transition-all duration-200 hover:bg-[rgba(255,255,255,0.15)] focus-visible:bg-[rgba(255,255,255,0.2)] focus-visible:text-white focus-visible:outline-none"
           aria-label="Dismiss message"
           @click="errorMessage = ''"
         >
