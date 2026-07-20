@@ -1003,7 +1003,6 @@
 
   /* Desktop calendar toolbar override */
   .calendar-inner :deep(.fc .fc-toolbar.fc-header-toolbar) {
-    padding: 0.5rem 0 !important;
     margin: 0 !important;
   }
 

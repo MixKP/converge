@@ -62,10 +62,15 @@
 
 <template>
   <PageLayout title="Confirm Bookings">
-    <div class="confirm-container">
-      <div v-if="cartItems.length === 0 && !isConfirming" class="empty-state">
-        <div class="empty-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+    <div class="relative mx-auto mt-3 max-w-175">
+      <div
+        v-if="cartItems.length === 0 && !isConfirming"
+        class="anim-fade-in flex flex-col items-center justify-center px-8 py-16 text-center"
+      >
+        <div
+          class="mb-6 flex h-16 w-16 items-center justify-center rounded-lg bg-(--bg-subtle) text-(--text-muted)"
+        >
+          <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <path
               stroke-linecap="round"
               stroke-linejoin="round"
@@ -74,11 +79,19 @@
             />
           </svg>
         </div>
-        <h2 class="empty-title">Your cart is empty</h2>
-        <p class="empty-desc">Add sessions to begin booking</p>
-        <button type="button" class="empty-action" @click="goBack">
+        <h2
+          class="mb-1.5 font-['Instrument_Sans',sans-serif] text-xl font-semibold text-(--text-primary)"
+        >
+          Your cart is empty
+        </h2>
+        <p class="mb-6 text-sm text-(--text-secondary)">Add sessions to begin booking</p>
+        <button
+          type="button"
+          class="inline-flex cursor-pointer items-center gap-2 rounded-md bg-(--primary-indigo) px-6 py-3 text-sm font-medium text-white shadow-[0_2px_8px_rgba(62,76,122,0.2)] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:-translate-y-0.5 hover:bg-(--primary-indigo-deep)"
+          @click="goBack"
+        >
           Browse Sessions
-          <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <path
               stroke-linecap="round"
               stroke-linejoin="round"
@@ -89,18 +102,18 @@
         </button>
       </div>
 
-      <div v-else class="cart-content">
+      <div v-else class="anim-fade-up flex flex-col gap-6">
         <!-- Header with Clear All -->
-        <div class="content-header">
-          <div class="header-info">
-            <span class="session-count"
+        <div class="flex items-center justify-between border-b border-(--border-medium) pb-4">
+          <div class="flex flex-col">
+            <span class="text-base font-medium text-(--text-primary)"
               >{{ cartItems.length }} session{{ cartItems.length !== 1 ? 's' : '' }}</span
             >
           </div>
           <button
             v-if="cartItems.length > 0"
             type="button"
-            class="clear-btn"
+            class="cursor-pointer rounded-md border border-(--border-medium) bg-transparent px-4 py-2 font-[Inter,sans-serif] text-sm font-medium text-(--accent-coral) transition-all duration-200 hover:border-(--accent-coral) hover:bg-[rgba(201,109,93,0.08)]"
             @click="handleClearAll"
           >
             Clear All
@@ -108,15 +121,19 @@
         </div>
 
         <!-- Booking Cards -->
-        <div class="booking-cards">
+        <div class="flex flex-col gap-3">
           <div
             v-for="(item, index) in cartItems"
             :key="item.id"
-            class="booking-card"
+            class="anim-card-in relative rounded-lg border border-(--border-medium) bg-(--bg-card) p-4 transition-[background] duration-200 hover:bg-(--bg-subtle)"
             :style="{ animationDelay: `${index * 50}ms` }"
           >
-            <button type="button" class="card-remove" @click="handleRemove(item.id)">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <button
+              type="button"
+              class="absolute top-4 right-4 flex h-7 w-7 cursor-pointer items-center justify-center rounded bg-transparent text-(--text-muted) transition-all duration-200 hover:bg-[rgba(201,109,93,0.08)] hover:text-(--accent-coral)"
+              @click="handleRemove(item.id)"
+            >
+              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 <path
                   stroke-linecap="round"
                   stroke-linejoin="round"
@@ -126,23 +143,30 @@
               </svg>
             </button>
 
-            <div class="card-content">
-              <span class="card-subject">{{ item.subject_name }}</span>
-              <span class="card-time"
+            <div class="flex flex-col gap-1.5 pr-8">
+              <span
+                class="font-['Instrument_Sans',sans-serif] text-base font-semibold text-(--text-primary)"
+                >{{ item.subject_name }}</span
+              >
+              <span class="font-['JetBrains_Mono',monospace] text-sm text-(--text-secondary)"
                 >Date: {{ formatDate(item.start_time) }} · {{ formatTime(item.start_time) }}-{{
                   formatTime(item.end_time)
                 }}</span
               >
-              <span class="card-teacher">Teacher: {{ item.teacher_name }}</span>
-              <span class="card-branch">Branch: {{ item.branch_name }}</span>
+              <span class="text-sm text-(--text-secondary)">Teacher: {{ item.teacher_name }}</span>
+              <span class="text-sm text-(--text-secondary)">Branch: {{ item.branch_name }}</span>
             </div>
           </div>
         </div>
 
         <!-- Action Buttons -->
-        <div class="cart-actions">
-          <button type="button" class="action-btn action-btn--secondary" @click="goBack">
-            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <div class="flex gap-3 max-sm:flex-col">
+          <button
+            type="button"
+            class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border border-(--border-medium) bg-(--bg-card) px-5 py-3.5 font-[Inter,sans-serif] text-sm font-medium text-(--text-primary) transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:bg-(--bg-subtle) max-sm:w-full"
+            @click="goBack"
+          >
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path
                 stroke-linecap="round"
                 stroke-linejoin="round"
@@ -155,14 +179,14 @@
           <button
             type="button"
             :disabled="isConfirming || cartItems.length === 0"
-            class="action-btn action-btn--primary"
+            class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border-none bg-(--accent-sage) px-5 py-3.5 font-[Inter,sans-serif] text-sm font-medium text-white shadow-[0_2px_8px_rgba(122,139,109,0.2)] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:enabled:-translate-y-0.5 hover:enabled:shadow-[0_4px_16px_rgba(122,139,109,0.3)] hover:enabled:brightness-90 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none max-sm:w-full"
             @click="handleSubmit"
           >
             <span v-if="!isConfirming">Confirm Booking</span>
             <span v-else>Processing...</span>
             <svg
               v-if="!isConfirming"
-              class="btn-icon"
+              class="h-4 w-4"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -181,28 +205,37 @@
       <!-- Clear All Confirmation Dialog -->
       <div
         v-if="showClearConfirm"
-        class="confirm-dialog-overlay"
+        class="anim-overlay-in fixed inset-0 z-200 flex items-center justify-center bg-[rgba(26,28,35,0.5)]"
         @click.self="showClearConfirm = false"
       >
         <div
-          class="confirm-dialog"
+          class="anim-dialog-in mx-4 max-w-100 rounded-lg border border-t-2 border-(--border-medium) border-t-(--accent-coral) bg-(--bg-card) p-6"
           role="dialog"
           aria-modal="true"
           aria-labelledby="clear-confirm-title"
         >
-          <h3 id="clear-confirm-title" class="confirm-title">Clear all sessions?</h3>
-          <p class="confirm-desc">
+          <h3
+            id="clear-confirm-title"
+            class="m-0 mb-2 font-['Instrument_Sans',sans-serif] text-base font-semibold text-(--text-primary)"
+          >
+            Clear all sessions?
+          </h3>
+          <p class="m-0 mb-5 text-sm leading-normal text-(--text-secondary)">
             This will remove all sessions from your cart. This action cannot be undone.
           </p>
-          <div class="confirm-actions">
+          <div class="flex justify-end gap-3">
             <button
               type="button"
-              class="confirm-btn confirm-btn--cancel"
+              class="cursor-pointer rounded-md border border-(--border-medium) bg-(--bg-subtle) px-4 py-2.5 font-[Inter,sans-serif] text-sm font-medium text-(--text-primary) transition-all duration-200 hover:bg-(--border-subtle)"
               @click="showClearConfirm = false"
             >
               Cancel
             </button>
-            <button type="button" class="confirm-btn confirm-btn--confirm" @click="confirmClearAll">
+            <button
+              type="button"
+              class="cursor-pointer rounded-md border-none bg-(--accent-coral) px-4 py-2.5 font-[Inter,sans-serif] text-sm font-medium text-white transition-all duration-200 hover:bg-[#b85c4e]"
+              @click="confirmClearAll"
+            >
               Clear All
             </button>
           </div>
@@ -210,8 +243,11 @@
       </div>
 
       <!-- Toast Notifications -->
-      <div v-if="successMessage" class="toast toast--success">
-        <svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <div
+        v-if="successMessage"
+        class="anim-toast-in fixed right-8 bottom-8 z-100 flex items-center gap-2.5 rounded-md bg-(--accent-sage) px-5 py-3.5 font-[Inter,sans-serif] text-sm text-white shadow-(--shadow-elevated) max-sm:right-4 max-sm:left-4"
+      >
+        <svg class="h-4.5 w-4.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <path
             stroke-linecap="round"
             stroke-linejoin="round"
@@ -222,8 +258,11 @@
         {{ successMessage }}
       </div>
 
-      <div v-if="errorMessage" class="toast toast--error">
-        <svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <div
+        v-if="errorMessage"
+        class="anim-toast-in fixed right-8 bottom-8 z-100 flex items-center gap-2.5 rounded-md bg-(--accent-coral) px-5 py-3.5 font-[Inter,sans-serif] text-sm text-white shadow-(--shadow-elevated) max-sm:right-4 max-sm:left-4"
+      >
+        <svg class="h-4.5 w-4.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <path
             stroke-linecap="round"
             stroke-linejoin="round"
@@ -232,411 +271,22 @@
           />
         </svg>
         {{ errorMessage }}
-        <button class="toast-close" @click="errorMessage = ''">×</button>
+        <button
+          class="ml-2.5 flex h-5 w-5 cursor-pointer items-center justify-center border-none bg-transparent text-xl text-[rgba(255,255,255,0.8)]"
+          @click="errorMessage = ''"
+        >
+          ×
+        </button>
       </div>
     </div>
   </PageLayout>
 </template>
 
 <style scoped>
-  .confirm-container {
-    position: relative;
-    max-width: 700px;
-    margin: 0 auto;
-  }
-
-  /* Empty State */
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 4rem 2rem;
-    text-align: center;
-    animation: fade-in 0.4s ease-out;
-  }
-
-  .empty-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 4rem;
-    height: 4rem;
-    margin-bottom: 1.5rem;
-    color: var(--text-muted);
-    background: var(--bg-subtle);
-    border-radius: 8px;
-  }
-
-  .empty-icon svg {
-    width: 1.75rem;
-    height: 1.75rem;
-  }
-
-  .empty-title {
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    font-family: 'Instrument Sans', sans-serif;
-    margin-bottom: 0.375rem;
-  }
-
-  .empty-desc {
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-    margin-bottom: 1.5rem;
-  }
-
-  .empty-action {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1.5rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: white;
-    background: var(--primary-indigo);
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    box-shadow: 0 2px 8px rgba(62, 76, 122, 0.2);
-  }
-
-  .empty-action:hover {
-    background: var(--primary-indigo-deep);
-    transform: translateY(-2px);
-  }
-
-  .action-icon {
-    width: 1rem;
-    height: 1rem;
-  }
-
-  /* Cart Content */
-  .cart-content {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-    animation: fade-in-up 0.4s ease-out;
-  }
-
-  /* Content Header */
-  .content-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid var(--border-medium);
-  }
-
-  .header-info {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .session-count {
-    font-size: 1rem;
-    font-weight: 500;
-    color: var(--text-primary);
-  }
-
-  .clear-btn {
-    padding: 0.5rem 1rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--accent-coral);
-    background: transparent;
-    border: 1px solid var(--border-medium);
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-family: 'Inter', sans-serif;
-  }
-
-  .clear-btn:hover {
-    background: rgba(201, 109, 93, 0.08);
-    border-color: var(--accent-coral);
-  }
-
-  /* Booking Cards */
-  .booking-cards {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .booking-card {
-    position: relative;
-    background: var(--bg-card);
-    border: 1px solid var(--border-medium);
-    border-radius: 8px;
-    padding: 1rem;
-    animation: card-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
-    transition: background 0.2s ease;
-  }
-
-  .booking-card:hover {
-    background: var(--bg-subtle);
-  }
-
-  @keyframes card-in {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .card-remove {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.75rem;
-    height: 1.75rem;
-    color: var(--text-muted);
-    background: transparent;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-
-  .card-remove:hover {
-    color: var(--accent-coral);
-    background: rgba(201, 109, 93, 0.08);
-  }
-
-  .card-remove svg {
-    width: 0.875rem;
-    height: 0.875rem;
-  }
-
-  .card-content {
-    display: flex;
-    flex-direction: column;
-    gap: 0.375rem;
-    padding-right: 2rem;
-  }
-
-  .card-teacher {
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-  }
-
-  .card-subject {
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    font-family: 'Instrument Sans', sans-serif;
-  }
-
-  .card-time,
-  .card-branch {
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-  }
-
-  .card-time {
-    font-family: 'JetBrains Mono', monospace;
-  }
-
-  /* Actions */
-  .cart-actions {
-    display: flex;
-    gap: 0.75rem;
-  }
-
-  .action-btn {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 0.875rem 1.25rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    font-family: 'Inter', sans-serif;
-  }
-
-  .action-btn--secondary {
-    color: var(--text-primary);
-    background: var(--bg-card);
-    border: 1px solid var(--border-medium);
-  }
-
-  .action-btn--secondary:hover {
-    background: var(--bg-subtle);
-  }
-
-  .action-btn--primary {
-    color: white;
-    background: var(--accent-sage);
-    border: none;
-    box-shadow: 0 2px 8px rgba(122, 139, 109, 0.2);
-  }
-
-  .action-btn--primary:hover:not(:disabled) {
-    filter: brightness(0.9);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(122, 139, 109, 0.3);
-  }
-
-  .action-btn--primary:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-  }
-
-  .btn-icon {
-    width: 1rem;
-    height: 1rem;
-  }
-
-  /* Toast */
-  .toast {
-    position: fixed;
-    bottom: 2rem;
-    right: 2rem;
-    display: flex;
-    align-items: center;
-    gap: 0.625rem;
-    padding: 0.875rem 1.25rem;
-    border-radius: 6px;
-    box-shadow: var(--shadow-elevated);
-    animation: toast-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-    z-index: 100;
-    font-size: 0.875rem;
-    font-family: 'Inter', sans-serif;
-  }
-
-  .toast--success {
-    background: var(--accent-sage);
-    color: white;
-  }
-
-  .toast--error {
-    background: var(--accent-coral);
-    color: white;
-  }
-
-  .toast-icon {
-    width: 1.125rem;
-    height: 1.125rem;
-    flex-shrink: 0;
-  }
-
-  .toast-close {
-    margin-left: 0.625rem;
-    color: rgba(255, 255, 255, 0.8);
-    background: transparent;
-    border: none;
-    font-size: 1.25rem;
-    cursor: pointer;
-    width: 1.25rem;
-    height: 1.25rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  /* Confirmation Dialog */
-  .confirm-dialog-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(26, 28, 35, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 200;
-    animation: fade-in 0.2s ease-out;
-  }
-
-  .confirm-dialog {
-    background: var(--bg-card);
-    border: 1px solid var(--border-medium);
-    border-top: 2px solid var(--accent-coral);
-    border-radius: 8px;
-    padding: 1.5rem;
-    max-width: 400px;
-    margin: 0 1rem;
-    animation: dialog-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-
-  .confirm-title {
-    font-size: 1rem;
-    font-weight: 600;
-    font-family: 'Instrument Sans', sans-serif;
-    color: var(--text-primary);
-    margin: 0 0 0.5rem 0;
-  }
-
-  .confirm-desc {
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-    margin: 0 0 1.25rem 0;
-    line-height: 1.5;
-  }
-
-  .confirm-actions {
-    display: flex;
-    gap: 0.75rem;
-    justify-content: flex-end;
-  }
-
-  .confirm-btn {
-    padding: 0.625rem 1rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    font-family: 'Inter', sans-serif;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-
-  .confirm-btn--cancel {
-    color: var(--text-primary);
-    background: var(--bg-subtle);
-    border: 1px solid var(--border-medium);
-  }
-
-  .confirm-btn--cancel:hover {
-    background: var(--border-subtle);
-  }
-
-  .confirm-btn--confirm {
-    color: white;
-    background: var(--accent-coral);
-    border: none;
-  }
-
-  .confirm-btn--confirm:hover {
-    background: #b85c4e;
-  }
-
-  /* Animations */
-  @keyframes dialog-in {
-    from {
-      opacity: 0;
-      transform: scale(0.95);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-
-  @keyframes fade-in {
+  /* Entrance animations: keyframes + spring easing don't map cleanly to
+     utilities, so the animation shorthands stay here and are applied via
+     these helper classes in the markup above. */
+  @keyframes cart-fade-in {
     from {
       opacity: 0;
     }
@@ -645,7 +295,7 @@
     }
   }
 
-  @keyframes fade-in-up {
+  @keyframes cart-fade-up {
     from {
       opacity: 0;
       transform: translateY(12px);
@@ -656,7 +306,29 @@
     }
   }
 
-  @keyframes toast-in {
+  @keyframes cart-card-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes cart-dialog-in {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes cart-toast-in {
     from {
       opacity: 0;
       transform: translateY(16px) scale(0.95);
@@ -667,19 +339,27 @@
     }
   }
 
-  /* Mobile Responsive */
-  @media (max-width: 640px) {
-    .toast {
-      right: 1rem;
-      left: 1rem;
-    }
+  .anim-fade-in {
+    animation: cart-fade-in 0.4s ease-out;
+  }
 
-    .cart-actions {
-      flex-direction: column;
-    }
+  .anim-fade-up {
+    animation: cart-fade-up 0.4s ease-out;
+  }
 
-    .action-btn {
-      width: 100%;
-    }
+  .anim-card-in {
+    animation: cart-card-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  }
+
+  .anim-overlay-in {
+    animation: cart-fade-in 0.2s ease-out;
+  }
+
+  .anim-dialog-in {
+    animation: cart-dialog-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .anim-toast-in {
+    animation: cart-toast-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 </style>
