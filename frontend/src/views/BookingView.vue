@@ -57,7 +57,7 @@
   // (and the AI panel) via the computed v-models below; keepValuesOnUnmount
   // preserves them as the mutually-exclusive mobile/tablet/desktop layouts
   // mount and unmount on breakpoint changes.
-  const { meta: bookingFormMeta } = useForm({
+  const { meta: bookingFormMeta, submitCount } = useForm({
     validationSchema: toTypedSchema(manualBookingFormSchema),
     keepValuesOnUnmount: true,
     initialValues: {
@@ -66,6 +66,11 @@
       teacher_id: selectedTeacherId.value,
     },
   })
+
+  // The "Add to Booking" button is already disabled until the form is valid, so
+  // there's no submit that would flip this — field errors stay hidden rather than
+  // lighting up untouched selects the moment one changes.
+  const showErrors = computed(() => submitCount.value > 0)
 
   // Single source of truth for the "Add to Booking" button across all layouts.
   const canAddToBooking = computed(
@@ -186,6 +191,7 @@
               name="subject_id"
               select-class="mobile-select"
               aria-label="Select subject"
+              :show-error="showErrors"
             >
               <option :value="null">Select subject</option>
               <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
@@ -209,6 +215,7 @@
                 :disabled="!selectedSubjectId"
                 select-class="mobile-select"
                 aria-label="Select branch"
+                :show-error="showErrors"
               >
                 <option :value="null">Select branch</option>
                 <option v-for="branch in branches" :key="branch.id" :value="branch.id">
@@ -229,6 +236,7 @@
                 :disabled="!selectedSubjectId"
                 select-class="mobile-select"
                 aria-label="Select teacher"
+                :show-error="showErrors"
               >
                 <option :value="null">All teachers</option>
                 <option v-for="teacher in filteredTeachers" :key="teacher.id" :value="teacher.id">
@@ -364,6 +372,7 @@
                 name="subject_id"
                 select-class="tablet-select"
                 aria-label="Select subject"
+                :show-error="showErrors"
               >
                 <option :value="null">Select subject</option>
                 <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
@@ -382,6 +391,7 @@
                 :disabled="!selectedSubjectId"
                 select-class="tablet-select"
                 aria-label="Select branch"
+                :show-error="showErrors"
               >
                 <option :value="null">Select branch</option>
                 <option v-for="branch in branches" :key="branch.id" :value="branch.id">
@@ -400,6 +410,7 @@
                 :disabled="!selectedSubjectId"
                 select-class="tablet-select"
                 aria-label="Select teacher"
+                :show-error="showErrors"
               >
                 <option :value="null">All teachers</option>
                 <option v-for="teacher in filteredTeachers" :key="teacher.id" :value="teacher.id">
@@ -644,6 +655,7 @@
                     name="subject_id"
                     select-class="field-select"
                     aria-label="Select subject"
+                    :show-error="showErrors"
                   >
                     <option :value="null">Select subject</option>
                     <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
@@ -670,6 +682,7 @@
                     :disabled="!selectedSubjectId"
                     select-class="field-select"
                     aria-label="Select branch"
+                    :show-error="showErrors"
                   >
                     <option :value="null">Select branch</option>
                     <option v-for="branch in branches" :key="branch.id" :value="branch.id">
@@ -696,6 +709,7 @@
                     :disabled="!selectedSubjectId"
                     select-class="field-select"
                     aria-label="Select teacher"
+                    :show-error="showErrors"
                   >
                     <option :value="null">Show all available teachers</option>
                     <option

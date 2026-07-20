@@ -6,8 +6,8 @@ import {
   isSameDaySelection,
   createEvent,
   createOneHourEvent,
-} from '../utils/calendarHelpers'
-import { isValidDate, rangesOverlap } from '../utils/dateValidation'
+} from '../../utils/calendarHelpers'
+import { isValidDate, rangesOverlap } from '../../utils/dateValidation'
 
 type CalendarRef = Ref<InstanceType<typeof FullCalendar> | null>
 

@@ -47,7 +47,7 @@ export const bookingAlternativeSchema = z.object({
 })
 
 /** Mirrors scheduling.SlotResult. */
-export const slotResultSchema = z.object({
+const slotResultSchema = z.object({
   slot: weeklySlotSchema,
   exact_match: bookingAlternativeSchema.optional(),
   alternatives: z.array(bookingAlternativeSchema).optional(),

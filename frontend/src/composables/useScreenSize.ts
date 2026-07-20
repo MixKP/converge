@@ -1,6 +1,6 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 
-export const BREAKPOINTS = {
+const BREAKPOINTS = {
   MOBILE: 425, // ≤425px
   TABLET: 1024, // 426px - 1023px
   DESKTOP: 1024, // ≥1024px

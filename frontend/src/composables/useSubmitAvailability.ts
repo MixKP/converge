@@ -7,16 +7,16 @@ import { generateAvailabilityPayload } from '../utils/calendarHelpers'
 import { availabilityFormSchema } from '../schemas/forms'
 import { availabilityPayloadSchema, type WeeklySlotInput } from '../schemas/calendar'
 import { toTypedSchema } from '../schemas/veeValidate'
-import { useMessages } from './useMessages'
+import { useNotification } from './useNotification'
 
 export function useSubmitAvailability() {
   const teacherStore = useTeacherStore()
   const isLoading = ref(false)
   const events = ref<EventInput[]>([])
   const showConfirm = ref(false)
-  const { successMessage, errorMessage, showSuccess, showError } = useMessages()
+  const { successMessage, errorMessage, showSuccess, showError } = useNotification()
 
-  const { meta, errors, setFieldValue, handleSubmit: veeHandleSubmit } = useForm({
+  const { meta, submitCount, setFieldValue, handleSubmit: veeHandleSubmit } = useForm({
     validationSchema: toTypedSchema(availabilityFormSchema),
     initialValues: {
       teacher_id: teacherStore.selectedTeacherId,
@@ -47,7 +47,8 @@ export function useSubmitAvailability() {
 
   const canSubmit = computed(() => meta.value.valid && !isLoading.value)
 
-  const weeklyError = computed(() => errors.value.weekly)
+  // Only surface the teacher field error after a submit attempt, then live.
+  const showErrors = computed(() => submitCount.value > 0)
 
   const formattedSlots = computed(() => {
     return events.value
@@ -97,7 +98,7 @@ export function useSubmitAvailability() {
       events.value = []
       teacherStore.setSelectedTeacherById(null)
       showConfirm.value = false
-      showSuccess('Availability submitted successfully!')
+      showSuccess('Availability submitted successfully!', 3000)
     } catch (error) {
       showError(error, 'Failed to submit availability. Please try again.')
     } finally {
@@ -123,7 +124,7 @@ export function useSubmitAvailability() {
     selectedTeacherId,
     selectedTeacher,
     canSubmit,
-    weeklyError,
+    showErrors,
     formattedSlots,
     handleSubmit,
     confirmSubmit,

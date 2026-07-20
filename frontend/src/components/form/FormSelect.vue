@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { toRef, useId } from 'vue'
+  import { computed, toRef, useId } from 'vue'
   import { useField } from 'vee-validate'
 
   const props = defineProps<{
@@ -12,6 +12,12 @@
     ariaLabel?: string
     /** v-model value; kept in sync with the field via syncVModel. */
     modelValue?: number | string | null
+    /**
+     * Gate error display. Parents pass `submitCount > 0` so the field error only
+     * appears after a submit attempt, not the moment a sibling field changes.
+     * Defaults to true so the component still surfaces errors when unset.
+     */
+    showError?: boolean
   }>()
 
   defineEmits<{ 'update:modelValue': [value: number | string | null] }>()
@@ -24,6 +30,7 @@
 
   const id = useId()
   const errorId = `${id}-error`
+  const displayError = computed(() => (props.showError ?? true) && !!errorMessage.value)
 </script>
 
 <template>
@@ -35,12 +42,12 @@
       :class="selectClass"
       :disabled="disabled"
       :aria-label="ariaLabel"
-      :aria-invalid="errorMessage ? true : undefined"
-      :aria-describedby="errorMessage ? errorId : undefined"
+      :aria-invalid="displayError ? true : undefined"
+      :aria-describedby="displayError ? errorId : undefined"
     >
       <slot />
     </select>
-    <p v-if="errorMessage" :id="errorId" role="alert" class="form-select__error">
+    <p v-if="displayError" :id="errorId" role="alert" class="form-select__error">
       {{ errorMessage }}
     </p>
   </div>

@@ -1,8 +1,6 @@
 import { storeToRefs } from 'pinia'
 import { useCartStore } from '../stores/cartStore'
 
-export type { CartItem } from '../types/booking'
-
 export function useCart() {
   const cartStore = useCartStore()
   const { cartItems, isConfirming } = storeToRefs(cartStore)

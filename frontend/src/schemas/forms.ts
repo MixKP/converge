@@ -24,16 +24,12 @@ export const aiSuggestionsFormSchema = z.object({
     }),
 })
 
-export type AiSuggestionsForm = z.infer<typeof aiSuggestionsFormSchema>
-
 /** Manual booking selection (BookingView): all three ids required. */
 export const manualBookingFormSchema = z.object({
   subject_id: selectId('a subject'),
   branch_id: selectId('a branch'),
   teacher_id: selectId('a teacher'),
 })
-
-export type ManualBookingForm = z.infer<typeof manualBookingFormSchema>
 
 /** Teacher availability submission (SubmitAvailability). */
 export const availabilityFormSchema = z.object({
@@ -43,5 +39,3 @@ export const availabilityFormSchema = z.object({
     .min(1, 'Add at least one time slot on the calendar')
     .superRefine(noPerDayOverlap),
 })
-
-export type AvailabilityForm = z.infer<typeof availabilityFormSchema>

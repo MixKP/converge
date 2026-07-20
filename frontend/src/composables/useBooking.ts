@@ -34,5 +34,3 @@ export function useBooking() {
     initialize: bookingStore.initialize,
   }
 }
-
-export type { CartItem } from '../types/booking'

@@ -46,12 +46,12 @@ export function formatTimeString(date: Date): string {
   return `${hours}:${minutes}`
 }
 
-export function formatDayName(date: Date, format: 'long' | 'short' | 'narrow' = 'long'): string {
+function formatDayName(date: Date, format: 'long' | 'short' | 'narrow' = 'long'): string {
   if (!isValidDate(date)) return ''
   return date.toLocaleDateString('en-US', { weekday: format })
 }
 
-export function formatTime12Hour(date: Date): string {
+function formatTime12Hour(date: Date): string {
   if (!isValidDate(date)) return ''
 
   const hours = date.getHours()
@@ -110,13 +110,4 @@ export function toMinutes(timeStr: string): number {
   if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return NaN
 
   return hour * 60 + minute
-}
-
-export function toTimeString(minutes: number): string {
-  if (minutes < 0 || !Number.isFinite(minutes)) {
-    throw new Error(`Invalid minutes value: ${minutes}. Must be a non-negative finite number.`)
-  }
-  const hours = Math.floor(minutes / 60) % 24
-  const mins = minutes % 60
-  return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`
 }

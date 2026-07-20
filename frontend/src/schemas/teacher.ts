@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 /** Teacher status DB CHECK constraint (teachers.status). */
-export const teacherStatusSchema = z.enum(['active', 'deactivated'])
+const teacherStatusSchema = z.enum(['active', 'deactivated'])
 
 /**
  * Mirrors backend teacher.Teacher. `email` marshals as an empty string when

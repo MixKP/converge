@@ -46,7 +46,7 @@
   // Validation layer. State stays owned by the parent (bookingStore) via the
   // controlled props/emit below; the form mirrors those values so vee-validate
   // can surface per-field errors and gate submission.
-  const { errors, setFieldValue, handleSubmit: veeHandleSubmit } = useForm({
+  const { errors, submitCount, setFieldValue, handleSubmit: veeHandleSubmit } = useForm({
     validationSchema: toTypedSchema(aiSuggestionsFormSchema),
     initialValues: {
       subject_id: props.selectedSubjectId,
@@ -86,6 +86,9 @@
 
   const slotsError = computed(() => errors.value.slots)
   const draftError = ref('')
+
+  // Only surface zod field errors after the first submit attempt, then live.
+  const showErrors = computed(() => submitCount.value > 0)
 
   const DAY_NAMES = [
     'Sunday',
@@ -206,6 +209,7 @@
           v-model="localSubjectId"
           name="subject_id"
           :select-class="getCls('select')"
+          :show-error="showErrors"
         >
           <option :value="null">Select subject</option>
           <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
@@ -277,7 +281,11 @@
         <p v-if="draftError" class="mt-1.5 text-xs font-medium text-(--accent-coral)" role="alert">
           {{ draftError }}
         </p>
-        <p v-if="slotsError" class="mt-1.5 text-xs font-medium text-(--accent-coral)" role="alert">
+        <p
+          v-if="slotsError && showErrors"
+          class="mt-1.5 text-xs font-medium text-(--accent-coral)"
+          role="alert"
+        >
           {{ slotsError }}
         </p>
 
@@ -316,6 +324,7 @@
           name="branch_id"
           :select-class="getCls('select')"
           :disabled="!selectedSubjectId"
+          :show-error="showErrors"
         >
           <option :value="null">Select branch</option>
           <option v-for="branch in branches" :key="branch.id" :value="branch.id">

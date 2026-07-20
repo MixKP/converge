@@ -3,10 +3,10 @@
   import FullCalendar from '@fullcalendar/vue3'
   import timeGridPlugin from '@fullcalendar/timegrid'
   import interactionPlugin from '@fullcalendar/interaction'
-  import { useCalendarResponsive } from '../composables/useCalendarResponsive'
-  import { useCalendarEventSync } from '../composables/useCalendarEventSync'
-  import { useBusinessHoursHeaders } from '../composables/useBusinessHoursHeaders'
-  import { useCalendarInteraction } from '../composables/useCalendarInteraction'
+  import { useCalendarResponsive } from '../composables/cart/useCalendarResponsive'
+  import { useCalendarEventSync } from '../composables/cart/useCalendarEventSync'
+  import { useBusinessHoursHeaders } from '../composables/cart/useBusinessHoursHeaders'
+  import { useCalendarInteraction } from '../composables/cart/useCalendarInteraction'
   import type {
     EventInput,
     EventClickArg,

@@ -30,7 +30,7 @@ export const selectId = (label: string) =>
     .refine((v): v is number => v !== null, `Please select ${label}`)
 
 /** RFC3339 / ISO datetime string as used by Booking start_time/end_time. */
-export const isoDateTime = z
+const isoDateTime = z
   .string()
   .refine((s) => !Number.isNaN(new Date(s).getTime()), 'Invalid date format')
 

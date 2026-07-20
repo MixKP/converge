@@ -15,7 +15,7 @@
     selectedTeacherId,
     selectedTeacher,
     canSubmit,
-    weeklyError,
+    showErrors,
     formattedSlots,
     handleSubmit,
     confirmSubmit,
@@ -43,6 +43,7 @@
               name="teacher_id"
               select-class="teacher-select"
               aria-label="Select teacher"
+              :show-error="showErrors"
             >
               <option :value="null">Select Teacher</option>
               <option
@@ -53,13 +54,6 @@
                 {{ teacher.name }}
               </option>
             </FormSelect>
-            <p
-              v-if="weeklyError"
-              class="mt-1.5 text-xs font-medium text-(--accent-coral)"
-              role="alert"
-            >
-              {{ weeklyError }}
-            </p>
           </div>
 
           <!-- Submit Button -->

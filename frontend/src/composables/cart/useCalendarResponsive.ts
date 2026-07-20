@@ -1,6 +1,6 @@
 import { computed, watch, type Ref } from 'vue'
 import type FullCalendar from '@fullcalendar/vue3'
-import { useScreenSize } from './useScreenSize'
+import { useScreenSize } from '../useScreenSize'
 
 type CalendarRef = Ref<InstanceType<typeof FullCalendar> | null>
 

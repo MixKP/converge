@@ -12,7 +12,7 @@ import type { CartItem } from '../types/booking'
 import { useBookingStore } from './bookingStore'
 
 export const useCartStore = defineStore('cart', () => {
-  const { errorMessage, showSuccess, showError, clearMessages } = useNotification()
+  const { showSuccess, showError, clearMessages } = useNotification()
 
   // Cart State
   const cartItems = ref<CartItem[]>([])
@@ -191,18 +191,12 @@ export const useCartStore = defineStore('cart', () => {
       const successCount = successfulItemIds.size
 
       if (conflictCount > 0) {
-        errorMessage.value = 'You already booked this subject'
-        setTimeout(() => {
-          errorMessage.value = ''
-        }, 4000)
+        showError(null, 'You already booked this subject', 4000)
       } else if (successCount > 0 && otherFailedCount === 0) {
         showSuccess(`Successfully confirmed ${successCount} booking(s)!`)
         booking.fetchConfirmedBookings()
       } else if (otherFailedCount > 0) {
-        errorMessage.value = `${otherFailedCount} booking(s) failed. ${successCount} confirmed.`
-        setTimeout(() => {
-          errorMessage.value = ''
-        }, 4000)
+        showError(null, `${otherFailedCount} booking(s) failed. ${successCount} confirmed.`, 4000)
       }
     } catch (error) {
       showError(error, getErrorMessage(error, 'Failed to confirm bookings'))
