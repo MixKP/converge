@@ -3,20 +3,12 @@
   import { useField } from 'vee-validate'
 
   const props = defineProps<{
-    /** vee-validate field name (matches a key in the form's validationSchema). */
     name: string
-    /** Class applied to the inner <select> (e.g. "field-select", "mobile-select"). */
     selectClass?: string
     label?: string
     disabled?: boolean
     ariaLabel?: string
-    /** v-model value; kept in sync with the field via syncVModel. */
     modelValue?: number | string | null
-    /**
-     * Gate error display. Parents pass `submitCount > 0` so the field error only
-     * appears after a submit attempt, not the moment a sibling field changes.
-     * Defaults to true so the component still surfaces errors when unset.
-     */
     showError?: boolean
   }>()
 
@@ -75,15 +67,7 @@
   }
 </style>
 
-<!--
-  The <select> styles below are unscoped: FormSelect renders the <select>, so the
-  duplicated variant classes previously living in each form's scoped block are
-  centralized here. Class names are specific enough that global scope is safe.
-  The dropdown arrow is an inline SVG data-URI, so `appearance: none` and these
-  resets don't map cleanly to Tailwind utilities.
--->
 <style>
-  /* SubmitAvailability teacher selector */
   .teacher-select {
     width: 100%;
     max-width: 320px;
@@ -244,7 +228,6 @@
     cursor: not-allowed;
   }
 
-  /* SmartSuggestionsPanel — subject/branch/teacher selects, per layout */
   .smart-suggestions-panel--mobile__select,
   .smart-suggestions-panel--tablet__select {
     width: 100%;

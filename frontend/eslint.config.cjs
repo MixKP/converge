@@ -4,13 +4,21 @@ const vue = require('eslint-plugin-vue')
 const vueParser = require('vue-eslint-parser')
 const prettier = require('eslint-config-prettier')
 const prettierPlugin = require('eslint-plugin-prettier')
-const tailwindcss = require('eslint-plugin-tailwindcss')
+const tailwind = require('eslint-plugin-tailwindcss')
 
 module.exports = [
   js.configs.recommended,
   ...ts.configs.recommended,
   ...vue.configs['flat/recommended'],
-  ...tailwind.configs['flat/recommended'],
+  tailwind.configs.recommended,
+
+  {
+    settings: {
+      tailwindcss: {
+        cssConfigPath: 'src/css/style.css',
+      },
+    },
+  },
 
   {
     files: ['**/*.vue', '**/*.ts', '**/*.tsx'],

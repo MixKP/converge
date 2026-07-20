@@ -14,7 +14,6 @@
     showConfirm,
     selectedTeacherId,
     selectedTeacher,
-    canSubmit,
     showErrors,
     formattedSlots,
     handleSubmit,
@@ -60,7 +59,7 @@
           <div class="flex shrink-0 items-center max-md:flex-none">
             <button
               type="submit"
-              :disabled="!canSubmit"
+              :disabled="isLoading"
               :aria-busy="isLoading"
               class="group relative flex cursor-pointer items-center justify-center overflow-hidden rounded-md bg-(--primary-indigo) px-6 py-3.5 font-[Inter,sans-serif] text-sm font-medium text-white shadow-[0_2px_8px_rgba(62,76,122,0.2),inset_0_-1px_0_rgba(0,0,0,0.1)] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] focus-visible:shadow-[0_0_0_3px_rgba(62,76,122,0.3),0_2px_8px_rgba(62,76,122,0.2)] focus-visible:outline-none enabled:hover:-translate-y-0.5 enabled:hover:bg-(--primary-indigo-deep) enabled:hover:shadow-[0_4px_16px_rgba(62,76,122,0.3),inset_0_-1px_0_rgba(0,0,0,0.1)] enabled:active:translate-y-0 enabled:active:shadow-[0_2px_8px_rgba(62,76,122,0.2),inset_0_1px_0_rgba(0,0,0,0.1)] disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none max-[480px]:px-3 max-[480px]:py-2 max-[480px]:text-xs"
               :class="{ 'pointer-events-none': isLoading }"

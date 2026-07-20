@@ -16,7 +16,7 @@ export function useSubmitAvailability() {
   const showConfirm = ref(false)
   const { successMessage, errorMessage, showSuccess, showError } = useNotification()
 
-  const { meta, submitCount, setFieldValue, handleSubmit: veeHandleSubmit } = useForm({
+  const { submitCount, setFieldValue, resetForm, handleSubmit: veeHandleSubmit } = useForm({
     validationSchema: toTypedSchema(availabilityFormSchema),
     initialValues: {
       teacher_id: teacherStore.selectedTeacherId,
@@ -33,8 +33,6 @@ export function useSubmitAvailability() {
     teacherStore.teachers.find((t) => t.id === selectedTeacherId.value)
   )
 
-  // `weekly` is a hidden form field derived from the calendar events, so schema
-  // rules (min 1 slot, no same-day overlap) drive form validity.
   watch(
     events,
     (list) => {
@@ -45,9 +43,6 @@ export function useSubmitAvailability() {
     { deep: true }
   )
 
-  const canSubmit = computed(() => meta.value.valid && !isLoading.value)
-
-  // Only surface the teacher field error after a submit attempt, then live.
   const showErrors = computed(() => submitCount.value > 0)
 
   const formattedSlots = computed(() => {
@@ -97,6 +92,7 @@ export function useSubmitAvailability() {
       await availabilityApi.submitAvailability(payload)
       events.value = []
       teacherStore.setSelectedTeacherById(null)
+      resetForm({ values: { teacher_id: null, weekly: [] } })
       showConfirm.value = false
       showSuccess('Availability submitted successfully!', 3000)
     } catch (error) {
@@ -123,7 +119,6 @@ export function useSubmitAvailability() {
     showConfirm,
     selectedTeacherId,
     selectedTeacher,
-    canSubmit,
     showErrors,
     formattedSlots,
     handleSubmit,

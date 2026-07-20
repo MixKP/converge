@@ -5,7 +5,6 @@ export async function fetchApi<T>(endpoint: string, options?: RequestInit): Prom
     const error = await response.json().catch(() => ({ error: response.statusText }))
     throw new Error(error.error || `Failed: ${response.statusText}`)
   }
-  // Handle 204 No Content responses
   if (response.status === 204) return undefined as T
   return response.json()
 }

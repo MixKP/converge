@@ -43,20 +43,12 @@
   const { trackTimeout } = useTimeoutCleanup()
   const { getSuggestions, invalidateRequest } = useAISuggestions()
 
-  // Model events for the calendar: manual events + cart events + booked events
-  // (cart events are included for overlap prevention). Suggestions are passed
-  // separately via :additional-events="filteredSuggestionEvents".
   const allCalendarEvents = computed(() => allEvents.value)
 
   const aiMode = ref<'idle' | 'expanding' | 'expanded'>('idle')
 
-  // Guard against rapid clicks on addAllSlotsToCart
   const isAddingToCart = ref(false)
 
-  // Manual booking selection form. The three ids are shared with bookingStore
-  // (and the AI panel) via the computed v-models below; keepValuesOnUnmount
-  // preserves them as the mutually-exclusive mobile/tablet/desktop layouts
-  // mount and unmount on breakpoint changes.
   const { meta: bookingFormMeta, submitCount } = useForm({
     validationSchema: toTypedSchema(manualBookingFormSchema),
     keepValuesOnUnmount: true,
@@ -67,17 +59,12 @@
     },
   })
 
-  // The "Add to Booking" button is already disabled until the form is valid, so
-  // there's no submit that would flip this — field errors stay hidden rather than
-  // lighting up untouched selects the moment one changes.
   const showErrors = computed(() => submitCount.value > 0)
 
-  // Single source of truth for the "Add to Booking" button across all layouts.
   const canAddToBooking = computed(
     () => bookingFormMeta.value.valid && events.value.length > 0 && !isAddingToCart.value
   )
 
-  // AI-specific time slots (subject/branch/teacher now shared with manual form)
   const aiTimeSlots = ref<Array<{ day_of_week: number; start: string; end: string }>>([])
 
   onMounted(() => {
@@ -86,7 +73,6 @@
     fetchBranches()
   })
 
-  // Focus management
   const previouslyFocusedElement = ref<HTMLElement | null>(null)
 
   const openAIMode = () => {
@@ -100,7 +86,7 @@
   const closeAIMode = () => {
     aiMode.value = 'idle'
     aiTimeSlots.value = []
-    invalidateRequest() // Cancel any in-flight AI requests
+    invalidateRequest()
     resetBookingState()
     previouslyFocusedElement.value?.focus()
     previouslyFocusedElement.value = null
@@ -144,10 +130,9 @@
     getSuggestions(aiTimeSlots.value)
   }
 
-  // Add all selected slots to cart for a given teacher
   const addAllSlotsToCart = (teacherId: number | null) => {
     if (!teacherId) return
-    if (isAddingToCart.value) return // Guard against rapid clicks
+    if (isAddingToCart.value) return
 
     const teacher = filteredTeachers.value.find((t) => t.id === teacherId)
     if (!teacher) return
@@ -158,7 +143,6 @@
         addSlotToCart(teacher.id, teacher.name, e.start as string, e.end as string)
       })
     } finally {
-      // Use timeout to reset guard, allowing for rapid sequential clicks but preventing concurrent execution
       setTimeout(() => {
         isAddingToCart.value = false
       }, 300)

@@ -1,13 +1,12 @@
 import { z } from 'zod'
 import { weeklySlotSchema } from './calendar'
+import { isoDateTime } from './common'
 
-/** Mirrors backend shared.Branch. */
 export const branchSchema = z.object({
   id: z.number(),
   name: z.string(),
 })
 
-/** Mirrors scheduling.BookingRequest (POST /api/bookings body). */
 export const bookingRequestSchema = z.object({
   subject_id: z.number().int().positive(),
   branch_id: z.number().int().positive(),
@@ -17,14 +16,13 @@ export const bookingRequestSchema = z.object({
   preferred_teacher_id: z.number().int().positive().nullish(),
 })
 
-/** Mirrors scheduling.ConfirmBookingRequest (POST /api/bookings/confirm body). */
 export const confirmBookingRequestSchema = z
   .object({
     teacher_id: z.number().int().positive(),
     branch_id: z.number().int().positive(),
     subject_id: z.number().int().positive(),
-    start_time: z.string(),
-    end_time: z.string(),
+    start_time: isoDateTime,
+    end_time: isoDateTime,
     client_name: z.string(),
   })
   .refine((v) => new Date(v.start_time) < new Date(v.end_time), {
@@ -32,7 +30,6 @@ export const confirmBookingRequestSchema = z
     path: ['end_time'],
   })
 
-/** Mirrors scheduling.BookingAlternative. */
 export const bookingAlternativeSchema = z.object({
   teacher_id: z.number(),
   teacher_name: z.string(),
@@ -46,7 +43,6 @@ export const bookingAlternativeSchema = z.object({
   commute_minutes: z.number().optional(),
 })
 
-/** Mirrors scheduling.SlotResult. */
 const slotResultSchema = z.object({
   slot: weeklySlotSchema,
   exact_match: bookingAlternativeSchema.optional(),
@@ -54,12 +50,10 @@ const slotResultSchema = z.object({
   message: z.string(),
 })
 
-/** Mirrors scheduling.BookingResponse. */
 export const bookingResponseSchema = z.object({
   results: z.array(slotResultSchema),
 })
 
-/** Mirrors scheduling.Booking (persisted row / confirm response). */
 export const bookingSchema = z.object({
   id: z.number(),
   teacher_id: z.number(),
@@ -71,11 +65,6 @@ export const bookingSchema = z.object({
   created_at: z.string(),
 })
 
-/**
- * Cart line item. String fields stay plain `z.string()` (no `.min(1)`) to match
- * the previous isCartItem guard: addSlotToCart writes '' fallbacks for
- * branch_name/subject_name, and persisted localStorage carts must keep loading.
- */
 export const cartItemSchema = z.object({
   id: z.number(),
   teacher_id: z.number(),
@@ -90,5 +79,4 @@ export const cartItemSchema = z.object({
   status: z.enum(['pending', 'confirmed']),
 })
 
-/** Shape addToCart accepts (id + status are assigned internally). */
 export const cartItemInputSchema = cartItemSchema.omit({ id: true, status: true })

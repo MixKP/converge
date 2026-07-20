@@ -22,13 +22,11 @@ export function useScreenSize() {
     isDesktop.value = width >= BREAKPOINTS.DESKTOP
   }
 
-  // Set up resize listener on mount
   onMounted(() => {
     updateScreenSize()
     globalThis.addEventListener('resize', updateScreenSize)
   })
 
-  // Clean up resize listener on unmount
   onUnmounted(() => {
     globalThis.removeEventListener('resize', updateScreenSize)
   })

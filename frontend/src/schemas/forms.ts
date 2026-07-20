@@ -3,15 +3,9 @@ import { toMinutes } from '../utils/dateValidation'
 import { selectId } from './common'
 import { weeklySlotSchema, noPerDayOverlap } from './calendar'
 
-/**
- * AI-suggestions form (SmartSuggestionsPanel). Ports the validation previously
- * living in useAISuggestions.ts (missing selection, per-slot time format,
- * start<end, and the "all slots share one duration" rule).
- */
 export const aiSuggestionsFormSchema = z.object({
   subject_id: selectId('a subject'),
   branch_id: selectId('a branch'),
-  // Teacher is optional here; null means "any teacher".
   teacher_id: z.number().int().positive().nullable(),
   slots: z
     .array(weeklySlotSchema)
@@ -24,14 +18,12 @@ export const aiSuggestionsFormSchema = z.object({
     }),
 })
 
-/** Manual booking selection (BookingView): all three ids required. */
 export const manualBookingFormSchema = z.object({
   subject_id: selectId('a subject'),
   branch_id: selectId('a branch'),
   teacher_id: selectId('a teacher'),
 })
 
-/** Teacher availability submission (SubmitAvailability). */
 export const availabilityFormSchema = z.object({
   teacher_id: selectId('a teacher'),
   weekly: z

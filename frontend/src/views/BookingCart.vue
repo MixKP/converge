@@ -131,6 +131,7 @@
             <button
               type="button"
               class="absolute top-4 right-4 flex h-7 w-7 cursor-pointer items-center justify-center rounded bg-transparent text-(--text-muted) transition-all duration-200 hover:bg-[rgba(201,109,93,0.08)] hover:text-(--accent-coral)"
+              aria-label="Remove session"
               @click="handleRemove(item.id)"
             >
               <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -273,6 +274,7 @@
         {{ errorMessage }}
         <button
           class="ml-2.5 flex h-5 w-5 cursor-pointer items-center justify-center border-none bg-transparent text-xl text-[rgba(255,255,255,0.8)]"
+          aria-label="Dismiss message"
           @click="errorMessage = ''"
         >
           ×

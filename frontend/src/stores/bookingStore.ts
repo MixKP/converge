@@ -33,7 +33,6 @@ export const useBookingStore = defineStore('booking', () => {
   const teacherStore = useTeacherStore()
   const { showError } = useNotification()
 
-  // Selection State
   const subjects = ref<Subject[]>([])
   const branches = ref<Branch[]>([])
   const filteredTeachers = ref<Teacher[]>([])
@@ -46,7 +45,6 @@ export const useBookingStore = defineStore('booking', () => {
     set: (val) => teacherStore.setSelectedTeacherById(val),
   })
 
-  // Calendar & Availability State
   const calendarRef = ref()
   const isEvaluating = ref(false)
   const events = ref<EventInput[]>([])
@@ -55,15 +53,12 @@ export const useBookingStore = defineStore('booking', () => {
   const suggestions = ref<BookingResponse | null>(null)
   const showDetailedResults = ref(false)
 
-  // Confirmed Bookings State
   const confirmedBookings = ref<Booking[]>([])
   const isLoadingBookings = ref(false)
 
-  // Internal state
   let availabilityPromise: Promise<void> | null = null
   let watchersInitialized = false
 
-  // --- Selection actions ---
   const fetchSubjects = async () => {
     subjects.value = await subjectApi.getAll()
   }
@@ -95,7 +90,6 @@ export const useBookingStore = defineStore('booking', () => {
     handleSubjectChange(newSubjectId)
   })
 
-  // --- Suggestion events ---
   const getDateForDayOfWeek = (dayOfWeek: number, timeStr: string): Date => {
     return getNextDateForDayOfWeek(dayOfWeek, timeStr)
   }
@@ -174,10 +168,6 @@ export const useBookingStore = defineStore('booking', () => {
     return result
   })
 
-  // Weekday + time-of-day key for a teacher's slot. Suggestion starts are
-  // projected to the next occurrence of their weekday, so a confirmed booking
-  // (which carries an absolute date) is matched on weekday + time rather than
-  // on the exact date.
   const slotKey = (teacherId: number, date: Date): string =>
     `${teacherId}-${date.getDay()}-${date.getHours()}:${date.getMinutes()}`
 
@@ -186,23 +176,23 @@ export const useBookingStore = defineStore('booking', () => {
       new Set(confirmedBookings.value.map((b) => slotKey(b.teacher_id, new Date(b.start_time))))
   )
 
-  // Suggestions actually rendered on the calendar. A suggestion is hidden once
-  // its teacher already has that slot in the cart OR has already confirmed a
-  // booking for it, so it no longer resurfaces the yellow event — including
-  // after the cart item is confirmed and cleared.
   const filteredSuggestionEvents = computed<EventInput[]>(() => {
-    // Lazy-access cart store to avoid circular dependency at module init
     const cartStore = useCartStore()
-    const cartTeacherIds = new Set(cartStore.cartItems.map((item) => item.teacher_id))
+    const cartSlotKeys = new Set(
+      cartStore.cartItems.map((item) => slotKey(item.teacher_id, new Date(item.start_time)))
+    )
 
     return suggestionEvents.value.filter((event) => {
       const teacherId = event.extendedProps?.teacherId
 
-      if (teacherId && cartTeacherIds.has(teacherId)) {
+      if (
+        teacherId &&
+        event.start &&
+        cartSlotKeys.has(slotKey(teacherId, new Date(event.start as string)))
+      ) {
         return false
       }
 
-      // Hide a suggestion whose exact slot has since been booked.
       if (
         teacherId &&
         event.start &&
@@ -219,7 +209,6 @@ export const useBookingStore = defineStore('booking', () => {
     })
   })
 
-  // --- Cart & booked event mappers (shared by allEvents) ---
   const mapCartItemToEvent = (item: CartItem): EventInput => {
     const startDate = new Date(item.start_time)
     const endDate = new Date(item.end_time)
@@ -267,7 +256,6 @@ export const useBookingStore = defineStore('booking', () => {
   const bookedEvents = computed<EventInput[]>(() => confirmedBookings.value.map(mapBookingToEvent))
 
   const allEvents = computed<EventInput[]>(() => {
-    // Lazy-access cart store to avoid circular dependency at module init
     const cartStore = useCartStore()
 
     const filteredCartEvents = cartStore.cartItems.map(mapCartItemToEvent).filter((event) => {
@@ -310,13 +298,9 @@ export const useBookingStore = defineStore('booking', () => {
       return false
     })
 
-    // Suggestions are supplied separately via filteredSuggestionEvents (bound to
-    // the calendar's additional-events), so they are intentionally not included
-    // here.
     return [...events.value, ...filteredCartEvents, ...filteredBookedEvents]
   })
 
-  // --- Availability actions ---
   const fetchAvailability = async (): Promise<void> => {
     try {
       const data = await availabilityApi.getAll()
@@ -368,7 +352,6 @@ export const useBookingStore = defineStore('booking', () => {
     }))
   }
 
-  // --- Confirmed bookings ---
   const fetchConfirmedBookings = async () => {
     isLoadingBookings.value = true
     try {
@@ -386,7 +369,6 @@ export const useBookingStore = defineStore('booking', () => {
     events.value = []
   }
 
-  // Initialize watchers and load data (guarded to run once)
   const initialize = () => {
     if (watchersInitialized) return
     watchersInitialized = true

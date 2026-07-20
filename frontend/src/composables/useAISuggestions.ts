@@ -18,9 +18,6 @@ export function useAISuggestions() {
   const getSuggestions = async (
     slots: Array<{ day_of_week: number; start: string; end: string }>
   ): Promise<boolean> => {
-    // Form-level validation (subject/branch/slots, time format, equal duration)
-    // is enforced by aiSuggestionsFormSchema in SmartSuggestionsPanel before
-    // this runs. Duration is uniform across slots, so derive it from the first.
     const firstSlot = slots[0]
     const aiDuration = firstSlot ? toMinutes(firstSlot.end) - toMinutes(firstSlot.start) : undefined
 
@@ -39,8 +36,7 @@ export function useAISuggestions() {
       return false
     }
 
-    // Generate unique request ID to guard against stale responses
-    const requestId = Math.random().toString(36).substring(7)
+    const requestId = globalThis.crypto.randomUUID()
     currentRequestId.value = requestId
 
     bookingStore.isEvaluating = true
@@ -50,7 +46,6 @@ export function useAISuggestions() {
       const { bookingApi } = await import('../services/bookingApi')
       const response = await bookingApi.evaluate(request.data)
 
-      // Only apply results if this is still the current request
       if (currentRequestId.value !== requestId) {
         return false
       }

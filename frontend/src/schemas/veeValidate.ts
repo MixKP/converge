@@ -1,15 +1,6 @@
 import type { z } from 'zod'
 import type { TypedSchema } from 'vee-validate'
 
-/**
- * Adapts a zod schema to vee-validate's TypedSchema interface.
- *
- * vee-validate 4.15 does not yet detect Standard Schema (`~standard`), so a raw
- * zod schema passed to `useForm({ validationSchema })` is mistaken for a
- * per-field rules map and fails. This wrapper implements the `VVTypedSchema`
- * contract vee-validate does understand — kept in-repo to avoid the
- * `@vee-validate/zod` adapter's zod-v3/v4 version-skew.
- */
 export function toTypedSchema<TSchema extends z.ZodType>(
   schema: TSchema
 ): TypedSchema<z.input<TSchema>, z.output<TSchema>> {
@@ -21,7 +12,6 @@ export function toTypedSchema<TSchema extends z.ZodType>(
         return { value: result.data, errors: [] }
       }
 
-      // Group issue messages by their vee-validate field path.
       const byPath = new Map<string, string[]>()
       for (const issue of result.error.issues) {
         const path = pathToString(issue.path)
@@ -37,7 +27,6 @@ export function toTypedSchema<TSchema extends z.ZodType>(
   }
 }
 
-/** Convert a zod issue path (`['weekly', 0, 'end']`) to vee-validate's `weekly[0].end`. */
 function pathToString(segments: PropertyKey[]): string {
   let out = ''
   for (const segment of segments) {

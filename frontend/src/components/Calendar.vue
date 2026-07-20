@@ -54,7 +54,6 @@
     selectedEventId,
     showDeleteDialog,
     handleContainerClick,
-    handleEscapeKey,
     handleDeleteButtonClick,
     closeDeleteDialog,
     confirmDelete,
@@ -64,7 +63,6 @@
     handleSlotClick,
     handleEventClick,
     handleEventDrop,
-    handleEventResizeStart,
     handleEventResize,
     handleEventClassNames,
     handleEventDidMount,
@@ -165,7 +163,6 @@
     dateClick: handleSlotClick,
     eventClick: handleEventClick,
     eventDrop: handleEventDrop,
-    eventResizeStart: handleEventResizeStart,
     eventResize: handleEventResize,
     dayHeaderFormat: dayHeaderFormat.value,
     longPressDelay: longPressDelay.value,
@@ -231,7 +228,6 @@
         role="dialog"
         aria-modal="true"
         aria-labelledby="deleteDialogTitle"
-        @keydown.esc="handleEscapeKey"
       >
         <div
           class="scale-in mx-4 w-full max-w-sm rounded-2xl border border-(--border-subtle) bg-(--paper-white) p-8 shadow-2xl transition-all duration-300 ease-out"

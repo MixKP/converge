@@ -14,22 +14,17 @@ import { useBookingStore } from './bookingStore'
 export const useCartStore = defineStore('cart', () => {
   const { showSuccess, showError, clearMessages } = useNotification()
 
-  // Cart State
   const cartItems = ref<CartItem[]>([])
   const isConfirming = ref(false)
 
-  // Internal state
   let cartIdCounter = 0
   let isAddingToCart = false
 
-  // Type guard
   const isCartItem = (value: unknown): value is CartItem => cartItemSchema.safeParse(value).success
 
-  // Persistence
   const loadCart = () => {
     const loaded = getValidatedArray('bookingCart', isCartItem)
     cartItems.value = loaded
-    // Sync counter to avoid ID collisions with persisted items
     if (loaded.length > 0) {
       const maxId = Math.max(...loaded.map((item) => item.id))
       cartIdCounter = Math.max(cartIdCounter, maxId)
@@ -40,7 +35,6 @@ export const useCartStore = defineStore('cart', () => {
     setItem('bookingCart', cartItems.value)
   }
 
-  // Cart CRUD
   const addToCart = (item: Omit<CartItem, 'id' | 'status'>) => {
     const parsed = cartItemInputSchema.safeParse(item)
     if (!parsed.success) {
@@ -92,8 +86,6 @@ export const useCartStore = defineStore('cart', () => {
 
     isAddingToCart = true
 
-    // The calendar hands back Date objects; normalize to ISO strings so
-    // validation, cart storage, and the confirm API all use one string format.
     const toIso = (value: string | Date): string | null => {
       const date = new Date(value)
       return Number.isNaN(date.getTime()) ? null : date.toISOString()
@@ -121,6 +113,7 @@ export const useCartStore = defineStore('cart', () => {
 
     const subject = booking.subjects.find((s) => s.id === effectiveSubjectId)
     const branch = booking.branches.find((b) => b.id === effectiveBranchId)
+    const before = cartItems.value.length
     addToCart({
       teacher_id: teacherId,
       teacher_name: teacherName,
@@ -132,8 +125,9 @@ export const useCartStore = defineStore('cart', () => {
       end_time: normalizedEnd,
       client_name: 'Guest',
     })
-    showSuccess('Added to cart!')
-    booking.events = []
+    if (cartItems.value.length > before) {
+      booking.events = []
+    }
     isAddingToCart = false
   }
 
@@ -146,8 +140,10 @@ export const useCartStore = defineStore('cart', () => {
     isConfirming.value = true
     clearMessages()
 
+    const items = cartItems.value.slice()
+
     try {
-      const promises = cartItems.value.map((item) =>
+      const promises = items.map((item) =>
         bookingApi.confirm({
           teacher_id: item.teacher_id,
           branch_id: item.branch_id,
@@ -165,7 +161,7 @@ export const useCartStore = defineStore('cart', () => {
       let otherFailedCount = 0
 
       results.forEach((result, index) => {
-        const item = cartItems.value[index]
+        const item = items[index]
         if (result.status === 'fulfilled') {
           successfulItemIds.add(item.id)
         } else {

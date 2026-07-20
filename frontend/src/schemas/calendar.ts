@@ -2,10 +2,6 @@ import { z } from 'zod'
 import { toMinutes } from '../utils/dateValidation'
 import { timeHHMM, requiredId } from './common'
 
-/**
- * Mirrors backend shared.WeeklySlot: { day_of_week: 0-6 (0=Sunday), start, end }
- * with the DB CHECK that start_time < end_time.
- */
 export const weeklySlotSchema = z
   .object({
     day_of_week: z.coerce.number().int().min(0).max(6),
@@ -19,10 +15,6 @@ export const weeklySlotSchema = z
 
 export type WeeklySlotInput = z.infer<typeof weeklySlotSchema>
 
-/**
- * Backend rule (teacher.service.validateAvailabilityPayload): no overlapping
- * slots within the same day. Attach as a `.superRefine` on a WeeklySlot array.
- */
 export const noPerDayOverlap = (slots: WeeklySlotInput[], ctx: z.RefinementCtx) => {
   for (let i = 0; i < slots.length; i++) {
     for (let j = i + 1; j < slots.length; j++) {
@@ -41,7 +33,6 @@ export const noPerDayOverlap = (slots: WeeklySlotInput[], ctx: z.RefinementCtx) 
   }
 }
 
-/** Mirrors the POST /api/availability body: { teacher_id, weekly }. */
 export const availabilityPayloadSchema = z.object({
   teacher_id: requiredId('a teacher'),
   weekly: z.array(weeklySlotSchema).min(1, 'Add at least one time slot').superRefine(noPerDayOverlap),

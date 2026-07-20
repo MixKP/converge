@@ -6,7 +6,6 @@ export function useTimeoutCleanup() {
   const trackTimeout = (callback: () => void, delay: number): number => {
     const id = setTimeout(() => {
       callback()
-      // Remove from tracking after execution
       const index = timeoutIds.value.indexOf(id)
       if (index > -1) timeoutIds.value.splice(index, 1)
     }, delay)
@@ -20,7 +19,6 @@ export function useTimeoutCleanup() {
     timeoutIds.value = []
   }
 
-  // Clean up all timeouts on component unmount
   onUnmounted(() => {
     clearTimeouts()
   })

@@ -24,11 +24,6 @@ function hasAvailabilityForDay(
   )
 }
 
-/**
- * Decorates the day-header cells whose weekday has configured business hours
- * with a `has-availability` class. Applies it as headers mount and re-applies
- * it (plus the `businessHours` option itself) whenever the hours change.
- */
 export function useBusinessHoursHeaders(
   calendarRef: CalendarRef,
   getBusinessHours: () => BusinessHoursInput | undefined

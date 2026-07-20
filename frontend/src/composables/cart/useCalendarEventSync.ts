@@ -7,13 +7,6 @@ type CalendarRef = Ref<InstanceType<typeof FullCalendar> | null>
 const collectIds = (events: EventInput[] | undefined): Set<string> =>
   new Set((events ?? []).map((e) => e.id).filter((id): id is string => id != null))
 
-/**
- * Keeps the FullCalendar instance in sync with a reactive array of events by
- * diffing ids: events dropped from the source are removed, new ones are added.
- * Used for both the editable model events and the read-only suggestion events;
- * `transform` lets the caller adjust each event before it is added (e.g. to
- * mark suggestions as non-editable).
- */
 export function useCalendarEventSync(
   calendarRef: CalendarRef,
   source: () => EventInput[] | undefined,

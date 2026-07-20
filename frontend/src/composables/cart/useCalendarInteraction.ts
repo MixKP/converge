@@ -14,7 +14,6 @@ type CalendarRef = Ref<InstanceType<typeof FullCalendar> | null>
 interface InteractionOptions {
   calendarRef: CalendarRef
   isMobile: Ref<boolean>
-  /** Cancel button in the delete dialog, focused when the dialog opens. */
   cancelBtnRef: Ref<HTMLButtonElement | null>
   isEditable: () => boolean
   getModelValue: () => EventInput[]
@@ -25,12 +24,6 @@ interface InteractionOptions {
 
 const DOUBLE_CLICK_DELAY = 300
 
-/**
- * Owns all user interaction with editable calendar events: creating slots via
- * select/click, constraining moves/resizes to the same day and away from cart
- * events, event selection, and the delete-confirmation dialog (including the
- * touch handlers that make selection work on mobile).
- */
 export function useCalendarInteraction(options: InteractionOptions) {
   const {
     calendarRef,
@@ -43,10 +36,6 @@ export function useCalendarInteraction(options: InteractionOptions) {
     onEventClick,
   } = options
 
-  // ---- Cart overlap -------------------------------------------------------
-
-  // Check if a time range overlaps with any cart event. Cart events can live in
-  // either the model events or the suggestion events, so both are considered.
   const overlapsWithCartEvent = (start: Date, end: Date): boolean => {
     const allEvents = [...getModelValue(), ...getAdditionalEvents()]
     const cartEvents = allEvents.filter((e) => e.extendedProps?.isCartItem === true)
@@ -62,15 +51,9 @@ export function useCalendarInteraction(options: InteractionOptions) {
     return false
   }
 
-  // Read-only decoration events (cart items, confirmed bookings, suggestions)
-  // are passed in via modelValue/additional-events for display and overlap
-  // checks, but they are NOT part of the user's editable selection. They must
-  // never be echoed back through update:modelValue, or the parent would treat
-  // them as user-drawn slots (e.g. add booked/cart slots to the cart again).
   const editableModelValue = (): EventInput[] =>
     getModelValue().filter((e) => e.editable !== false)
 
-  // ---- Event creation & constraints ---------------------------------------
 
   const handleDateSelect = (selectInfo: DateSelectArg) => {
     if (!isEditable()) return
@@ -105,7 +88,6 @@ export function useCalendarInteraction(options: InteractionOptions) {
     onUpdate([...editableModelValue(), createOneHourEvent(new Date(arg.dateStr))])
   }
 
-  // ---- Move / resize ------------------------------------------------------
 
   const lastDragTime = ref(0)
 
@@ -115,8 +97,6 @@ export function useCalendarInteraction(options: InteractionOptions) {
     return api
       .getEvents()
       .filter((e) => e.start != null && e.end != null)
-      // Exclude read-only decoration events (cart/booked/suggestions) so they
-      // are never emitted back as user-editable slots.
       .filter(
         (e) =>
           !e.extendedProps?.isCartItem &&
@@ -141,10 +121,6 @@ export function useCalendarInteraction(options: InteractionOptions) {
     handleEventChange()
   }
 
-  const handleEventResizeStart = () => {
-    // Don't deselect when entering resize mode - keeps selection visible
-  }
-
   const handleEventResize = (info: {
     event: { start: Date | null; end: Date | null }
     revert: () => void
@@ -158,15 +134,12 @@ export function useCalendarInteraction(options: InteractionOptions) {
     handleEventChange()
   }
 
-  // ---- Selection ----------------------------------------------------------
 
   const SELECTED_CLASS = 'fc-event-selected'
   const selectedEventId = ref<string | null>(null)
   const selectedEventEl = ref<HTMLElement | null>(null)
 
   const deselectEvent = () => {
-    // Remove the class imperatively so the resize handles disappear right away;
-    // FullCalendar does not re-render the event just because the ref changes.
     selectedEventEl.value?.classList.remove(SELECTED_CLASS)
     selectedEventId.value = null
     selectedEventEl.value = null
@@ -176,13 +149,10 @@ export function useCalendarInteraction(options: InteractionOptions) {
     deselectEvent()
     selectedEventId.value = id
     selectedEventEl.value = el
-    // Apply the class now (not only on the next render) so the resize handles
-    // become grabbable on the very first touch, without a throwaway drag first.
     el.classList.add(SELECTED_CLASS)
   }
 
   const handleContainerClick = (e: MouseEvent) => {
-    // Clicking the container background (not an event) deselects.
     if ((e.target as HTMLElement).classList.contains('calendar-container')) {
       deselectEvent()
     }
@@ -193,11 +163,8 @@ export function useCalendarInteraction(options: InteractionOptions) {
 
   const isUserEvent = (id: string): boolean => getModelValue().some((e) => e.id === id)
 
-  // ---- Deletion dialog ----------------------------------------------------
-
   const showDeleteDialog = ref(false)
   const eventToDelete = ref<string | null>(null)
-  const previouslyFocused = ref<HTMLElement | null>(null)
 
   const openDeleteDialog = (id: string) => {
     eventToDelete.value = id
@@ -222,24 +189,11 @@ export function useCalendarInteraction(options: InteractionOptions) {
     openDeleteDialog(eventId)
   }
 
-  const handleEscapeKey = () => {
-    if (showDeleteDialog.value) {
-      closeDeleteDialog()
-    } else if (selectedEventId.value) {
-      deselectEvent()
-    }
-  }
-
   watch(showDeleteDialog, (isOpen) => {
     if (isOpen) {
       cancelBtnRef.value?.focus()
-    } else {
-      previouslyFocused.value?.focus()
-      previouslyFocused.value = null
     }
   })
-
-  // ---- Click handling -----------------------------------------------------
 
   const lastClickTime = ref(0)
   const lastClickedEventId = ref<string | null>(null)
@@ -248,11 +202,9 @@ export function useCalendarInteraction(options: InteractionOptions) {
     const id = clickInfo.event.id
     if (!id) return
 
-    // Ignore clicks fired right after a drag/resize.
     const now = Date.now()
     if (now - lastDragTime.value < 200) return
 
-    // Ignore clicks on the resize handle or delete button.
     const target = clickInfo.jsEvent.target as HTMLElement
     if (target.closest('.fc-event-resizer') || target.closest('.event-delete-btn')) return
 
@@ -266,10 +218,8 @@ export function useCalendarInteraction(options: InteractionOptions) {
     const isDoubleClick = timeSinceLastClick < DOUBLE_CLICK_DELAY && lastClickedEventId.value === id
 
     if (!isMobile.value && isDoubleClick) {
-      // Double click → delete dialog
       openDeleteDialog(id)
     } else {
-      // Single click → select event (show resize handles)
       selectEvent(id, clickInfo.el as HTMLElement)
     }
 
@@ -277,9 +227,6 @@ export function useCalendarInteraction(options: InteractionOptions) {
     lastClickedEventId.value = id
   }
 
-  // ---- Touch selection (mobile) -------------------------------------------
-
-  // Store touch listener references per element for cleanup.
   const eventListeners = new Map<
     HTMLElement,
     { touchstart: (e: Event) => void; touchend: (e: Event) => void }
@@ -300,9 +247,6 @@ export function useCalendarInteraction(options: InteractionOptions) {
 
     const el = info.el
 
-    // A re-render (e.g. after a resize) replaces the DOM node while keeping the
-    // selection. Point selectedEventEl at the fresh node so a later deselect
-    // clears the class off the element the user actually sees.
     if (eventId === selectedEventId.value) {
       selectedEventEl.value = el
     }
@@ -314,12 +258,10 @@ export function useCalendarInteraction(options: InteractionOptions) {
     }
 
     const touchEndHandler = (e: Event) => {
-      // Quick tap = select event
       if (Date.now() - touchStartTime >= 300) return
 
       const touch = (e as TouchEvent).changedTouches[0]
       const target = touch.target as HTMLElement
-      // Don't select when tapping a resize handle or the delete button.
       if (target.closest('.fc-event-resizer') || target.closest('.event-delete-btn')) return
 
       selectEvent(eventId, el)
@@ -344,7 +286,6 @@ export function useCalendarInteraction(options: InteractionOptions) {
     selectedEventId,
     showDeleteDialog,
     handleContainerClick,
-    handleEscapeKey,
     handleDeleteButtonClick,
     closeDeleteDialog,
     confirmDelete,
@@ -355,7 +296,6 @@ export function useCalendarInteraction(options: InteractionOptions) {
     handleSlotClick,
     handleEventClick,
     handleEventDrop,
-    handleEventResizeStart,
     handleEventResize,
     handleEventClassNames,
     handleEventDidMount,
