@@ -1,0 +1,18 @@
+info:
+  name: get_booking
+  type: http
+  seq: 12
+
+http:
+  method: POST
+  url: http://localhost:8080/api/bookings
+  body:
+    type: json
+    data: '{"subject_id":5,"branch_id":1,"preferred_slots":[{"day_of_week":2,"start":"09:00","end":"12:00"}],"duration_minutes":60}'
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
