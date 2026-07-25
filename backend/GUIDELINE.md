@@ -1,6 +1,6 @@
 # Coding Guidelines
 
-## 1. Result — Error Wrapping at Boundaries
+## 1. Result: Error Wrapping at Boundaries
 
 All code that crosses a boundary (repository → service, service → handler) MUST return domain errors, not infrastructure errors. Use `Result[T]` to transform errors at the boundary without nested `if err != nil` chains in callers.
 
@@ -38,7 +38,8 @@ func (r Result[T]) MapErr(fn func(error) error) Result[T] {
 
 ### Repository boundary
 
-Bad — domain learns about `database/sql`:
+Bad: domain learns about `database/sql`:
+
 ```go
 func (r *BookingRepo) DeleteBooking(ctx context.Context, id int) error {
 	rows, _ := res.RowsAffected()
@@ -56,7 +57,8 @@ func (s *SchedulingService) Cancel(ctx context.Context, id int) error {
 }
 ```
 
-Good — domain stays infrastructure-free:
+Good: domain stays infrastructure-free:
+
 ```go
 func (r *BookingRepo) DeleteBooking(ctx context.Context, id int) error {
 	rows, _ := res.RowsAffected()
@@ -75,7 +77,8 @@ func (s *SchedulingService) Cancel(ctx context.Context, id int) error {
 }
 ```
 
-Good — using Result to map errors at the boundary:
+Good: using Result to map errors at the boundary:
+
 ```go
 func (r *BookingRepo) Create(ctx context.Context, req ConfirmBookingRequest) Result[Booking] {
 	var b Booking
@@ -104,7 +107,7 @@ func (s *SchedulingService) Confirm(ctx context.Context, req ConfirmBookingReque
 
 ---
 
-## 2. Option — Explicit Nil Semantics
+## 2. Option: Explicit Nil Semantics
 
 Fields that can be absent MUST use `Option[T]` instead of `*T`. The nil check happens at the API boundary (HTTP handler), never in domain logic.
 
@@ -169,7 +172,7 @@ func (s *WeightedScorer) scoreTeacherPreference(candidate ScorableCandidate) (in
 
 ---
 
-## 3. Validation — Composable Functions
+## 3. Validation: Composable Functions
 
 Validation MUST happen at the service boundary (first line of every public method). Reject invalid input before any work begins.
 
@@ -258,11 +261,12 @@ func (s *SchedulingService) Confirm(ctx context.Context, req ConfirmBookingReque
 
 ---
 
-## 4. Errors — Domain Types, Strongly Typed
+## 4. Errors: Domain Types, Strongly Typed
 
 Error semantics MUST be communicated by type, not by inspecting error strings.
 
 Defined once in `shared/errors.go`:
+
 ```go
 type ValidationError struct{ Msg string }
 func (e *ValidationError) Error() string { return e.Msg }
@@ -275,6 +279,7 @@ func (e *NotFoundError) Error() string { return e.Msg }
 ```
 
 All domain packages re-export via type aliases:
+
 ```go
 type ValidationError = shared.ValidationError
 type ConflictError   = shared.ConflictError
@@ -306,7 +311,7 @@ default:
 
 ---
 
-## 5. Resource Cleanup — Defer at Acquisition
+## 5. Resource Cleanup: Defer at Acquisition
 
 Any resource acquired (rows, files, contexts with cancel) MUST be deferred for cleanup on the immediate next line.
 
@@ -318,7 +323,7 @@ if err != nil {
 }
 defer rows.Close()
 
-// Wrong — deferred after error handling opens a window for leaks
+// Wrong: deferred after error handling opens a window for leaks
 rows, err := r.DB.QueryContext(ctx, query, teacherID)
 if err != nil { return nil, err }
 // ... intermediate code ...
@@ -327,18 +332,18 @@ defer rows.Close()
 
 ---
 
-## 6. Immutability — Copy, Never Mutate
+## 6. Immutability: Copy, Never Mutate
 
 Functions that transform data MUST return a new value. Never mutate a pointer parameter or struct field from a child function.
 
 ```go
-// Good — returns new copy
+// Good: returns new copy
 func (e *CLPEngine) enrichWithCommute(ctx context.Context, alt BookingAlternative, ...) BookingAlternative {
 	alt.CommuteMinutes = &mins
 	return alt
 }
 
-// Bad — mutates through pointer
+// Bad: mutates through pointer
 func (e *CLPEngine) enrichWithCommute(ctx context.Context, alt *BookingAlternative, ...) {
 	alt.CommuteMinutes = &mins
 }
@@ -359,7 +364,7 @@ model.AddConstraint(func(a Assignment) (bool, error) {
 
 ---
 
-## 7. Minimal Constructors — Accept Interfaces, Return Structs
+## 7. Minimal Constructors: Accept Interfaces, Return Structs
 
 All types with dependencies MUST expose a constructor that accepts interface types (ports), enabling test substitution.
 
