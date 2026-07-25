@@ -1,8 +1,71 @@
 # Coding Guidelines
 
-## 1. Result: Error Wrapping at Boundaries
+## 1. Pure Functions: Separate I/O from Logic
 
-All code that crosses a boundary (repository → service, service → handler) MUST return domain errors, not infrastructure errors. Use `Result[T]` to transform errors at the boundary without nested `if err != nil` chains in callers.
+A function is pure when its output depends only on its inputs: no database calls, no network requests, no global state. Pure functions are deterministic and testable without mocks.
+
+I/O (side effects) MUST be hoisted out of closures and lambdas. Pre-fetch all data at the function boundary, then pass it into pure computation.
+
+### Rule
+
+avoid:
+```go
+func process(ctx context.Context, id int) {
+    data, _ := db.Query(ctx, id)
+    return transform(data)
+}
+```
+
+good:
+```go
+data, _ := db.Query(ctx, id)
+result := transform(data)
+```
+
+### CSP constraint example
+
+avoid:
+```go
+model.AddConstraint(func(a Assignment) (bool, error) {
+    slots, _ := e.teacherRoster.TeacherAvailability(ctx, t.ID)
+    conflicts, _ := e.bookingStore.FindConflictingBookings(ctx, ...)
+    return fitsAvailability(slots, o.start, o.end), nil
+})
+```
+
+good:
+```go
+teacherData := make(map[int]struct {
+    slots     []shared.WeeklySlot
+    conflicts []Booking
+})
+for _, t := range teachers {
+    slots, _ := e.teacherRoster.TeacherAvailability(ctx, t.ID)
+    conflicts, _ := e.bookingStore.FindConflictingBookings(ctx, t.ID, wideStart, wideEnd)
+    teacherData[t.ID] = struct{ ... }{slots: slots, conflicts: conflicts}
+}
+
+model.AddConstraint(func(a Assignment) (bool, error) {
+    t := a.Value("teacher").(TeacherInfo)
+    o := a.Value("offset").(timeWindow)
+    data := teacherData[t.ID]
+
+    a.Metadata["slots"] = data.slots
+    if !fitsAvailability(data.slots, o.start, o.end) {
+        return false, nil
+    }
+    for _, c := range data.conflicts {
+        if overlaps(o.start, o.end, c.StartTime, c.EndTime) {
+            return false, nil
+        }
+    }
+    return true, nil
+})
+```
+
+## 2. Result: Error Wrapping at Boundaries
+
+All code that crosses a boundary (repository to service, service to handler) MUST return domain errors, not infrastructure errors. Use `Result[T]` to transform errors at the boundary without nested `if err != nil` chains in callers.
 
 ```go
 // shared/result.go
@@ -38,8 +101,7 @@ func (r Result[T]) MapErr(fn func(error) error) Result[T] {
 
 ### Repository boundary
 
-Bad: domain learns about `database/sql`:
-
+avoid: domain learns about `database/sql`:
 ```go
 func (r *BookingRepo) DeleteBooking(ctx context.Context, id int) error {
 	rows, _ := res.RowsAffected()
@@ -51,14 +113,13 @@ func (r *BookingRepo) DeleteBooking(ctx context.Context, id int) error {
 
 func (s *SchedulingService) Cancel(ctx context.Context, id int) error {
 	err := s.bookingStore.DeleteBooking(ctx, id)
-	if errors.Is(err, sql.ErrNoRows) { // domain imports database/sql
+	if errors.Is(err, sql.ErrNoRows) {
 		...
 	}
 }
 ```
 
-Good: domain stays infrastructure-free:
-
+good: domain stays infrastructure-free:
 ```go
 func (r *BookingRepo) DeleteBooking(ctx context.Context, id int) error {
 	rows, _ := res.RowsAffected()
@@ -77,8 +138,7 @@ func (s *SchedulingService) Cancel(ctx context.Context, id int) error {
 }
 ```
 
-Good: using Result to map errors at the boundary:
-
+good: using Result to map errors at the boundary:
 ```go
 func (r *BookingRepo) Create(ctx context.Context, req ConfirmBookingRequest) Result[Booking] {
 	var b Booking
@@ -105,9 +165,7 @@ func (s *SchedulingService) Confirm(ctx context.Context, req ConfirmBookingReque
 }
 ```
 
----
-
-## 2. Option: Explicit Nil Semantics
+## 3. Option: Explicit Nil Semantics
 
 Fields that can be absent MUST use `Option[T]` instead of `*T`. The nil check happens at the API boundary (HTTP handler), never in domain logic.
 
@@ -146,14 +204,16 @@ func (o *Option[T]) UnmarshalJSON(data []byte) error {
 
 ### Usage
 
+avoid:
 ```go
-// Before
 type BookingRequest struct {
 	PreferredTeacherID *int `json:"preferred_teacher_id,omitempty"`
 }
 if req.PreferredTeacherID != nil && *req.PreferredTeacherID == teacherID { ... }
+```
 
-// After
+good:
+```go
 type BookingRequest struct {
 	PreferredTeacherID Option[int] `json:"preferred_teacher_id,omitempty"`
 }
@@ -170,9 +230,7 @@ func (s *WeightedScorer) scoreTeacherPreference(candidate ScorableCandidate) (in
 }
 ```
 
----
-
-## 3. Validation: Composable Functions
+## 4. Validation: Composable Functions
 
 Validation MUST happen at the service boundary (first line of every public method). Reject invalid input before any work begins.
 
@@ -235,8 +293,8 @@ func SliceNonEmpty[T any](field string, get func(T) int) Validator[T] {
 
 ### Usage
 
+avoid: repetitive inline checks:
 ```go
-// Before — repetitive inline checks
 func (s *SchedulingService) Confirm(ctx context.Context, req ConfirmBookingRequest) (*Booking, error) {
 	if req.TeacherID <= 0 { return nil, &ValidationError{Msg: "teacher_id must be positive"} }
 	if req.BranchID <= 0  { return nil, &ValidationError{Msg: "branch_id must be positive"} }
@@ -244,8 +302,10 @@ func (s *SchedulingService) Confirm(ctx context.Context, req ConfirmBookingReque
 	if req.ClientName == "" { return nil, &ValidationError{Msg: "client_name must not be empty"} }
 	...
 }
+```
 
-// After
+good:
+```go
 func (s *SchedulingService) Confirm(ctx context.Context, req ConfirmBookingRequest) (*Booking, error) {
 	if err := ValidateAll(req,
 		PositiveInt("teacher_id", func(r ConfirmBookingRequest) int { return r.TeacherID }),
@@ -259,9 +319,7 @@ func (s *SchedulingService) Confirm(ctx context.Context, req ConfirmBookingReque
 }
 ```
 
----
-
-## 4. Errors: Domain Types, Strongly Typed
+## 5. Errors: Domain Types, Strongly Typed
 
 Error semantics MUST be communicated by type, not by inspecting error strings.
 
@@ -309,9 +367,7 @@ default:
 }
 ```
 
----
-
-## 5. Resource Cleanup: Defer at Acquisition
+## 6. Resource Cleanup: Defer at Acquisition
 
 Any resource acquired (rows, files, contexts with cancel) MUST be deferred for cleanup on the immediate next line.
 
@@ -330,9 +386,7 @@ if err != nil { return nil, err }
 defer rows.Close()
 ```
 
----
-
-## 6. Immutability: Copy, Never Mutate
+## 7. Immutability: Copy, Never Mutate
 
 Functions that transform data MUST return a new value. Never mutate a pointer parameter or struct field from a child function.
 
@@ -351,20 +405,23 @@ func (e *CLPEngine) enrichWithCommute(ctx context.Context, alt *BookingAlternati
 
 ### CSP constraint constraints
 
-Constraints and objectives receive `Assignment` by value. They MUST NOT mutate `a.Values` as a side-channel. If data must be shared between constraint and objective, restructure the model to carry metadata explicitly.
+Constraints and objectives receive `Assignment` by value. They MUST NOT mutate `a.Values` as a side-channel. If data must be shared between constraint and objective, use `a.Metadata` explicitly.
 
+avoid:
 ```go
-// Current — side-channel mutation
 model.AddConstraint(func(a Assignment) (bool, error) {
 	slots, _ := e.teacherRoster.TeacherAvailability(ctx, t.ID)
-	a.Values["slots"] = slots  // writing for objective
+	a.Values["slots"] = slots
 	...
 })
 ```
 
----
+good:
+```go
+a.Metadata["slots"] = data.slots
+```
 
-## 7. Minimal Constructors: Accept Interfaces, Return Structs
+## 8. Minimal Constructors: Accept Interfaces, Return Structs
 
 All types with dependencies MUST expose a constructor that accepts interface types (ports), enabling test substitution.
 

@@ -29,6 +29,11 @@ func NewCLPEngine(bookingStore BookingStore, teacherRoster TeacherRoster, scorer
 	}
 }
 
+type prefetchedTeacherData struct {
+	slots     []shared.WeeklySlot
+	conflicts []Booking
+}
+
 func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req BookingRequest, window shared.WeeklySlot) ([]BookingAlternative, error) {
 	teachers, err := e.teacherRoster.TeachersBySubject(ctx, req.SubjectID)
 	if err != nil {
@@ -58,6 +63,21 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req BookingRequ
 	)
 	offsets := generateOffsets(prefStart, duration)
 
+	prefetched := make(map[int]prefetchedTeacherData, len(teachers))
+	conflictStart := prefStart.Add(-CandidateLookbehind)
+	conflictEnd := prefStart.Add(CandidateLookahead).Add(duration)
+	for _, t := range teachers {
+		slots, err := e.teacherRoster.TeacherAvailability(ctx, t.ID)
+		if err != nil {
+			return nil, err
+		}
+		conflicts, err := e.bookingStore.FindConflictingBookings(ctx, t.ID, conflictStart, conflictEnd)
+		if err != nil {
+			return nil, err
+		}
+		prefetched[t.ID] = prefetchedTeacherData{slots: slots, conflicts: conflicts}
+	}
+
 	teacherDomain := make([]any, len(teachers))
 	for i, t := range teachers {
 		teacherDomain[i] = t
@@ -74,21 +94,19 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req BookingRequ
 	model.AddConstraint(func(a Assignment) (bool, error) {
 		t := a.Value("teacher").(TeacherInfo)
 		o := a.Value("offset").(timeWindow)
+		data := prefetched[t.ID]
 
-		slots, err := e.teacherRoster.TeacherAvailability(ctx, t.ID)
-		if err != nil {
-			return false, err
-		}
-		a.Metadata["slots"] = slots
-		if !fitsAvailability(slots, o.start, o.end) {
+		a.Metadata["slots"] = data.slots
+		if !fitsAvailability(data.slots, o.start, o.end) {
 			return false, nil
 		}
 
-		conflicts, err := e.bookingStore.FindConflictingBookings(ctx, t.ID, o.start, o.end)
-		if err != nil {
-			return false, err
+		for _, c := range data.conflicts {
+			if overlaps(o.start, o.end, c.StartTime, c.EndTime) {
+				return false, nil
+			}
 		}
-		return len(conflicts) == 0, nil
+		return true, nil
 	})
 
 	model.SetObjective(func(a Assignment) (int, []string, error) {
@@ -174,6 +192,10 @@ func (e *CLPEngine) enrichWithRoom(ctx context.Context, alt BookingAlternative, 
 	}
 	alt.RoomAvailable = shared.Some(available)
 	return alt
+}
+
+func overlaps(aStart, aEnd, bStart, bEnd time.Time) bool {
+	return aStart.Before(bEnd) && bStart.Before(aEnd)
 }
 
 func fitsAvailability(slots []shared.WeeklySlot, start, end time.Time) bool {

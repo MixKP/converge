@@ -99,7 +99,11 @@ func TestCLPEngine_Alternatives_ConflictPruned(t *testing.T) {
 	tRoster.On("TeacherAvailability", mock.Anything, 1).Return([]shared.WeeklySlot{
 		clpSlot(0, "09:00", "17:00"),
 	}, nil)
-	conflict := []Booking{{ID: 42}}
+	loc := shared.LoadLocation()
+	anchor := shared.AnchorDateForDay(0, loc)
+	conflict := []Booking{
+		{ID: 42, StartTime: anchor.Add(7 * time.Hour), EndTime: anchor.Add(12 * time.Hour)},
+	}
 	bStore.On("FindConflictingBookings", mock.Anything, 1,
 		mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).Return(conflict, nil)
 
