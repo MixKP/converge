@@ -22,7 +22,7 @@ func NewBookingRepository(database *sql.DB) *BookingRepo {
 	return &BookingRepo{DB: database}
 }
 
-func (r *BookingRepo) FindExactMatch(ctx context.Context, subjectID, branchID int, slot shared.WeeklySlot, durationMinutes int, teacherID *int) (*scheduling.BookingMatch, error) {
+func (r *BookingRepo) FindExactMatch(ctx context.Context, subjectID, branchID int, slot shared.WeeklySlot, durationMinutes int, teacherID shared.Option[int]) (*scheduling.BookingMatch, error) {
 	loc := shared.LoadLocation()
 	duration := time.Duration(durationMinutes) * time.Minute
 
@@ -62,14 +62,8 @@ func (r *BookingRepo) FindExactMatch(ctx context.Context, subjectID, branchID in
 		  AND ta.start_time <= $4::time
 		  AND ta.end_time >= $7::time
 		  AND ($8::int IS NULL OR t.id = $8)
-		  AND NOT EXISTS (
-		    SELECT 1 FROM bookings b
-		    WHERE b.teacher_id = t.id
-		      AND tstzrange(b.start_time, b.end_time) && tstzrange($5::timestamptz, $6::timestamptz)
-		  )
-		ORDER BY t.id
 		LIMIT 1`,
-		subjectID, branchID, slot.DayOfWeek, string(slot.Start), startTS, endTS, string(windowEnd), teacherID,
+		subjectID, branchID, slot.DayOfWeek, string(slot.Start), startTS, endTS, string(windowEnd), teacherID.Or(0),
 	)
 
 	var booking scheduling.Booking
@@ -111,28 +105,6 @@ func (r *BookingRepo) FindConflictingBookings(ctx context.Context, teacherID int
 	return bookings, rows.Err()
 }
 
-func (r *BookingRepo) FindTeacherAvailability(ctx context.Context, teacherID int) ([]shared.WeeklySlot, error) {
-	rows, err := r.DB.QueryContext(ctx, `
-		SELECT day_of_week, to_char(start_time, 'HH24:MI') AS start_time, to_char(end_time, 'HH24:MI') AS end_time
-		FROM teacher_availability
-		WHERE teacher_id = $1
-		ORDER BY day_of_week, start_time`, teacherID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var slots []shared.WeeklySlot
-	for rows.Next() {
-		var s shared.WeeklySlot
-		if err := rows.Scan(&s.DayOfWeek, &s.Start, &s.End); err != nil {
-			return nil, err
-		}
-		slots = append(slots, s)
-	}
-	return slots, rows.Err()
-}
-
 func (r *BookingRepo) CreateBooking(ctx context.Context, req scheduling.ConfirmBookingRequest) (*scheduling.Booking, error) {
 	row := r.DB.QueryRowContext(ctx, `
 		INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time, client_name)
@@ -163,7 +135,7 @@ func (r *BookingRepo) DeleteBooking(ctx context.Context, bookingID int) error {
 		return fmt.Errorf("failed to get rows affected: %w", err)
 	}
 	if rows == 0 {
-		return sql.ErrNoRows
+		return &shared.NotFoundError{Msg: fmt.Sprintf("booking %d not found", bookingID)}
 	}
 	return nil
 }

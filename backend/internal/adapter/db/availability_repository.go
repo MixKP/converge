@@ -207,7 +207,7 @@ func (p *PostgresRepo) SetStatus(ctx context.Context, teacherID int, status stri
 		return err
 	}
 	if rows == 0 {
-		return sql.ErrNoRows
+		return &shared.NotFoundError{Msg: fmt.Sprintf("teacher %d not found", teacherID)}
 	}
 	return nil
 }

@@ -6,9 +6,10 @@ type Variable struct {
 }
 
 type Assignment struct {
-	Values  map[string]any
-	Score   int
-	Reasons []string
+	Values   map[string]any
+	Metadata map[string]any
+	Score    int
+	Reasons  []string
 }
 
 func (a Assignment) Value(name string) any {

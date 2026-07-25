@@ -136,7 +136,8 @@ func TestBookingRepoDeleteBooking(t *testing.T) {
 
 	err = repo.DeleteBooking(context.Background(), 999)
 	require.Error(t, err)
-	assert.ErrorIs(t, err, sql.ErrNoRows)
+	var notFound shared.NotFoundError
+	assert.ErrorAs(t, err, &notFound)
 }
 
 func TestBookingRepoFindAllBookings(t *testing.T) {
@@ -172,7 +173,7 @@ func TestBookingRepoFindExactMatch_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	slot := shared.WeeklySlot{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("10:00")}
-	match, err := repo.FindExactMatch(context.Background(), subjectID, branchID, slot, 60, nil)
+	match, err := repo.FindExactMatch(context.Background(), subjectID, branchID, slot, 60, shared.None[int]())
 	require.NoError(t, err)
 	require.NotNil(t, match)
 	assert.Equal(t, "Test Teacher", match.TeacherName)
@@ -215,7 +216,7 @@ func TestBookingRepoFindExactMatch_DeactivatedTeacher(t *testing.T) {
 	require.NoError(t, err)
 
 	slot := shared.WeeklySlot{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("10:00")}
-	match, err := repo.FindExactMatch(context.Background(), subjectID, branchID, slot, 60, nil)
+	match, err := repo.FindExactMatch(context.Background(), subjectID, branchID, slot, 60, shared.None[int]())
 	require.NoError(t, err)
 	assert.Nil(t, match)
 }
@@ -243,28 +244,7 @@ func TestBookingRepoFindExactMatch_ConflictExcludes(t *testing.T) {
 	require.NoError(t, err)
 
 	slot := shared.WeeklySlot{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("10:00")}
-	match, err := repo.FindExactMatch(context.Background(), subjectID, branchID, slot, 60, nil)
+	match, err := repo.FindExactMatch(context.Background(), subjectID, branchID, slot, 60, shared.None[int]())
 	require.NoError(t, err)
 	assert.Nil(t, match)
-}
-
-func TestBookingRepoFindTeacherAvailability(t *testing.T) {
-	db := setupTestDB(t)
-	repo := NewBookingRepository(db)
-	teacherID, _, _ := seedBookingParents(t, db)
-
-	slots, err := repo.FindTeacherAvailability(context.Background(), teacherID)
-	require.NoError(t, err)
-	assert.Empty(t, slots)
-
-	avail := []shared.WeeklySlot{
-		{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("10:00")},
-	}
-	availRepo := NewPostgresRepo(db)
-	require.NoError(t, availRepo.ReplaceWeeklyAvailability(context.Background(), teacherID, avail))
-
-	slots, err = repo.FindTeacherAvailability(context.Background(), teacherID)
-	require.NoError(t, err)
-	assert.Len(t, slots, 1)
-	assert.Equal(t, "09:00", string(slots[0].Start))
 }

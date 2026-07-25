@@ -2,7 +2,6 @@ package scheduling
 
 import (
 	"context"
-	"database/sql"
 	"testing"
 	"time"
 
@@ -15,7 +14,7 @@ type mockStore struct {
 	mock.Mock
 }
 
-func (m *mockStore) FindExactMatch(ctx context.Context, subjectID, branchID int, slot shared.WeeklySlot, durationMinutes int, teacherID *int) (*BookingMatch, error) {
+func (m *mockStore) FindExactMatch(ctx context.Context, subjectID, branchID int, slot shared.WeeklySlot, durationMinutes int, teacherID shared.Option[int]) (*BookingMatch, error) {
 	args := m.Called(ctx, subjectID, branchID, slot, durationMinutes, teacherID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -97,7 +96,7 @@ func TestSchedulingService_Evaluate_ExactMatch(t *testing.T) {
 		},
 		TeacherName: "Alice",
 	}
-	store.On("FindExactMatch", mock.Anything, 1, 1, s, 60, (*int)(nil)).Return(exactMatch, nil)
+	store.On("FindExactMatch", mock.Anything, 1, 1, s, 60, shared.None[int]()).Return(exactMatch, nil)
 
 	result, err := svc.Evaluate(context.Background(), req)
 
@@ -118,7 +117,7 @@ func TestSchedulingService_Evaluate_Alternatives(t *testing.T) {
 	s := slot(0, "09:00", "10:00")
 	req := bookingReq(1, 1, s, 60)
 
-	store.On("FindExactMatch", mock.Anything, 1, 1, s, 60, (*int)(nil)).Return(nil, nil)
+	store.On("FindExactMatch", mock.Anything, 1, 1, s, 60, shared.None[int]()).Return(nil, nil)
 	engine.On("FindAlternativesForSlot", mock.Anything, req, s).Return([]BookingAlternative{}, nil)
 
 	result, err := svc.Evaluate(context.Background(), req)
@@ -205,8 +204,8 @@ func TestSchedulingService_Evaluate_TwoSlots(t *testing.T) {
 		Booking:     Booking{ID: 42, TeacherID: 1, BranchID: 1, SubjectID: 1, StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC), EndTime: time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)},
 		TeacherName: "Alice",
 	}
-	store.On("FindExactMatch", mock.Anything, 1, 1, monSlot, 60, (*int)(nil)).Return(exactMatch, nil)
-	store.On("FindExactMatch", mock.Anything, 1, 1, friSlot, 60, (*int)(nil)).Return(nil, nil)
+	store.On("FindExactMatch", mock.Anything, 1, 1, monSlot, 60, shared.None[int]()).Return(exactMatch, nil)
+	store.On("FindExactMatch", mock.Anything, 1, 1, friSlot, 60, shared.None[int]()).Return(nil, nil)
 
 	alts := []BookingAlternative{
 		{TeacherID: 3, TeacherName: "Carol", Score: 70},
@@ -298,7 +297,7 @@ func TestSchedulingService_Cancel_NotFound(t *testing.T) {
 	store := new(mockStore)
 	svc := NewSchedulingService(store, store, new(mockEngine))
 
-	store.On("DeleteBooking", mock.Anything, 999).Return(sql.ErrNoRows)
+	store.On("DeleteBooking", mock.Anything, 999).Return(&shared.NotFoundError{Msg: "booking 999 not found"})
 
 	err := svc.Cancel(context.Background(), 999)
 

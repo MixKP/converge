@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/RinZ5/converge/backend/internal/scheduling"
+	"github.com/RinZ5/converge/backend/internal/shared"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -268,7 +269,7 @@ func TestBookingHandler_CreateBooking_OptionalPreferredTeacher(t *testing.T) {
 		BranchID:           2,
 		PreferredSlots:     []scheduling.WeeklySlot{slot(0, "09:00", "10:00")},
 		DurationMinutes:    60,
-		PreferredTeacherID: &preferredTeacher,
+		PreferredTeacherID: shared.Some(preferredTeacher),
 	}
 	body, _ := json.Marshal(payload)
 	req := httptest.NewRequest(http.MethodPost, "/api/bookings", bytes.NewReader(body))

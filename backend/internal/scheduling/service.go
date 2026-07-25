@@ -2,7 +2,6 @@ package scheduling
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 
@@ -28,14 +27,12 @@ func NewSchedulingService(bookingStore BookingStore, refStore ReferenceStore, en
 }
 
 func (s *SchedulingService) Evaluate(ctx context.Context, req BookingRequest) (*BookingResponse, error) {
-	if req.SubjectID <= 0 {
-		return nil, &ValidationError{Msg: "subject_id must be positive"}
-	}
-	if req.BranchID <= 0 {
-		return nil, &ValidationError{Msg: "branch_id must be positive"}
-	}
-	if len(req.PreferredSlots) == 0 {
-		return nil, &ValidationError{Msg: "preferred_slots must not be empty"}
+	if err := shared.ValidateAll(req,
+		shared.PositiveInt("subject_id", func(r BookingRequest) int { return r.SubjectID }),
+		shared.PositiveInt("branch_id", func(r BookingRequest) int { return r.BranchID }),
+		shared.SliceNonEmpty("preferred_slots", func(r BookingRequest) int { return len(r.PreferredSlots) }),
+	); err != nil {
+		return nil, err
 	}
 	for _, slot := range req.PreferredSlots {
 		if slot.DayOfWeek < 0 || slot.DayOfWeek > 6 {
@@ -99,23 +96,19 @@ func (s *SchedulingService) buildAlternativesMessage(alternatives []BookingAlter
 }
 
 func (s *SchedulingService) Confirm(ctx context.Context, req ConfirmBookingRequest) (*Booking, error) {
-	if req.TeacherID <= 0 {
-		return nil, &ValidationError{Msg: "teacher_id must be positive"}
-	}
-	if req.BranchID <= 0 {
-		return nil, &ValidationError{Msg: "branch_id must be positive"}
-	}
-	if req.SubjectID <= 0 {
-		return nil, &ValidationError{Msg: "subject_id must be positive"}
+	if err := shared.ValidateAll(req,
+		shared.PositiveInt("teacher_id", func(r ConfirmBookingRequest) int { return r.TeacherID }),
+		shared.PositiveInt("branch_id", func(r ConfirmBookingRequest) int { return r.BranchID }),
+		shared.PositiveInt("subject_id", func(r ConfirmBookingRequest) int { return r.SubjectID }),
+		shared.NonEmpty("client_name", func(r ConfirmBookingRequest) string { return r.ClientName }),
+	); err != nil {
+		return nil, err
 	}
 	if req.StartTime.IsZero() || req.EndTime.IsZero() {
 		return nil, &ValidationError{Msg: "start_time and end_time must be provided"}
 	}
 	if !req.EndTime.After(req.StartTime) {
 		return nil, &ValidationError{Msg: "end_time must be after start_time"}
-	}
-	if req.ClientName == "" {
-		return nil, &ValidationError{Msg: "client_name must not be empty"}
 	}
 
 	booking, err := s.bookingStore.CreateBooking(ctx, req)
@@ -129,14 +122,17 @@ func (s *SchedulingService) Confirm(ctx context.Context, req ConfirmBookingReque
 }
 
 func (s *SchedulingService) Cancel(ctx context.Context, bookingID int) error {
-	if bookingID <= 0 {
-		return &ValidationError{Msg: "booking_id must be positive"}
+	if err := shared.ValidateAll(bookingID,
+		shared.PositiveInt("booking_id", func(id int) int { return id }),
+	); err != nil {
+		return err
 	}
 	err := s.bookingStore.DeleteBooking(ctx, bookingID)
-	if errors.Is(err, sql.ErrNoRows) {
-		return &NotFoundError{Msg: fmt.Sprintf("booking %d not found", bookingID)}
-	}
 	if err != nil {
+		var notFound *NotFoundError
+		if errors.As(err, &notFound) {
+			return notFound
+		}
 		return fmt.Errorf("delete booking: %w", err)
 	}
 	return nil

@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/url"
 	"os"
 	"time"
@@ -119,7 +119,7 @@ func AutoMigrate(database *sql.DB) error {
 			return fmt.Errorf("migration failed: %w\n%s", err, q)
 		}
 	}
-	log.Println("Database schema ready")
+	slog.Info("Database schema ready")
 	return nil
 }
 

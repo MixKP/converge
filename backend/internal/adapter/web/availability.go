@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strconv"
 
-	_ "github.com/RinZ5/converge/backend/internal/scheduling"
 	"github.com/RinZ5/converge/backend/internal/shared"
 	"github.com/RinZ5/converge/backend/internal/teacher"
 

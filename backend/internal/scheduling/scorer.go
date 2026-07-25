@@ -36,10 +36,11 @@ func (s *WeightedScorer) Score(ctx context.Context, candidate ScorableCandidate)
 }
 
 func (s *WeightedScorer) scoreTeacherPreference(candidate ScorableCandidate) (int, string) {
-	if candidate.Request.PreferredTeacherID == nil {
+	prefID, ok := candidate.Request.PreferredTeacherID.Value()
+	if !ok {
 		return s.TeacherWeight / 2, "Teaches this subject"
 	}
-	if *candidate.Request.PreferredTeacherID == candidate.Teacher.ID {
+	if prefID == candidate.Teacher.ID {
 		return s.TeacherWeight, "Your preferred teacher"
 	}
 	return 0, "Can also teach this subject"

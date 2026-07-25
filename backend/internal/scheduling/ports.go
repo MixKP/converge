@@ -10,7 +10,7 @@ import (
 // ---- Driven ports (what Scheduling needs from outside) ----
 
 type BookingStore interface {
-	FindExactMatch(ctx context.Context, subjectID, branchID int, slot shared.WeeklySlot, durationMinutes int, teacherID *int) (*BookingMatch, error)
+	FindExactMatch(ctx context.Context, subjectID, branchID int, slot shared.WeeklySlot, durationMinutes int, teacherID shared.Option[int]) (*BookingMatch, error)
 	FindConflictingBookings(ctx context.Context, teacherID int, startTime, endTime time.Time) ([]Booking, error)
 	CreateBooking(ctx context.Context, req ConfirmBookingRequest) (*Booking, error)
 	DeleteBooking(ctx context.Context, bookingID int) error

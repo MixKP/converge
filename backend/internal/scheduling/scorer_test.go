@@ -144,7 +144,7 @@ func makeCandidate(teacher TeacherInfo, preferredTeacherID int, prefSlot shared.
 		PreferredSlots: []shared.WeeklySlot{prefSlot},
 	}
 	if preferredTeacherID > 0 {
-		req.PreferredTeacherID = &preferredTeacherID
+		req.PreferredTeacherID = shared.Some(preferredTeacherID)
 	}
 
 	loc := shared.LoadLocation()

@@ -27,7 +27,7 @@ type BookingRequest struct {
 	BranchID           int                 `json:"branch_id"           binding:"required" example:"1"`
 	PreferredSlots     []shared.WeeklySlot `json:"preferred_slots"     binding:"required"`
 	DurationMinutes    int                 `json:"duration_minutes,omitempty" example:"60"`
-	PreferredTeacherID *int                `json:"preferred_teacher_id,omitempty" example:"5"`
+	PreferredTeacherID shared.Option[int]  `json:"preferred_teacher_id,omitempty" swaggertype:"integer" example:"5"`
 }
 
 type ConfirmBookingRequest struct {
@@ -40,16 +40,16 @@ type ConfirmBookingRequest struct {
 }
 
 type BookingAlternative struct {
-	TeacherID      int       `json:"teacher_id"`
-	TeacherName    string    `json:"teacher_name"`
-	BranchID       int       `json:"branch_id"`
-	SubjectID      int       `json:"subject_id"`
-	StartTime      time.Time `json:"start_time"`
-	EndTime        time.Time `json:"end_time"`
-	Score          int       `json:"score"`
-	Reasons        []string  `json:"reasons"`
-	RoomAvailable  *bool     `json:"room_available,omitempty"`
-	CommuteMinutes *int      `json:"commute_minutes,omitempty"`
+	TeacherID      int                 `json:"teacher_id"`
+	TeacherName    string              `json:"teacher_name"`
+	BranchID       int                 `json:"branch_id"`
+	SubjectID      int                 `json:"subject_id"`
+	StartTime      time.Time           `json:"start_time"`
+	EndTime        time.Time           `json:"end_time"`
+	Score          int                 `json:"score"`
+	Reasons        []string            `json:"reasons"`
+	RoomAvailable  shared.Option[bool] `json:"room_available,omitempty" swaggertype:"boolean"`
+	CommuteMinutes shared.Option[int]  `json:"commute_minutes,omitempty" swaggertype:"integer"`
 }
 
 type SlotResult struct {

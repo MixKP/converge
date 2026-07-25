@@ -78,8 +78,10 @@ func (s *Service) SubmitWeeklyAvailability(ctx context.Context, teacherID int, s
 type ValidationError = shared.ValidationError
 
 func validateAvailabilityPayload(teacherID int, slots []shared.WeeklySlot) error {
-	if teacherID <= 0 {
-		return &ValidationError{Msg: "teacher_id must be positive"}
+	if err := shared.ValidateAll(teacherID,
+		shared.PositiveInt("teacher_id", func(id int) int { return id }),
+	); err != nil {
+		return err
 	}
 	for _, slot := range slots {
 		if slot.DayOfWeek < 0 || slot.DayOfWeek > 6 {

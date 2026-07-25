@@ -15,7 +15,7 @@ type mockCLPBookingStore struct {
 	mock.Mock
 }
 
-func (m *mockCLPBookingStore) FindExactMatch(ctx context.Context, subjectID, branchID int, slot shared.WeeklySlot, durationMinutes int, teacherID *int) (*BookingMatch, error) {
+func (m *mockCLPBookingStore) FindExactMatch(ctx context.Context, subjectID, branchID int, slot shared.WeeklySlot, durationMinutes int, teacherID shared.Option[int]) (*BookingMatch, error) {
 	args := m.Called(ctx, subjectID, branchID, slot, durationMinutes, teacherID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)

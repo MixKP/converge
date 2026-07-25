@@ -60,7 +60,7 @@ func (s *Solver) Solve(model Model, topN int) ([]Assignment, error) {
 
 func generateAll(vars []Variable) []Assignment {
 	if len(vars) == 0 {
-		return []Assignment{{Values: make(map[string]any)}}
+		return []Assignment{{Values: make(map[string]any), Metadata: make(map[string]any)}}
 	}
 
 	head := vars[0]
@@ -69,7 +69,7 @@ func generateAll(vars []Variable) []Assignment {
 	var result []Assignment
 	for _, v := range head.Domain {
 		for _, t := range tail {
-			a := Assignment{Values: make(map[string]any)}
+			a := Assignment{Values: make(map[string]any), Metadata: make(map[string]any)}
 			for k, val := range t.Values {
 				a.Values[k] = val
 			}

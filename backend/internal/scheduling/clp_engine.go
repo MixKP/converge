@@ -79,7 +79,7 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req BookingRequ
 		if err != nil {
 			return false, err
 		}
-		a.Values["slots"] = slots
+		a.Metadata["slots"] = slots
 		if !fitsAvailability(slots, o.start, o.end) {
 			return false, nil
 		}
@@ -94,7 +94,7 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req BookingRequ
 	model.SetObjective(func(a Assignment) (int, []string, error) {
 		t := a.Value("teacher").(TeacherInfo)
 		o := a.Value("offset").(timeWindow)
-		slots := a.Values["slots"].([]shared.WeeklySlot)
+		slots := a.Metadata["slots"].([]shared.WeeklySlot)
 		result := e.scorer.Score(ctx, ScorableCandidate{
 			Teacher:           t,
 			StartTime:         o.start,
@@ -153,7 +153,7 @@ func (e *CLPEngine) enrichWithCommute(ctx context.Context, alt BookingAlternativ
 	}
 	if commuteDur > 0 {
 		mins := int(commuteDur.Minutes())
-		alt.CommuteMinutes = &mins
+		alt.CommuteMinutes = shared.Some(mins)
 	}
 	return alt
 }
@@ -172,7 +172,7 @@ func (e *CLPEngine) enrichWithRoom(ctx context.Context, alt BookingAlternative, 
 		)
 		return alt
 	}
-	alt.RoomAvailable = &available
+	alt.RoomAvailable = shared.Some(available)
 	return alt
 }
 
@@ -200,9 +200,9 @@ type timeWindow struct {
 }
 
 func generateOffsets(anchor time.Time, duration time.Duration) []timeWindow {
-	lookbehind := 2 * time.Hour
-	lookahead := 2 * time.Hour
-	step := 30 * time.Minute
+	lookbehind := CandidateLookbehind
+	lookahead := CandidateLookahead
+	step := CandidateStepDuration
 
 	var windows []timeWindow
 	for t := anchor.Add(-lookbehind); !t.After(anchor.Add(lookahead)); t = t.Add(step) {
