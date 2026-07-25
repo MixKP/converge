@@ -35,6 +35,10 @@ const (
 	serverAddr        = ":8080"
 	shutdownTimeout   = 10 * time.Second
 	requestTimeout    = 30 * time.Second
+	readHeaderTimeout = 5 * time.Second
+	readTimeout       = 10 * time.Second
+	writeTimeout      = 15 * time.Second
+	idleTimeout       = 60 * time.Second
 )
 
 func corsConfig() cors.Config {
@@ -139,8 +143,12 @@ func main() {
 	})
 
 	srv := &http.Server{
-		Addr:    serverAddr,
-		Handler: r,
+		Addr:              serverAddr,
+		Handler:           r,
+		ReadHeaderTimeout: readHeaderTimeout,
+		ReadTimeout:       readTimeout,
+		WriteTimeout:      writeTimeout,
+		IdleTimeout:       idleTimeout,
 	}
 
 	go func() {

@@ -20,6 +20,13 @@ func (o Option[T]) Or(fallback T) T {
 	return fallback
 }
 
+func (o Option[T]) SQL() any {
+	if !o.present {
+		return nil
+	}
+	return o.value
+}
+
 func (o Option[T]) IfSome(fn func(T)) {
 	if o.present {
 		fn(o.value)
@@ -35,8 +42,14 @@ func (o Option[T]) MarshalJSON() ([]byte, error) {
 
 func (o *Option[T]) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" {
+		*o = Option[T]{}
 		return nil
 	}
+	var v T
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	o.value = v
 	o.present = true
-	return json.Unmarshal(data, &o.value)
+	return nil
 }

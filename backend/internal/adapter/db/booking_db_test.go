@@ -136,7 +136,7 @@ func TestBookingRepoDeleteBooking(t *testing.T) {
 
 	err = repo.DeleteBooking(context.Background(), 999)
 	require.Error(t, err)
-	var notFound shared.NotFoundError
+	var notFound *shared.NotFoundError
 	assert.ErrorAs(t, err, &notFound)
 }
 

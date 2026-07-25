@@ -63,7 +63,7 @@ func (r *BookingRepo) FindExactMatch(ctx context.Context, subjectID, branchID in
 		  AND ta.end_time >= $7::time
 		  AND ($8::int IS NULL OR t.id = $8)
 		LIMIT 1`,
-		subjectID, branchID, slot.DayOfWeek, string(slot.Start), startTS, endTS, string(windowEnd), teacherID.Or(0),
+		subjectID, branchID, slot.DayOfWeek, string(slot.Start), startTS, endTS, string(windowEnd), teacherID.SQL(),
 	)
 
 	var booking scheduling.Booking
