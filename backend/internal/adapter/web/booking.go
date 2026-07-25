@@ -8,7 +8,6 @@ import (
 	"strconv"
 
 	"github.com/RinZ5/converge/backend/internal/scheduling"
-	"github.com/RinZ5/converge/backend/internal/shared"
 
 	"github.com/gin-gonic/gin"
 )
@@ -27,10 +26,6 @@ type BookingHandler struct {
 
 func NewBookingHandler(svc bookingService, logger *slog.Logger) *BookingHandler {
 	return &BookingHandler{svc: svc, logger: logger}
-}
-
-func (h *BookingHandler) requestID(c *gin.Context) string {
-	return shared.RequestIDFromContext(c.Request.Context())
 }
 
 // CreateBooking godoc
@@ -58,7 +53,7 @@ func (h *BookingHandler) CreateBooking(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		} else {
 			h.logger.Error("request failed",
-				"request_id", h.requestID(c),
+				"request_id", requestID(c),
 				"op", "CreateBooking/Evaluate",
 				"subject_id", req.SubjectID,
 				"branch_id", req.BranchID,
@@ -99,7 +94,7 @@ func (h *BookingHandler) ConfirmBooking(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		} else if errors.As(err, &confErr) {
 			h.logger.Warn("booking conflict",
-				"request_id", h.requestID(c),
+				"request_id", requestID(c),
 				"op", "ConfirmBooking/Confirm",
 				"teacher_id", req.TeacherID,
 				"start_time", req.StartTime,
@@ -108,7 +103,7 @@ func (h *BookingHandler) ConfirmBooking(c *gin.Context) {
 			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 		} else {
 			h.logger.Error("request failed",
-				"request_id", h.requestID(c),
+				"request_id", requestID(c),
 				"op", "ConfirmBooking/Confirm",
 				"teacher_id", req.TeacherID,
 				"error", err,
@@ -146,14 +141,14 @@ func (h *BookingHandler) CancelBooking(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		} else if errors.As(err, &notFoundErr) {
 			h.logger.Warn("booking not found",
-				"request_id", h.requestID(c),
+				"request_id", requestID(c),
 				"op", "CancelBooking/Cancel",
 				"booking_id", id,
 			)
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		} else {
 			h.logger.Error("request failed",
-				"request_id", h.requestID(c),
+				"request_id", requestID(c),
 				"op", "CancelBooking/Cancel",
 				"booking_id", id,
 				"error", err,
@@ -178,7 +173,7 @@ func (h *BookingHandler) ListBookings(c *gin.Context) {
 	bookings, err := h.svc.ListAll(c.Request.Context())
 	if err != nil {
 		h.logger.Error("request failed",
-			"request_id", h.requestID(c),
+			"request_id", requestID(c),
 			"op", "ListBookings/ListAll",
 			"error", err,
 		)

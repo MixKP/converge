@@ -31,10 +31,6 @@ func NewAvailabilityHandler(svc teacherService, logger *slog.Logger) *Availabili
 	return &AvailabilityHandler{svc: svc, logger: logger}
 }
 
-func (h *AvailabilityHandler) requestID(c *gin.Context) string {
-	return shared.RequestIDFromContext(c.Request.Context())
-}
-
 // GetTeachers godoc
 // @Summary      List active teachers
 // @Description  Returns all teachers with active status, ordered by name. Optionally filter by subject_id.
@@ -56,7 +52,7 @@ func (h *AvailabilityHandler) GetTeachers(c *gin.Context) {
 		teachers, err := h.svc.GetTeachersBySubject(c.Request.Context(), subjectID)
 		if err != nil {
 			h.logger.Error("request failed",
-				"request_id", h.requestID(c),
+				"request_id", requestID(c),
 				"op", "GetTeachers/GetTeachersBySubject",
 				"subject_id", subjectID,
 				"error", err,
@@ -71,7 +67,7 @@ func (h *AvailabilityHandler) GetTeachers(c *gin.Context) {
 	teachers, err := h.svc.GetActiveTeachers(c.Request.Context())
 	if err != nil {
 		h.logger.Error("request failed",
-			"request_id", h.requestID(c),
+			"request_id", requestID(c),
 			"op", "GetTeachers/GetActiveTeachers",
 			"error", err,
 		)
@@ -93,7 +89,7 @@ func (h *AvailabilityHandler) GetAllAvailability(c *gin.Context) {
 	availability, err := h.svc.GetAllAvailability(c.Request.Context())
 	if err != nil {
 		h.logger.Error("request failed",
-			"request_id", h.requestID(c),
+			"request_id", requestID(c),
 			"op", "GetAllAvailability",
 			"error", err,
 		)
@@ -115,7 +111,7 @@ func (h *AvailabilityHandler) GetBranches(c *gin.Context) {
 	branches, err := h.svc.GetBranches(c.Request.Context())
 	if err != nil {
 		h.logger.Error("request failed",
-			"request_id", h.requestID(c),
+			"request_id", requestID(c),
 			"op", "GetBranches",
 			"error", err,
 		)
@@ -137,7 +133,7 @@ func (h *AvailabilityHandler) GetSubjects(c *gin.Context) {
 	subjects, err := h.svc.GetSubjects(c.Request.Context())
 	if err != nil {
 		h.logger.Error("request failed",
-			"request_id", h.requestID(c),
+			"request_id", requestID(c),
 			"op", "GetSubjects",
 			"error", err,
 		)
@@ -174,7 +170,7 @@ func (h *AvailabilityHandler) SubmitWeeklyAvailability(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		} else {
 			h.logger.Error("request failed",
-				"request_id", h.requestID(c),
+				"request_id", requestID(c),
 				"op", "SubmitWeeklyAvailability",
 				"teacher_id", payload.TeacherID,
 				"error", err,
