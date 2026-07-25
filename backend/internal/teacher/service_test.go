@@ -72,7 +72,7 @@ func tSlot(day int, start, end string) shared.WeeklySlot {
 
 func TestTeacherService_SubmitAvailability_Success(t *testing.T) {
 	store := new(mockStore)
-	svc := NewService(store, slog.Default())
+	svc := NewService(store, store, store, slog.Default())
 
 	slots := []shared.WeeklySlot{
 		tSlot(0, "09:00", "10:00"),
@@ -86,7 +86,7 @@ func TestTeacherService_SubmitAvailability_Success(t *testing.T) {
 }
 
 func TestTeacherService_SubmitAvailability_Overlap(t *testing.T) {
-	svc := NewService(new(mockStore), slog.Default())
+	svc := NewService(new(mockStore), new(mockStore), new(mockStore), slog.Default())
 
 	slots := []shared.WeeklySlot{
 		tSlot(0, "09:00", "11:00"),
@@ -101,7 +101,7 @@ func TestTeacherService_SubmitAvailability_Overlap(t *testing.T) {
 
 func TestTeacherService_SubmitAvailability_EmptySlots(t *testing.T) {
 	store := new(mockStore)
-	svc := NewService(store, slog.Default())
+	svc := NewService(store, store, store, slog.Default())
 
 	store.On("ReplaceWeeklyAvailability", mock.Anything, 1, []shared.WeeklySlot{}).Return(nil)
 	store.On("SaveRawSubmission", mock.Anything, 1, mock.Anything).Return(nil)
@@ -111,7 +111,7 @@ func TestTeacherService_SubmitAvailability_EmptySlots(t *testing.T) {
 }
 
 func TestTeacherService_SubmitAvailability_ZeroTeacherID(t *testing.T) {
-	svc := NewService(new(mockStore), slog.Default())
+	svc := NewService(new(mockStore), new(mockStore), new(mockStore), slog.Default())
 
 	slots := []shared.WeeklySlot{tSlot(0, "09:00", "10:00")}
 	err := svc.SubmitWeeklyAvailability(context.Background(), 0, slots)
@@ -121,7 +121,7 @@ func TestTeacherService_SubmitAvailability_ZeroTeacherID(t *testing.T) {
 }
 
 func TestTeacherService_SubmitAvailability_DayOfWeekOutOfRange(t *testing.T) {
-	svc := NewService(new(mockStore), slog.Default())
+	svc := NewService(new(mockStore), new(mockStore), new(mockStore), slog.Default())
 
 	slots := []shared.WeeklySlot{tSlot(7, "09:00", "10:00")}
 	err := svc.SubmitWeeklyAvailability(context.Background(), 1, slots)
@@ -131,7 +131,7 @@ func TestTeacherService_SubmitAvailability_DayOfWeekOutOfRange(t *testing.T) {
 }
 
 func TestTeacherService_SubmitAvailability_EmptyStart(t *testing.T) {
-	svc := NewService(new(mockStore), slog.Default())
+	svc := NewService(new(mockStore), new(mockStore), new(mockStore), slog.Default())
 
 	slots := []shared.WeeklySlot{{DayOfWeek: 0, Start: shared.TimeHHMM(""), End: shared.TimeHHMM("10:00")}}
 	err := svc.SubmitWeeklyAvailability(context.Background(), 1, slots)
@@ -141,7 +141,7 @@ func TestTeacherService_SubmitAvailability_EmptyStart(t *testing.T) {
 }
 
 func TestTeacherService_SubmitAvailability_StartAfterEnd(t *testing.T) {
-	svc := NewService(new(mockStore), slog.Default())
+	svc := NewService(new(mockStore), new(mockStore), new(mockStore), slog.Default())
 
 	slots := []shared.WeeklySlot{tSlot(0, "10:00", "09:00")}
 	err := svc.SubmitWeeklyAvailability(context.Background(), 1, slots)
@@ -152,7 +152,7 @@ func TestTeacherService_SubmitAvailability_StartAfterEnd(t *testing.T) {
 
 func TestTeacherService_SubmitAvailability_TouchingSlots(t *testing.T) {
 	store := new(mockStore)
-	svc := NewService(store, slog.Default())
+	svc := NewService(store, store, store, slog.Default())
 
 	slots := []shared.WeeklySlot{
 		tSlot(0, "09:00", "10:00"),
@@ -166,7 +166,7 @@ func TestTeacherService_SubmitAvailability_TouchingSlots(t *testing.T) {
 }
 
 func TestTeacherService_SubmitAvailability_OverlapMessageFormat(t *testing.T) {
-	svc := NewService(new(mockStore), slog.Default())
+	svc := NewService(new(mockStore), new(mockStore), new(mockStore), slog.Default())
 
 	slots := []shared.WeeklySlot{
 		tSlot(0, "09:00", "11:00"),
@@ -181,7 +181,7 @@ func TestTeacherService_SubmitAvailability_OverlapMessageFormat(t *testing.T) {
 
 func TestTeacherService_SubmitAvailability_CrossDays(t *testing.T) {
 	store := new(mockStore)
-	svc := NewService(store, slog.Default())
+	svc := NewService(store, store, store, slog.Default())
 
 	slots := []shared.WeeklySlot{
 		tSlot(0, "09:00", "11:00"),
@@ -196,7 +196,7 @@ func TestTeacherService_SubmitAvailability_CrossDays(t *testing.T) {
 
 func TestTeacherService_SubmitAvailability_ReplaceFails(t *testing.T) {
 	store := new(mockStore)
-	svc := NewService(store, slog.Default())
+	svc := NewService(store, store, store, slog.Default())
 
 	slots := []shared.WeeklySlot{tSlot(0, "09:00", "10:00")}
 	store.On("ReplaceWeeklyAvailability", mock.Anything, 1, slots).Return(errors.New("db error"))
@@ -208,7 +208,7 @@ func TestTeacherService_SubmitAvailability_ReplaceFails(t *testing.T) {
 
 func TestTeacherService_GetActiveTeachers_Success(t *testing.T) {
 	store := new(mockStore)
-	svc := NewService(store, slog.Default())
+	svc := NewService(store, store, store, slog.Default())
 
 	expected := []Teacher{{ID: 1, Name: "Alice"}, {ID: 2, Name: "Bob"}}
 	store.On("GetActiveTeachers", mock.Anything).Return(expected, nil)
@@ -220,7 +220,7 @@ func TestTeacherService_GetActiveTeachers_Success(t *testing.T) {
 
 func TestTeacherService_GetActiveTeachers_Error(t *testing.T) {
 	store := new(mockStore)
-	svc := NewService(store, slog.Default())
+	svc := NewService(store, store, store, slog.Default())
 
 	store.On("GetActiveTeachers", mock.Anything).Return(([]Teacher)(nil), errors.New("db error"))
 
@@ -230,7 +230,7 @@ func TestTeacherService_GetActiveTeachers_Error(t *testing.T) {
 
 func TestTeacherService_GetBranches_Success(t *testing.T) {
 	store := new(mockStore)
-	svc := NewService(store, slog.Default())
+	svc := NewService(store, store, store, slog.Default())
 
 	expected := []shared.Branch{{ID: 1, Name: "Main"}}
 	store.On("GetBranches", mock.Anything).Return(expected, nil)
@@ -242,7 +242,7 @@ func TestTeacherService_GetBranches_Success(t *testing.T) {
 
 func TestTeacherService_GetSubjects_Success(t *testing.T) {
 	store := new(mockStore)
-	svc := NewService(store, slog.Default())
+	svc := NewService(store, store, store, slog.Default())
 
 	expected := []shared.Subject{{ID: 1, Name: "Math"}}
 	store.On("GetSubjects", mock.Anything).Return(expected, nil)
@@ -254,7 +254,7 @@ func TestTeacherService_GetSubjects_Success(t *testing.T) {
 
 func TestTeacherService_GetTeachersBySubject_Success(t *testing.T) {
 	store := new(mockStore)
-	svc := NewService(store, slog.Default())
+	svc := NewService(store, store, store, slog.Default())
 
 	expected := []Teacher{{ID: 1, Name: "Alice"}}
 	store.On("GetTeachersBySubject", mock.Anything, 1).Return(expected, nil)
@@ -266,7 +266,7 @@ func TestTeacherService_GetTeachersBySubject_Success(t *testing.T) {
 
 func TestTeacherService_GetAllAvailability_Success(t *testing.T) {
 	store := new(mockStore)
-	svc := NewService(store, slog.Default())
+	svc := NewService(store, store, store, slog.Default())
 
 	expected := []TeacherAvailability{{
 		Teacher: Teacher{ID: 1, Name: "Alice"},
@@ -281,7 +281,7 @@ func TestTeacherService_GetAllAvailability_Success(t *testing.T) {
 
 func TestTeacherService_TeacherAvailability_Success(t *testing.T) {
 	store := new(mockStore)
-	svc := NewService(store, slog.Default())
+	svc := NewService(store, store, store, slog.Default())
 
 	expected := []shared.WeeklySlot{{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("10:00")}}
 	store.On("FindTeacherAvailability", mock.Anything, 42).Return(expected, nil)

@@ -94,7 +94,7 @@ func main() {
 
 	availRepo := db.NewPostgresRepo(database)
 	bookingRepo := db.NewBookingRepository(database)
-	teacherSvc := teacher.NewService(availRepo, logger)
+	teacherSvc := teacher.NewService(availRepo, availRepo, availRepo, logger)
 	teacherRoster := adapter.NewTeacherRosterAdapter(teacherSvc)
 	commuteSvc := commute.NewService(logger)
 	roomSvc := room.NewService(logger)

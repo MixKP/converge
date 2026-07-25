@@ -12,44 +12,51 @@ import (
 )
 
 type Service struct {
-	store  Store
-	logger *slog.Logger
+	teacherStore      TeacherStore
+	availabilityStore AvailabilityStore
+	referenceStore    ReferenceStore
+	logger            *slog.Logger
 }
 
-func NewService(store Store, logger *slog.Logger) *Service {
-	return &Service{store: store, logger: logger}
+func NewService(teacherStore TeacherStore, availabilityStore AvailabilityStore, referenceStore ReferenceStore, logger *slog.Logger) *Service {
+	return &Service{
+		teacherStore:      teacherStore,
+		availabilityStore: availabilityStore,
+		referenceStore:    referenceStore,
+		logger:            logger,
+	}
 }
 
 func (s *Service) AddTeacher(ctx context.Context, name, email string) (*Teacher, error) {
-	return s.store.AddTeacher(ctx, name, email)
+	return s.teacherStore.AddTeacher(ctx, name, email)
 }
 
 func (s *Service) SetStatus(ctx context.Context, teacherID int, status string) error {
-	return s.store.SetStatus(ctx, teacherID, status)
+	return s.teacherStore.SetStatus(ctx, teacherID, status)
 }
 
 func (s *Service) GetActiveTeachers(ctx context.Context) ([]Teacher, error) {
-	return s.store.GetActiveTeachers(ctx)
+	return s.teacherStore.GetActiveTeachers(ctx)
 }
 
 func (s *Service) GetTeachersBySubject(ctx context.Context, subjectID int) ([]Teacher, error) {
-	return s.store.GetTeachersBySubject(ctx, subjectID)
+	return s.teacherStore.GetTeachersBySubject(ctx, subjectID)
 }
 
 func (s *Service) GetAllAvailability(ctx context.Context) ([]TeacherAvailability, error) {
-	return s.store.GetAllAvailability(ctx)
+	return s.availabilityStore.GetAllAvailability(ctx)
 }
 
 func (s *Service) TeacherAvailability(ctx context.Context, teacherID int) ([]shared.WeeklySlot, error) {
-	return s.store.FindTeacherAvailability(ctx, teacherID)
+	return s.availabilityStore.FindTeacherAvailability(ctx, teacherID)
 }
 
 func (s *Service) GetBranches(ctx context.Context) ([]shared.Branch, error) {
-	return s.store.GetBranches(ctx)
+	return s.referenceStore.GetBranches(ctx)
 }
 
 func (s *Service) GetSubjects(ctx context.Context) ([]shared.Subject, error) {
-	return s.store.GetSubjects(ctx)
+	return s.referenceStore.GetSubjects(ctx)
 }
 
 func (s *Service) SubmitWeeklyAvailability(ctx context.Context, teacherID int, slots []shared.WeeklySlot) error {
@@ -57,7 +64,7 @@ func (s *Service) SubmitWeeklyAvailability(ctx context.Context, teacherID int, s
 		return err
 	}
 
-	if err := s.store.ReplaceWeeklyAvailability(ctx, teacherID, slots); err != nil {
+	if err := s.availabilityStore.ReplaceWeeklyAvailability(ctx, teacherID, slots); err != nil {
 		return fmt.Errorf("replace availability: %w", err)
 	}
 
@@ -69,7 +76,7 @@ func (s *Service) SubmitWeeklyAvailability(ctx context.Context, teacherID int, s
 		s.logger.Warn("failed to marshal audit payload", slog.Int("teacher_id", teacherID), slog.Any("error", err))
 		return nil
 	}
-	if err := s.store.SaveRawSubmission(ctx, teacherID, rawJSON); err != nil {
+	if err := s.availabilityStore.SaveRawSubmission(ctx, teacherID, rawJSON); err != nil {
 		s.logger.Warn("failed to save submission audit log", slog.Int("teacher_id", teacherID), slog.Any("error", err))
 	}
 	return nil
