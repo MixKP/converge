@@ -6,9 +6,13 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 
 	_ "github.com/RinZ5/converge/backend/docs"
 	"github.com/RinZ5/converge/backend/internal/adapter"
@@ -26,8 +30,12 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-const defaultCORSOrigin = "http://localhost:5173"
-const serverAddr = ":8080"
+const (
+	defaultCORSOrigin = "http://localhost:5173"
+	serverAddr        = ":8080"
+	shutdownTimeout   = 10 * time.Second
+	requestTimeout    = 30 * time.Second
+)
 
 func corsConfig() cors.Config {
 	allowedOriginsStr := os.Getenv("ALLOWED_ORIGINS")
@@ -51,6 +59,15 @@ func corsConfig() cors.Config {
 func requestIDMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, _ := shared.ContextWithRequestID(c.Request.Context())
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
+	}
+}
+
+func timeoutMiddleware(timeout time.Duration) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), timeout)
+		defer cancel()
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}
@@ -93,8 +110,9 @@ func main() {
 	bookingHandler := web.NewBookingHandler(schedulingSvc, logger)
 
 	r := gin.Default()
-	r.Use(cors.New(corsConfig()))
 	r.Use(requestIDMiddleware())
+	r.Use(timeoutMiddleware(requestTimeout))
+	r.Use(cors.New(corsConfig()))
 	api := r.Group("/api")
 	api.GET("/teachers", availHandler.GetTeachers)
 	api.GET("/availability", availHandler.GetAllAvailability)
@@ -108,12 +126,41 @@ func main() {
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
+	r.GET("/health", func(c *gin.Context) {
+		if err := database.PingContext(c.Request.Context()); err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unhealthy"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "healthy"})
+	})
+
 	r.NoRoute(func(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 	})
 
-	logger.Info("server starting", "addr", serverAddr, "tz", shared.LoadLocation().String())
-	if err := r.Run(serverAddr); err != nil {
-		logger.Error("server failed", "error", err)
+	srv := &http.Server{
+		Addr:    serverAddr,
+		Handler: r,
 	}
+
+	go func() {
+		logger.Info("server starting", "addr", serverAddr, "tz", shared.LoadLocation().String())
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Error("server failed", "error", err)
+			os.Exit(1)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	logger.Info("shutting down server...")
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		logger.Error("server forced to shutdown", "error", err)
+	}
+	logger.Info("server stopped")
 }
