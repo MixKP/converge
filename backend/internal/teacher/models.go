@@ -2,12 +2,6 @@ package teacher
 
 import "github.com/RinZ5/converge/backend/internal/shared"
 
-const (
-	GenderMale   = "male"
-	GenderFemale = "female"
-	GenderLGBTQ  = "lgbtq+"
-)
-
 type Teacher struct {
 	ID     int    `json:"id"    example:"1"`
 	Name   string `json:"name"  example:"Alice"`
