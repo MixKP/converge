@@ -30,8 +30,8 @@ func TestTeacherRosterAdapter_TeachersBySubject_Success(t *testing.T) {
 	adapter := NewTeacherRosterAdapter(src)
 
 	src.On("GetTeachersBySubject", mock.Anything, 1).Return([]teacher.Teacher{
-		{ID: 1, Name: "Alice", Email: "alice@test.com"},
-		{ID: 2, Name: "Bob", Email: "bob@test.com"},
+		{ID: 1, Name: "Alice", Email: "alice@test.com", Gender: "female"},
+		{ID: 2, Name: "Bob", Email: "bob@test.com", Gender: "male"},
 	}, nil)
 
 	result, err := adapter.TeachersBySubject(context.Background(), 1)

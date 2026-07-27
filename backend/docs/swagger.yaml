@@ -159,6 +159,9 @@ definitions:
       email:
         example: alice@example.com
         type: string
+      gender:
+        example: female
+        type: string
       id:
         example: 1
         type: integer

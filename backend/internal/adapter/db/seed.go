@@ -104,24 +104,25 @@ func seedSubjects(database *sql.DB) ([]int, error) {
 type teacherSeed struct {
 	name   string
 	email  string
+	gender string
 	status string
 }
 
 func seedTeachers(database *sql.DB) ([]int, error) {
 	teachers := []teacherSeed{
-		{name: "Alice Johnson", email: "alice@example.com", status: "active"},
-		{name: "Bob Smith", email: "bob@example.com", status: "active"},
-		{name: "Carol Williams", email: "carol@example.com", status: "active"},
-		{name: "David Brown", email: "david@example.com", status: "deactivated"},
-		{name: "Eva Martinez", email: "eva@example.com", status: "active"},
+		{name: "Alice Johnson", email: "alice@example.com", gender: "female", status: "active"},
+		{name: "Bob Smith", email: "bob@example.com", gender: "male", status: "active"},
+		{name: "Carol Williams", email: "carol@example.com", gender: "female", status: "active"},
+		{name: "David Brown", email: "david@example.com", gender: "male", status: "deactivated"},
+		{name: "Eva Martinez", email: "eva@example.com", gender: "female", status: "active"},
 	}
 
 	ids := make([]int, 0, len(teachers))
 	for _, t := range teachers {
 		var id int
 		err := database.QueryRow(
-			`INSERT INTO teachers (name, email, status) VALUES ($1, $2, $3) RETURNING id`,
-			t.name, t.email, t.status,
+			`INSERT INTO teachers (name, email, gender, status) VALUES ($1, $2, $3, $4) RETURNING id`,
+			t.name, t.email, t.gender, t.status,
 		).Scan(&id)
 		if err != nil {
 			return nil, fmt.Errorf("insert teacher %q: %w", t.name, err)

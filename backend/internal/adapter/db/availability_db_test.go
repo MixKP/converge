@@ -16,9 +16,9 @@ func TestPostgresRepoGetActiveTeachers(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewPostgresRepo(db)
 
-	_, err := db.Exec(`INSERT INTO teachers (id, name, email, status) VALUES (1, 'Test Teacher', 'test@teacher.com', 'active')`)
+	_, err := db.Exec(`INSERT INTO teachers (id, name, email, gender, status) VALUES (1, 'Test Teacher', 'test@teacher.com', 'male', 'active')`)
 	require.NoError(t, err)
-	_, err = db.Exec(`INSERT INTO teachers (id, name, status) VALUES (2, 'Inactive Teacher', 'deactivated')`)
+	_, err = db.Exec(`INSERT INTO teachers (id, name, gender, status) VALUES (2, 'Inactive Teacher', 'female', 'deactivated')`)
 	require.NoError(t, err)
 
 	teachers, err := repo.GetActiveTeachers(context.Background())
@@ -31,7 +31,7 @@ func TestPostgresRepoReplaceWeeklyAvailability(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewPostgresRepo(db)
 
-	_, err := db.Exec(`INSERT INTO teachers (id, name, email, status) VALUES (1, 'Test Teacher', 'test@teacher.com', 'active')`)
+	_, err := db.Exec(`INSERT INTO teachers (id, name, email, gender, status) VALUES (1, 'Test Teacher', 'test@teacher.com', 'male', 'active')`)
 	require.NoError(t, err)
 
 	slots := []shared.WeeklySlot{
@@ -63,11 +63,11 @@ func TestPostgresRepoGetTeachersBySubject_Success(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewPostgresRepo(db)
 
-	_, err := db.Exec(`INSERT INTO teachers (id, name, email, status) VALUES (1, 'Alice', 'alice@test.com', 'active')`)
+	_, err := db.Exec(`INSERT INTO teachers (id, name, email, gender, status) VALUES (1, 'Alice', 'alice@test.com', 'female', 'active')`)
 	require.NoError(t, err)
-	_, err = db.Exec(`INSERT INTO teachers (id, name, email, status) VALUES (2, 'Bob', 'bob@test.com', 'active')`)
+	_, err = db.Exec(`INSERT INTO teachers (id, name, email, gender, status) VALUES (2, 'Bob', 'bob@test.com', 'male', 'active')`)
 	require.NoError(t, err)
-	_, err = db.Exec(`INSERT INTO teachers (id, name, status) VALUES (3, 'Inactive Teacher', 'deactivated')`)
+	_, err = db.Exec(`INSERT INTO teachers (id, name, gender, status) VALUES (3, 'Inactive Teacher', 'lgbtq+', 'deactivated')`)
 	require.NoError(t, err)
 	_, err = db.Exec(`INSERT INTO subjects (id, name) VALUES (1, 'Math')`)
 	require.NoError(t, err)
@@ -87,9 +87,9 @@ func TestPostgresRepoGetAllAvailability_Success(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewPostgresRepo(db)
 
-	_, err := db.Exec(`INSERT INTO teachers (id, name, email, status) VALUES (1, 'Alice', 'alice@test.com', 'active')`)
+	_, err := db.Exec(`INSERT INTO teachers (id, name, email, gender, status) VALUES (1, 'Alice', 'alice@test.com', 'female', 'active')`)
 	require.NoError(t, err)
-	_, err = db.Exec(`INSERT INTO teachers (id, name, email, status) VALUES (2, 'Bob', 'bob@test.com', 'active')`)
+	_, err = db.Exec(`INSERT INTO teachers (id, name, email, gender, status) VALUES (2, 'Bob', 'bob@test.com', 'male', 'active')`)
 	require.NoError(t, err)
 	_, err = db.Exec(`INSERT INTO teacher_availability (teacher_id, day_of_week, start_time, end_time)
 		VALUES (1, 0, '09:00', '12:00'), (1, 2, '10:00', '14:00')`)
@@ -118,7 +118,7 @@ func TestPostgresRepoSaveRawSubmission(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewPostgresRepo(db)
 
-	_, err := db.Exec(`INSERT INTO teachers (id, name, email, status) VALUES (1, 'Test Teacher', 'test@teacher.com', 'active')`)
+	_, err := db.Exec(`INSERT INTO teachers (id, name, email, gender, status) VALUES (1, 'Test Teacher', 'test@teacher.com', 'male', 'active')`)
 	require.NoError(t, err)
 
 	rawJSON, _ := json.Marshal(map[string]interface{}{

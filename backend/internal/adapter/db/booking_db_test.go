@@ -44,7 +44,7 @@ func setupTestDB(t *testing.T) *sql.DB {
 
 func seedBookingParents(t *testing.T, db *sql.DB) (teacherID, branchID, subjectID int) {
 	t.Helper()
-	require.NoError(t, db.QueryRow(`INSERT INTO teachers (id, name, email, status) VALUES (1, 'Test Teacher', 'test@test.com', 'active') RETURNING id`).Scan(&teacherID))
+	require.NoError(t, db.QueryRow(`INSERT INTO teachers (id, name, email, gender, status) VALUES (1, 'Test Teacher', 'test@test.com', 'male', 'active') RETURNING id`).Scan(&teacherID))
 	require.NoError(t, db.QueryRow(`INSERT INTO branches (id, name) VALUES (1, 'Test Branch') RETURNING id`).Scan(&branchID))
 	require.NoError(t, db.QueryRow(`INSERT INTO subjects (id, name) VALUES (1, 'Test Subject') RETURNING id`).Scan(&subjectID))
 	return

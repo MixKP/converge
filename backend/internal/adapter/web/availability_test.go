@@ -59,8 +59,8 @@ func (m *mockService) SubmitWeeklyAvailability(ctx context.Context, teacherID in
 func TestAvailabilityHandler_GetTeachers_Success(t *testing.T) {
 	mock := &mockService{
 		teachers: []teacher.Teacher{
-			{ID: 1, Name: "Alice", Email: "alice@test.com"},
-			{ID: 2, Name: "Bob", Email: "bob@test.com"},
+			{ID: 1, Name: "Alice", Email: "alice@test.com", Gender: "female"},
+			{ID: 2, Name: "Bob", Email: "bob@test.com", Gender: "male"},
 		},
 	}
 	handler := NewAvailabilityHandler(mock, slog.Default())
@@ -230,14 +230,14 @@ func TestAvailabilityHandler_GetAllAvailability_Success(t *testing.T) {
 	mock := &mockService{
 		availability: []teacher.TeacherAvailability{
 			{
-				Teacher: teacher.Teacher{ID: 1, Name: "Alice"},
+				Teacher: teacher.Teacher{ID: 1, Name: "Alice", Gender: "female"},
 				Weekly: []shared.WeeklySlot{
 					{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("12:00")},
 					{DayOfWeek: 2, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("12:00")},
 				},
 			},
 			{
-				Teacher: teacher.Teacher{ID: 2, Name: "Bob"},
+				Teacher: teacher.Teacher{ID: 2, Name: "Bob", Gender: "male"},
 				Weekly: []shared.WeeklySlot{
 					{DayOfWeek: 1, Start: shared.TimeHHMM("10:00"), End: shared.TimeHHMM("15:00")},
 				},
@@ -305,8 +305,8 @@ func TestAvailabilityHandler_GetAllAvailability_Empty(t *testing.T) {
 func TestAvailabilityHandler_GetTeachersBySubject_Success(t *testing.T) {
 	mock := &mockService{
 		teachersBySub: []teacher.Teacher{
-			{ID: 1, Name: "Alice", Email: "alice@test.com"},
-			{ID: 3, Name: "Carol", Email: "carol@test.com"},
+			{ID: 1, Name: "Alice", Email: "alice@test.com", Gender: "female"},
+			{ID: 3, Name: "Carol", Email: "carol@test.com", Gender: "female"},
 		},
 	}
 	handler := NewAvailabilityHandler(mock, slog.Default())

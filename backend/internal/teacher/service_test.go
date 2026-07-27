@@ -16,13 +16,18 @@ type mockStore struct {
 	mock.Mock
 }
 
-func (m *mockStore) AddTeacher(ctx context.Context, name, email string) (*Teacher, error) {
-	args := m.Called(ctx, name, email)
+func (m *mockStore) AddTeacher(ctx context.Context, name, email, gender string) (*Teacher, error) {
+	args := m.Called(ctx, name, email, gender)
 	return args.Get(0).(*Teacher), args.Error(1)
 }
 
 func (m *mockStore) SetStatus(ctx context.Context, teacherID int, status string) error {
 	args := m.Called(ctx, teacherID, status)
+	return args.Error(0)
+}
+
+func (m *mockStore) SetGender(ctx context.Context, teacherID int, gender string) error {
+	args := m.Called(ctx, teacherID, gender)
 	return args.Error(0)
 }
 
@@ -210,7 +215,7 @@ func TestTeacherService_GetActiveTeachers_Success(t *testing.T) {
 	store := new(mockStore)
 	svc := NewService(store, store, store, slog.Default())
 
-	expected := []Teacher{{ID: 1, Name: "Alice"}, {ID: 2, Name: "Bob"}}
+	expected := []Teacher{{ID: 1, Name: "Alice", Gender: "female"}, {ID: 2, Name: "Bob", Gender: "male"}}
 	store.On("GetActiveTeachers", mock.Anything).Return(expected, nil)
 
 	teachers, err := svc.GetActiveTeachers(context.Background())
@@ -256,7 +261,7 @@ func TestTeacherService_GetTeachersBySubject_Success(t *testing.T) {
 	store := new(mockStore)
 	svc := NewService(store, store, store, slog.Default())
 
-	expected := []Teacher{{ID: 1, Name: "Alice"}}
+	expected := []Teacher{{ID: 1, Name: "Alice", Gender: "female"}}
 	store.On("GetTeachersBySubject", mock.Anything, 1).Return(expected, nil)
 
 	teachers, err := svc.GetTeachersBySubject(context.Background(), 1)
@@ -269,7 +274,7 @@ func TestTeacherService_GetAllAvailability_Success(t *testing.T) {
 	svc := NewService(store, store, store, slog.Default())
 
 	expected := []TeacherAvailability{{
-		Teacher: Teacher{ID: 1, Name: "Alice"},
+		Teacher: Teacher{ID: 1, Name: "Alice", Gender: "female"},
 		Weekly:  []shared.WeeklySlot{{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("10:00")}},
 	}}
 	store.On("GetAllAvailability", mock.Anything).Return(expected, nil)
@@ -290,4 +295,38 @@ func TestTeacherService_TeacherAvailability_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, slots, 1)
 	assert.Equal(t, "09:00", string(slots[0].Start))
+}
+
+func TestTeacherService_AddTeacher_Success(t *testing.T) {
+	store := new(mockStore)
+	svc := NewService(store, store, store, slog.Default())
+
+	expected := &Teacher{ID: 1, Name: "Alice", Email: "alice@example.com", Gender: "female"}
+	store.On("AddTeacher", mock.Anything, "Alice", "alice@example.com", "female").Return(expected, nil)
+
+	teacherResult, err := svc.AddTeacher(context.Background(), "Alice", "alice@example.com", "female")
+	assert.NoError(t, err)
+	assert.Equal(t, expected, teacherResult)
+}
+
+func TestTeacherService_SetGender_Success(t *testing.T) {
+	store := new(mockStore)
+	svc := NewService(store, store, store, slog.Default())
+
+	store.On("SetGender", mock.Anything, 1, "male").Return(nil)
+
+	err := svc.SetGender(context.Background(), 1, "male")
+	assert.NoError(t, err)
+}
+
+func TestTeacherService_SetGender_StoreError_Propagates(t *testing.T) {
+	store := new(mockStore)
+	svc := NewService(store, store, store, slog.Default())
+
+	store.On("SetGender", mock.Anything, 99, "male").Return(&shared.NotFoundError{Msg: "teacher 99 not found"})
+
+	err := svc.SetGender(context.Background(), 99, "male")
+
+	var notFoundErr *shared.NotFoundError
+	assert.ErrorAs(t, err, &notFoundErr)
 }

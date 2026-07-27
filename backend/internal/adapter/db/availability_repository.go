@@ -19,7 +19,7 @@ func NewPostgresRepo(database *sql.DB) *PostgresRepo {
 }
 
 func (p *PostgresRepo) GetActiveTeachers(ctx context.Context) ([]teacher.Teacher, error) {
-	rows, err := p.DB.QueryContext(ctx, `SELECT id, name, email, status FROM teachers WHERE status = 'active' ORDER BY name`)
+	rows, err := p.DB.QueryContext(ctx, `SELECT id, name, email, gender, status FROM teachers WHERE status = 'active' ORDER BY name`)
 	if err != nil {
 		return nil, err
 	}
@@ -28,7 +28,7 @@ func (p *PostgresRepo) GetActiveTeachers(ctx context.Context) ([]teacher.Teacher
 	var teachers []teacher.Teacher
 	for rows.Next() {
 		var t teacher.Teacher
-		if err := rows.Scan(&t.ID, &t.Name, &t.Email, &t.Status); err != nil {
+		if err := rows.Scan(&t.ID, &t.Name, &t.Email, &t.Gender, &t.Status); err != nil {
 			return nil, err
 		}
 		teachers = append(teachers, t)
@@ -38,7 +38,7 @@ func (p *PostgresRepo) GetActiveTeachers(ctx context.Context) ([]teacher.Teacher
 
 func (p *PostgresRepo) GetTeachersBySubject(ctx context.Context, subjectID int) ([]teacher.Teacher, error) {
 	rows, err := p.DB.QueryContext(ctx, `
-		SELECT t.id, t.name, t.email, t.status
+		SELECT t.id, t.name, t.email, t.gender, t.status
 		FROM teachers t
 		JOIN teacher_subjects ts ON t.id = ts.teacher_id
 		WHERE ts.subject_id = $1 AND t.status = 'active'
@@ -51,7 +51,7 @@ func (p *PostgresRepo) GetTeachersBySubject(ctx context.Context, subjectID int) 
 	var teachers []teacher.Teacher
 	for rows.Next() {
 		var t teacher.Teacher
-		if err := rows.Scan(&t.ID, &t.Name, &t.Email, &t.Status); err != nil {
+		if err := rows.Scan(&t.ID, &t.Name, &t.Email, &t.Gender, &t.Status); err != nil {
 			return nil, err
 		}
 		teachers = append(teachers, t)
@@ -185,13 +185,13 @@ func (p *PostgresRepo) SaveRawSubmission(ctx context.Context, teacherID int, raw
 	return err
 }
 
-func (p *PostgresRepo) AddTeacher(ctx context.Context, name, email string) (*teacher.Teacher, error) {
+func (p *PostgresRepo) AddTeacher(ctx context.Context, name, email, gender string) (*teacher.Teacher, error) {
 	row := p.DB.QueryRowContext(ctx, `
-		INSERT INTO teachers (name, email, status) VALUES ($1, $2, 'active')
-		RETURNING id, name, email, status`, name, email)
+		INSERT INTO teachers (name, email, gender, status) VALUES ($1, $2, $3, 'active')
+		RETURNING id, name, email, gender, status`, name, email, gender)
 
 	var t teacher.Teacher
-	if err := row.Scan(&t.ID, &t.Name, &t.Email, &t.Status); err != nil {
+	if err := row.Scan(&t.ID, &t.Name, &t.Email, &t.Gender, &t.Status); err != nil {
 		return nil, fmt.Errorf("add teacher: %w", err)
 	}
 	return &t, nil
@@ -201,6 +201,21 @@ func (p *PostgresRepo) SetStatus(ctx context.Context, teacherID int, status stri
 	res, err := p.DB.ExecContext(ctx, `UPDATE teachers SET status = $1 WHERE id = $2`, status, teacherID)
 	if err != nil {
 		return fmt.Errorf("set teacher status: %w", err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return &shared.NotFoundError{Msg: fmt.Sprintf("teacher %d not found", teacherID)}
+	}
+	return nil
+}
+
+func (p *PostgresRepo) SetGender(ctx context.Context, teacherID int, gender string) error {
+	res, err := p.DB.ExecContext(ctx, `UPDATE teachers SET gender = $1 WHERE id = $2`, gender, teacherID)
+	if err != nil {
+		return fmt.Errorf("set teacher gender: %w", err)
 	}
 	rows, err := res.RowsAffected()
 	if err != nil {

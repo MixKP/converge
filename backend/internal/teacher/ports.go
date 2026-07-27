@@ -7,8 +7,9 @@ import (
 )
 
 type TeacherStore interface {
-	AddTeacher(ctx context.Context, name, email string) (*Teacher, error)
+	AddTeacher(ctx context.Context, name, email, gender string) (*Teacher, error)
 	SetStatus(ctx context.Context, teacherID int, status string) error
+	SetGender(ctx context.Context, teacherID int, gender string) error
 	GetActiveTeachers(ctx context.Context) ([]Teacher, error)
 	GetTeachersBySubject(ctx context.Context, subjectID int) ([]Teacher, error)
 }

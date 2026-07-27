@@ -593,6 +593,10 @@ const docTemplate = `{
                     "type": "string",
                     "example": "alice@example.com"
                 },
+                "gender": {
+                    "type": "string",
+                    "example": "female"
+                },
                 "id": {
                     "type": "integer",
                     "example": 1

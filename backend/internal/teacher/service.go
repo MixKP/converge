@@ -27,12 +27,16 @@ func NewService(teacherStore TeacherStore, availabilityStore AvailabilityStore, 
 	}
 }
 
-func (s *Service) AddTeacher(ctx context.Context, name, email string) (*Teacher, error) {
-	return s.teacherStore.AddTeacher(ctx, name, email)
+func (s *Service) AddTeacher(ctx context.Context, name, email, gender string) (*Teacher, error) {
+	return s.teacherStore.AddTeacher(ctx, name, email, gender)
 }
 
 func (s *Service) SetStatus(ctx context.Context, teacherID int, status string) error {
 	return s.teacherStore.SetStatus(ctx, teacherID, status)
+}
+
+func (s *Service) SetGender(ctx context.Context, teacherID int, gender string) error {
+	return s.teacherStore.SetGender(ctx, teacherID, gender)
 }
 
 func (s *Service) GetActiveTeachers(ctx context.Context) ([]Teacher, error) {
