@@ -357,6 +357,50 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "post": {
+                "description": "Adds a new teacher with name, email, and gender",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "teachers"
+                ],
+                "summary": "Create a teacher",
+                "parameters": [
+                    {
+                        "description": "New teacher payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/teacher.CreateTeacherRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/teacher.Teacher"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    }
+                }
             }
         }
     },
@@ -588,6 +632,28 @@ const docTemplate = `{
                 "start": {
                     "type": "string",
                     "example": "09:00"
+                }
+            }
+        },
+        "teacher.CreateTeacherRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "gender",
+                "name"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "alice@example.com"
+                },
+                "gender": {
+                    "type": "string",
+                    "example": "female"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Alice"
                 }
             }
         },

@@ -119,6 +119,7 @@ func main() {
 	r.Use(cors.New(corsConfig()))
 	api := r.Group("/api")
 	api.GET("/teachers", availHandler.GetTeachers)
+	api.POST("/teachers", availHandler.CreateTeacher)
 	api.GET("/availability", availHandler.GetAllAvailability)
 	api.POST("/availability", availHandler.SubmitWeeklyAvailability)
 	api.GET("/branches", availHandler.GetBranches)

@@ -29,6 +29,9 @@ type mockService struct {
 	availErr         error
 	submitErr        error
 	submitCalled     bool
+	addedTeacher     *teacher.Teacher
+	addTeacherErr    error
+	addTeacherCalled bool
 }
 
 func (m *mockService) GetActiveTeachers(ctx context.Context) ([]teacher.Teacher, error) {
@@ -54,6 +57,11 @@ func (m *mockService) GetAllAvailability(ctx context.Context) ([]teacher.Teacher
 func (m *mockService) SubmitWeeklyAvailability(ctx context.Context, teacherID int, slots []shared.WeeklySlot) error {
 	m.submitCalled = true
 	return m.submitErr
+}
+
+func (m *mockService) AddTeacher(ctx context.Context, name, email, gender string) (*teacher.Teacher, error) {
+	m.addTeacherCalled = true
+	return m.addedTeacher, m.addTeacherErr
 }
 
 func TestAvailabilityHandler_GetTeachers_Success(t *testing.T) {
@@ -455,4 +463,100 @@ func TestAvailabilityHandler_GetSubjects_Error(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	assert.Contains(t, w.Body.String(), "failed to retrieve subjects")
+}
+
+func TestAvailabilityHandler_CreateTeacher_Success(t *testing.T) {
+	mock := &mockService{
+		addedTeacher: &teacher.Teacher{ID: 1, Name: "Alice", Email: "alice@test.com", Gender: "female", Status: "active"},
+	}
+	handler := NewAvailabilityHandler(mock, slog.Default())
+
+	payload := map[string]interface{}{
+		"name":   "Alice",
+		"email":  "alice@test.com",
+		"gender": "female",
+	}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPost, "/api/teachers", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.POST("/api/teachers", handler.CreateTeacher)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code)
+	var result teacher.Teacher
+	err := json.Unmarshal(w.Body.Bytes(), &result)
+	require.NoError(t, err)
+	assert.Equal(t, "Alice", result.Name)
+	assert.Equal(t, "female", result.Gender)
+	assert.True(t, mock.addTeacherCalled)
+}
+
+func TestAvailabilityHandler_CreateTeacher_MissingGender(t *testing.T) {
+	mock := &mockService{}
+	handler := NewAvailabilityHandler(mock, slog.Default())
+
+	payload := map[string]interface{}{
+		"name":  "Alice",
+		"email": "alice@test.com",
+	}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPost, "/api/teachers", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.POST("/api/teachers", handler.CreateTeacher)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.False(t, mock.addTeacherCalled)
+}
+
+func TestAvailabilityHandler_CreateTeacher_InvalidJSON(t *testing.T) {
+	mock := &mockService{}
+	handler := NewAvailabilityHandler(mock, slog.Default())
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.POST("/api/teachers", handler.CreateTeacher)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/teachers", bytes.NewReader([]byte(`{`)))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.False(t, mock.addTeacherCalled)
+}
+
+func TestAvailabilityHandler_CreateTeacher_ServiceError(t *testing.T) {
+	mock := &mockService{addTeacherErr: assert.AnError}
+	handler := NewAvailabilityHandler(mock, slog.Default())
+
+	payload := map[string]interface{}{
+		"name":   "Alice",
+		"email":  "alice@test.com",
+		"gender": "female",
+	}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPost, "/api/teachers", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.POST("/api/teachers", handler.CreateTeacher)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Contains(t, w.Body.String(), "failed to create teacher")
+	assert.True(t, mock.addTeacherCalled)
 }

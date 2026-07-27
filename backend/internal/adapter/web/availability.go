@@ -20,6 +20,7 @@ type teacherService interface {
 	GetBranches(ctx context.Context) ([]shared.Branch, error)
 	GetSubjects(ctx context.Context) ([]shared.Subject, error)
 	SubmitWeeklyAvailability(ctx context.Context, teacherID int, slots []shared.WeeklySlot) error
+	AddTeacher(ctx context.Context, name, email, gender string) (*teacher.Teacher, error)
 }
 
 type AvailabilityHandler struct {
@@ -181,4 +182,36 @@ func (h *AvailabilityHandler) SubmitWeeklyAvailability(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Availability saved successfully"})
+}
+
+// CreateTeacher godoc
+// @Summary      Create a teacher
+// @Description  Adds a new teacher with name, email, and gender
+// @Tags         teachers
+// @Accept       json
+// @Produce      json
+// @Param        body  body  teacher.CreateTeacherRequest  true  "New teacher payload"
+// @Success      201  {object}  teacher.Teacher
+// @Failure      400  {object}  scheduling.ErrorResponse
+// @Failure      500  {object}  scheduling.ErrorResponse
+// @Router       /teachers [post]
+func (h *AvailabilityHandler) CreateTeacher(c *gin.Context) {
+	var req teacher.CreateTeacherRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	newTeacher, err := h.svc.AddTeacher(c.Request.Context(), req.Name, req.Email, req.Gender)
+	if err != nil {
+		h.logger.Error("request failed",
+			"request_id", requestID(c),
+			"op", "CreateTeacher",
+			"error", err,
+		)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create teacher"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, newTeacher)
 }

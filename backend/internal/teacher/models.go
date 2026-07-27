@@ -19,3 +19,9 @@ type AvailabilityPayload struct {
 	TeacherID int                 `json:"teacher_id" example:"42"`
 	Weekly    []shared.WeeklySlot `json:"weekly"`
 }
+
+type CreateTeacherRequest struct {
+	Name   string `json:"name"   binding:"required" example:"Alice"`
+	Email  string `json:"email"  binding:"required" example:"alice@example.com"`
+	Gender string `json:"gender" binding:"required" example:"female"`
+}

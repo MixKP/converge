@@ -158,6 +158,22 @@ definitions:
         example: "09:00"
         type: string
     type: object
+  teacher.CreateTeacherRequest:
+    properties:
+      email:
+        example: alice@example.com
+        type: string
+      gender:
+        example: female
+        type: string
+      name:
+        example: Alice
+        type: string
+    required:
+    - email
+    - gender
+    - name
+    type: object
   teacher.Teacher:
     properties:
       email:
@@ -421,6 +437,35 @@ paths:
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
       summary: List active teachers
+      tags:
+      - teachers
+    post:
+      consumes:
+      - application/json
+      description: Adds a new teacher with name, email, and gender
+      parameters:
+      - description: New teacher payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/teacher.CreateTeacherRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/teacher.Teacher'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+      summary: Create a teacher
       tags:
       - teachers
 swagger: "2.0"
