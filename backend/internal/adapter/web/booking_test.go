@@ -221,6 +221,31 @@ func TestBookingHandler_CreateBooking_InvalidJSON(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
+func TestBookingHandler_CreateBooking_InvalidRequiredGender(t *testing.T) {
+	mock := &mockBookingSvc{}
+	handler := NewBookingHandler(mock, slog.Default())
+
+	payload := scheduling.BookingRequest{
+		SubjectID:       3,
+		BranchID:        2,
+		PreferredSlots:  []scheduling.WeeklySlot{slot(0, "09:00", "10:00")},
+		DurationMinutes: 60,
+		RequiredGender:  "Female",
+	}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPost, "/api/bookings", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.POST("/api/bookings", handler.CreateBooking)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
 func TestBookingHandler_CreateBooking_ServiceError(t *testing.T) {
 	mock := &mockBookingSvc{evalErr: assert.AnError}
 	handler := NewBookingHandler(mock, slog.Default())

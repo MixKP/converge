@@ -14,8 +14,8 @@ type mockStore struct {
 	mock.Mock
 }
 
-func (m *mockStore) FindExactMatch(ctx context.Context, subjectID, branchID int, slot shared.WeeklySlot, durationMinutes int, teacherID shared.Option[int]) (*BookingMatch, error) {
-	args := m.Called(ctx, subjectID, branchID, slot, durationMinutes, teacherID)
+func (m *mockStore) FindExactMatch(ctx context.Context, subjectID, branchID int, slot shared.WeeklySlot, durationMinutes int, teacherID shared.Option[int], gender string) (*BookingMatch, error) {
+	args := m.Called(ctx, subjectID, branchID, slot, durationMinutes, teacherID, gender)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -97,7 +97,7 @@ func TestSchedulingService_Evaluate_ExactMatch(t *testing.T) {
 		},
 		TeacherName: "Alice",
 	}
-	store.On("FindExactMatch", mock.Anything, 1, 1, s, 60, shared.None[int]()).Return(exactMatch, nil)
+	store.On("FindExactMatch", mock.Anything, 1, 1, s, 60, shared.None[int](), "female").Return(exactMatch, nil)
 
 	result, err := svc.Evaluate(context.Background(), req)
 
@@ -118,7 +118,7 @@ func TestSchedulingService_Evaluate_Alternatives(t *testing.T) {
 	s := slot(0, "09:00", "10:00")
 	req := bookingReq(1, 1, s, 60)
 
-	store.On("FindExactMatch", mock.Anything, 1, 1, s, 60, shared.None[int]()).Return(nil, nil)
+	store.On("FindExactMatch", mock.Anything, 1, 1, s, 60, shared.None[int](), "female").Return(nil, nil)
 	engine.On("FindAlternativesForSlot", mock.Anything, req, s).Return([]BookingAlternative{}, nil)
 
 	result, err := svc.Evaluate(context.Background(), req)
@@ -139,6 +139,22 @@ func TestSchedulingService_Evaluate_MissingSubject(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "subject_id")
+}
+
+func TestSchedulingService_Evaluate_InvalidRequiredGender(t *testing.T) {
+	store := new(mockStore)
+	engine := new(mockEngine)
+	svc := NewSchedulingService(store, store, engine)
+
+	req := bookingReq(1, 1, slot(0, "09:00", "10:00"), 60)
+	req.RequiredGender = "robot"
+
+	_, err := svc.Evaluate(context.Background(), req)
+
+	var valErr *ValidationError
+	assert.ErrorAs(t, err, &valErr)
+	assert.Contains(t, err.Error(), "required_gender")
+	store.AssertNotCalled(t, "FindExactMatch")
 }
 
 func TestSchedulingService_Evaluate_MissingBranch(t *testing.T) {
@@ -207,8 +223,8 @@ func TestSchedulingService_Evaluate_TwoSlots(t *testing.T) {
 		Booking:     Booking{ID: 42, TeacherID: 1, BranchID: 1, SubjectID: 1, StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC), EndTime: time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)},
 		TeacherName: "Alice",
 	}
-	store.On("FindExactMatch", mock.Anything, 1, 1, monSlot, 60, shared.None[int]()).Return(exactMatch, nil)
-	store.On("FindExactMatch", mock.Anything, 1, 1, friSlot, 60, shared.None[int]()).Return(nil, nil)
+	store.On("FindExactMatch", mock.Anything, 1, 1, monSlot, 60, shared.None[int](), "female").Return(exactMatch, nil)
+	store.On("FindExactMatch", mock.Anything, 1, 1, friSlot, 60, shared.None[int](), "female").Return(nil, nil)
 
 	alts := []BookingAlternative{
 		{TeacherID: 3, TeacherName: "Carol", Score: 70},

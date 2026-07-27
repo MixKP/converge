@@ -40,7 +40,7 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req BookingRequ
 		return nil, err
 	}
 
-	filtered := teachers[:0]
+	filtered := make([]TeacherInfo, 0, len(teachers))
 	for _, t := range teachers {
 		if t.Gender == req.RequiredGender {
 			filtered = append(filtered, t)

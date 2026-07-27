@@ -34,6 +34,8 @@ type mockService struct {
 	addTeacherCalled bool
 	setStatusErr     error
 	setStatusCalled  bool
+	setGenderErr     error
+	setGenderCalled  bool
 }
 
 func (m *mockService) GetActiveTeachers(ctx context.Context) ([]teacher.Teacher, error) {
@@ -69,6 +71,11 @@ func (m *mockService) AddTeacher(ctx context.Context, name, email, gender string
 func (m *mockService) SetStatus(ctx context.Context, teacherID int, status string) error {
 	m.setStatusCalled = true
 	return m.setStatusErr
+}
+
+func (m *mockService) SetGender(ctx context.Context, teacherID int, gender string) error {
+	m.setGenderCalled = true
+	return m.setGenderErr
 }
 
 func TestAvailabilityHandler_GetTeachers_Success(t *testing.T) {
@@ -568,6 +575,30 @@ func TestAvailabilityHandler_CreateTeacher_ServiceError(t *testing.T) {
 	assert.True(t, mock.addTeacherCalled)
 }
 
+func TestAvailabilityHandler_CreateTeacher_ValidationError(t *testing.T) {
+	mock := &mockService{addTeacherErr: &teacher.ValidationError{Msg: "invalid gender"}}
+	handler := NewAvailabilityHandler(mock, slog.Default())
+
+	payload := map[string]interface{}{
+		"name":   "Alice",
+		"email":  "alice@test.com",
+		"gender": "robot",
+	}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPost, "/api/teachers", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.POST("/api/teachers", handler.CreateTeacher)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "invalid gender")
+}
+
 func TestAvailabilityHandler_UpdateTeacherStatus_Success(t *testing.T) {
 	mock := &mockService{}
 	handler := NewAvailabilityHandler(mock, slog.Default())
@@ -665,4 +696,143 @@ func TestAvailabilityHandler_UpdateTeacherStatus_ServiceError(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	assert.Contains(t, w.Body.String(), "failed to update teacher status")
 	assert.True(t, mock.setStatusCalled)
+}
+
+func TestAvailabilityHandler_UpdateTeacherStatus_ValidationError(t *testing.T) {
+	mock := &mockService{setStatusErr: &teacher.ValidationError{Msg: "invalid status"}}
+	handler := NewAvailabilityHandler(mock, slog.Default())
+
+	payload := map[string]interface{}{"status": "robot"}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPatch, "/api/teachers/1/status", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.PATCH("/api/teachers/:id/status", handler.UpdateTeacherStatus)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "invalid status")
+}
+
+func TestAvailabilityHandler_UpdateTeacherGender_Success(t *testing.T) {
+	mock := &mockService{}
+	handler := NewAvailabilityHandler(mock, slog.Default())
+
+	payload := map[string]interface{}{"gender": "female"}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPatch, "/api/teachers/1/gender", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.PATCH("/api/teachers/:id/gender", handler.UpdateTeacherGender)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.True(t, mock.setGenderCalled)
+}
+
+func TestAvailabilityHandler_UpdateTeacherGender_InvalidID(t *testing.T) {
+	mock := &mockService{}
+	handler := NewAvailabilityHandler(mock, slog.Default())
+
+	payload := map[string]interface{}{"gender": "female"}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPatch, "/api/teachers/abc/gender", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.PATCH("/api/teachers/:id/gender", handler.UpdateTeacherGender)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.False(t, mock.setGenderCalled)
+}
+
+func TestAvailabilityHandler_UpdateTeacherGender_MissingGender(t *testing.T) {
+	mock := &mockService{}
+	handler := NewAvailabilityHandler(mock, slog.Default())
+
+	req := httptest.NewRequest(http.MethodPatch, "/api/teachers/1/gender", bytes.NewReader([]byte(`{}`)))
+	req.Header.Set("Content-Type", "application/json")
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.PATCH("/api/teachers/:id/gender", handler.UpdateTeacherGender)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.False(t, mock.setGenderCalled)
+}
+
+func TestAvailabilityHandler_UpdateTeacherGender_NotFound(t *testing.T) {
+	mock := &mockService{setGenderErr: &shared.NotFoundError{Msg: "teacher 99 not found"}}
+	handler := NewAvailabilityHandler(mock, slog.Default())
+
+	payload := map[string]interface{}{"gender": "female"}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPatch, "/api/teachers/99/gender", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.PATCH("/api/teachers/:id/gender", handler.UpdateTeacherGender)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+	assert.True(t, mock.setGenderCalled)
+}
+
+func TestAvailabilityHandler_UpdateTeacherGender_ValidationError(t *testing.T) {
+	mock := &mockService{setGenderErr: &teacher.ValidationError{Msg: "invalid gender"}}
+	handler := NewAvailabilityHandler(mock, slog.Default())
+
+	payload := map[string]interface{}{"gender": "robot"}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPatch, "/api/teachers/1/gender", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.PATCH("/api/teachers/:id/gender", handler.UpdateTeacherGender)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "invalid gender")
+}
+
+func TestAvailabilityHandler_UpdateTeacherGender_ServiceError(t *testing.T) {
+	mock := &mockService{setGenderErr: assert.AnError}
+	handler := NewAvailabilityHandler(mock, slog.Default())
+
+	payload := map[string]interface{}{"gender": "female"}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPatch, "/api/teachers/1/gender", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.PATCH("/api/teachers/:id/gender", handler.UpdateTeacherGender)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Contains(t, w.Body.String(), "failed to update teacher gender")
+	assert.True(t, mock.setGenderCalled)
 }

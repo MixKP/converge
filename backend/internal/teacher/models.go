@@ -29,3 +29,7 @@ type CreateTeacherRequest struct {
 type UpdateStatusRequest struct {
 	Status string `json:"status" binding:"required" example:"deactivated"`
 }
+
+type UpdateGenderRequest struct {
+	Gender string `json:"gender" binding:"required" example:"female"`
+}

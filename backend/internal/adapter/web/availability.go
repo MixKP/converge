@@ -22,6 +22,7 @@ type teacherService interface {
 	SubmitWeeklyAvailability(ctx context.Context, teacherID int, slots []shared.WeeklySlot) error
 	AddTeacher(ctx context.Context, name, email, gender string) (*teacher.Teacher, error)
 	SetStatus(ctx context.Context, teacherID int, status string) error
+	SetGender(ctx context.Context, teacherID int, gender string) error
 }
 
 type AvailabilityHandler struct {
@@ -205,12 +206,17 @@ func (h *AvailabilityHandler) CreateTeacher(c *gin.Context) {
 
 	newTeacher, err := h.svc.AddTeacher(c.Request.Context(), req.Name, req.Email, req.Gender)
 	if err != nil {
-		h.logger.Error("request failed",
-			"request_id", requestID(c),
-			"op", "CreateTeacher",
-			"error", err,
-		)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create teacher"})
+		var valErr *teacher.ValidationError
+		if errors.As(err, &valErr) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		} else {
+			h.logger.Error("request failed",
+				"request_id", requestID(c),
+				"op", "CreateTeacher",
+				"error", err,
+			)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create teacher"})
+		}
 		return
 	}
 
@@ -244,20 +250,70 @@ func (h *AvailabilityHandler) UpdateTeacherStatus(c *gin.Context) {
 	}
 
 	if err := h.svc.SetStatus(c.Request.Context(), id, req.Status); err != nil {
-		var notFoundErr *shared.NotFoundError
-		if errors.As(err, &notFoundErr) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-		} else {
-			h.logger.Error("request failed",
-				"request_id", requestID(c),
-				"op", "UpdateTeacherStatus",
-				"teacher_id", id,
-				"error", err,
-			)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update teacher status"})
-		}
+		h.respondTeacherUpdateErr(c, err, "UpdateTeacherStatus/SetStatus", id, "failed to update teacher status")
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Teacher status updated successfully"})
+}
+
+// UpdateTeacherGender godoc
+// @Summary      Update a teacher's gender
+// @Description  Sets a teacher's gender to male, female, or lgbtq+
+// @Tags         teachers
+// @Accept       json
+// @Produce      json
+// @Param        id    path  int                         true  "Teacher ID"
+// @Param        body  body  teacher.UpdateGenderRequest  true  "New gender"
+// @Success      200  {object}  scheduling.MessageResponse
+// @Failure      400  {object}  scheduling.ErrorResponse
+// @Failure      404  {object}  scheduling.ErrorResponse
+// @Failure      500  {object}  scheduling.ErrorResponse
+// @Router       /teachers/{id}/gender [patch]
+func (h *AvailabilityHandler) UpdateTeacherGender(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid teacher id"})
+		return
+	}
+
+	var req teacher.UpdateGenderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.svc.SetGender(c.Request.Context(), id, req.Gender); err != nil {
+		h.respondTeacherUpdateErr(c, err, "UpdateTeacherGender/SetGender", id, "failed to update teacher gender")
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Teacher gender updated successfully"})
+}
+
+// respondTeacherUpdateErr writes the appropriate HTTP response for an error returned
+// by a teacher field-update service call (SetStatus, SetGender), dispatching on error
+// type: NotFoundError -> 404, ValidationError -> 400, anything else -> 500.
+func (h *AvailabilityHandler) respondTeacherUpdateErr(c *gin.Context, err error, op string, teacherID int, genericMsg string) {
+	var notFoundErr *shared.NotFoundError
+	var valErr *teacher.ValidationError
+	switch {
+	case errors.As(err, &notFoundErr):
+		h.logger.Warn("teacher not found",
+			"request_id", requestID(c),
+			"op", op,
+			"teacher_id", teacherID,
+		)
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+	case errors.As(err, &valErr):
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	default:
+		h.logger.Error("request failed",
+			"request_id", requestID(c),
+			"op", op,
+			"teacher_id", teacherID,
+			"error", err,
+		)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": genericMsg})
+	}
 }

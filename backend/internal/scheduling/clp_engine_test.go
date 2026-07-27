@@ -9,14 +9,15 @@ import (
 	"github.com/RinZ5/converge/backend/internal/shared"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type mockCLPBookingStore struct {
 	mock.Mock
 }
 
-func (m *mockCLPBookingStore) FindExactMatch(ctx context.Context, subjectID, branchID int, slot shared.WeeklySlot, durationMinutes int, teacherID shared.Option[int]) (*BookingMatch, error) {
-	args := m.Called(ctx, subjectID, branchID, slot, durationMinutes, teacherID)
+func (m *mockCLPBookingStore) FindExactMatch(ctx context.Context, subjectID, branchID int, slot shared.WeeklySlot, durationMinutes int, teacherID shared.Option[int], gender string) (*BookingMatch, error) {
+	args := m.Called(ctx, subjectID, branchID, slot, durationMinutes, teacherID, gender)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -212,6 +213,9 @@ func TestCLPEngine_Alternatives_RequiredGender_ExcludesMismatch(t *testing.T) {
 	}
 	tRoster.AssertNotCalled(t, "TeacherAvailability", mock.Anything, 1)
 	bStore.AssertNotCalled(t, "FindConflictingBookings", mock.Anything, 1, mock.Anything, mock.Anything)
+
+	require.Len(t, teachers, 2, "the roster's own slice must not be mutated by the engine's gender filter")
+	assert.Equal(t, "Alice", teachers[0].Name, "in-place filtering would have overwritten this with Betty's data")
 }
 
 func TestCLPEngine_Alternatives_RequiredGender_NoMatch_ReturnsEmpty(t *testing.T) {

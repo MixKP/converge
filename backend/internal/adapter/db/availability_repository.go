@@ -4,11 +4,16 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/RinZ5/converge/backend/internal/shared"
 	"github.com/RinZ5/converge/backend/internal/teacher"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
+
+const pgCheckViolation = "23514"
 
 type PostgresRepo struct {
 	DB *sql.DB
@@ -119,7 +124,7 @@ func (p *PostgresRepo) ReplaceWeeklyAvailability(ctx context.Context, teacherID 
 
 func (p *PostgresRepo) GetAllAvailability(ctx context.Context) ([]teacher.TeacherAvailability, error) {
 	rows, err := p.DB.QueryContext(ctx, `
-		SELECT t.id, t.name, t.email, ta.day_of_week, to_char(ta.start_time, 'HH24:MI') AS start_time, to_char(ta.end_time, 'HH24:MI') AS end_time
+		SELECT t.id, t.name, t.email, t.gender, ta.day_of_week, to_char(ta.start_time, 'HH24:MI') AS start_time, to_char(ta.end_time, 'HH24:MI') AS end_time
 		FROM teachers t
 		JOIN teacher_availability ta ON t.id = ta.teacher_id
 		WHERE t.status = 'active'
@@ -134,14 +139,14 @@ func (p *PostgresRepo) GetAllAvailability(ctx context.Context) ([]teacher.Teache
 
 	for rows.Next() {
 		var teacherID int
-		var name, email string
+		var name, email, gender string
 		var slot shared.WeeklySlot
-		if err := rows.Scan(&teacherID, &name, &email, &slot.DayOfWeek, &slot.Start, &slot.End); err != nil {
+		if err := rows.Scan(&teacherID, &name, &email, &gender, &slot.DayOfWeek, &slot.Start, &slot.End); err != nil {
 			return nil, err
 		}
 		if current == nil || current.Teacher.ID != teacherID {
 			result = append(result, teacher.TeacherAvailability{
-				Teacher: teacher.Teacher{ID: teacherID, Name: name},
+				Teacher: teacher.Teacher{ID: teacherID, Name: name, Gender: gender},
 				Weekly:  []shared.WeeklySlot{slot},
 			})
 			current = &result[len(result)-1]
@@ -185,6 +190,16 @@ func (p *PostgresRepo) SaveRawSubmission(ctx context.Context, teacherID int, raw
 	return err
 }
 
+// checkViolationError returns a *shared.ValidationError with msg if err is a Postgres
+// CHECK constraint violation, or nil otherwise.
+func checkViolationError(err error, msg string) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == pgCheckViolation {
+		return &shared.ValidationError{Msg: msg}
+	}
+	return nil
+}
+
 func (p *PostgresRepo) AddTeacher(ctx context.Context, name, email, gender string) (*teacher.Teacher, error) {
 	row := p.DB.QueryRowContext(ctx, `
 		INSERT INTO teachers (name, email, gender, status) VALUES ($1, $2, $3, 'active')
@@ -192,6 +207,9 @@ func (p *PostgresRepo) AddTeacher(ctx context.Context, name, email, gender strin
 
 	var t teacher.Teacher
 	if err := row.Scan(&t.ID, &t.Name, &t.Email, &t.Gender, &t.Status); err != nil {
+		if valErr := checkViolationError(err, "invalid gender"); valErr != nil {
+			return nil, valErr
+		}
 		return nil, fmt.Errorf("add teacher: %w", err)
 	}
 	return &t, nil
@@ -200,6 +218,9 @@ func (p *PostgresRepo) AddTeacher(ctx context.Context, name, email, gender strin
 func (p *PostgresRepo) SetStatus(ctx context.Context, teacherID int, status string) error {
 	res, err := p.DB.ExecContext(ctx, `UPDATE teachers SET status = $1 WHERE id = $2`, status, teacherID)
 	if err != nil {
+		if valErr := checkViolationError(err, "invalid status"); valErr != nil {
+			return valErr
+		}
 		return fmt.Errorf("set teacher status: %w", err)
 	}
 	rows, err := res.RowsAffected()
@@ -215,6 +236,9 @@ func (p *PostgresRepo) SetStatus(ctx context.Context, teacherID int, status stri
 func (p *PostgresRepo) SetGender(ctx context.Context, teacherID int, gender string) error {
 	res, err := p.DB.ExecContext(ctx, `UPDATE teachers SET gender = $1 WHERE id = $2`, gender, teacherID)
 	if err != nil {
+		if valErr := checkViolationError(err, "invalid gender"); valErr != nil {
+			return valErr
+		}
 		return fmt.Errorf("set teacher gender: %w", err)
 	}
 	rows, err := res.RowsAffected()

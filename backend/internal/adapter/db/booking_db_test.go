@@ -173,13 +173,31 @@ func TestBookingRepoFindExactMatch_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	slot := shared.WeeklySlot{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("10:00")}
-	match, err := repo.FindExactMatch(context.Background(), subjectID, branchID, slot, 60, shared.None[int]())
+	match, err := repo.FindExactMatch(context.Background(), subjectID, branchID, slot, 60, shared.None[int](), "male")
 	require.NoError(t, err)
 	require.NotNil(t, match)
 	assert.Equal(t, "Test Teacher", match.TeacherName)
 	assert.Equal(t, teacherID, match.Booking.TeacherID)
 	assert.NotZero(t, match.Booking.StartTime)
 	assert.NotZero(t, match.Booking.EndTime)
+}
+
+func TestBookingRepoFindExactMatch_GenderMismatch(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBookingRepository(db)
+	teacherID, branchID, subjectID := seedBookingParents(t, db)
+
+	_, err := db.Exec(`INSERT INTO teacher_subjects (teacher_id, subject_id) VALUES ($1, $2)`, teacherID, subjectID)
+	require.NoError(t, err)
+
+	_, err = db.Exec(`INSERT INTO teacher_availability (teacher_id, day_of_week, start_time, end_time)
+		VALUES ($1, 0, '09:00', '17:00')`, teacherID)
+	require.NoError(t, err)
+
+	slot := shared.WeeklySlot{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("10:00")}
+	match, err := repo.FindExactMatch(context.Background(), subjectID, branchID, slot, 60, shared.None[int](), "female")
+	require.NoError(t, err)
+	assert.Nil(t, match, "teacher is male, requesting female should exclude the exact match")
 }
 
 func TestBookingRepoFindExactMatch_NoMatch(t *testing.T) {
@@ -195,7 +213,7 @@ func TestBookingRepoFindExactMatch_NoMatch(t *testing.T) {
 	require.NoError(t, err)
 
 	slot := shared.WeeklySlot{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("10:00")}
-	match, err := repo.FindExactMatch(context.Background(), subjectID, branchID, slot, 60, nil)
+	match, err := repo.FindExactMatch(context.Background(), subjectID, branchID, slot, 60, shared.None[int](), "male")
 	require.NoError(t, err)
 	assert.Nil(t, match)
 }
@@ -216,7 +234,7 @@ func TestBookingRepoFindExactMatch_DeactivatedTeacher(t *testing.T) {
 	require.NoError(t, err)
 
 	slot := shared.WeeklySlot{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("10:00")}
-	match, err := repo.FindExactMatch(context.Background(), subjectID, branchID, slot, 60, shared.None[int]())
+	match, err := repo.FindExactMatch(context.Background(), subjectID, branchID, slot, 60, shared.None[int](), "male")
 	require.NoError(t, err)
 	assert.Nil(t, match)
 }
@@ -244,7 +262,7 @@ func TestBookingRepoFindExactMatch_ConflictExcludes(t *testing.T) {
 	require.NoError(t, err)
 
 	slot := shared.WeeklySlot{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("10:00")}
-	match, err := repo.FindExactMatch(context.Background(), subjectID, branchID, slot, 60, shared.None[int]())
+	match, err := repo.FindExactMatch(context.Background(), subjectID, branchID, slot, 60, shared.None[int](), "male")
 	require.NoError(t, err)
 	assert.Nil(t, match)
 }

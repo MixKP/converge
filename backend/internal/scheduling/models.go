@@ -28,7 +28,7 @@ type BookingRequest struct {
 	PreferredSlots     []shared.WeeklySlot `json:"preferred_slots"     binding:"required"`
 	DurationMinutes    int                 `json:"duration_minutes,omitempty" example:"60"`
 	PreferredTeacherID shared.Option[int]  `json:"preferred_teacher_id,omitempty" swaggertype:"integer" example:"5"`
-	RequiredGender     string              `json:"required_gender" binding:"required" example:"female"`
+	RequiredGender     string              `json:"required_gender" binding:"required,oneof=male female lgbtq+" example:"female"`
 }
 
 type ConfirmBookingRequest struct {

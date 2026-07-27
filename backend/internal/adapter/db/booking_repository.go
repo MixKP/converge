@@ -22,7 +22,7 @@ func NewBookingRepository(database *sql.DB) *BookingRepo {
 	return &BookingRepo{DB: database}
 }
 
-func (r *BookingRepo) FindExactMatch(ctx context.Context, subjectID, branchID int, slot shared.WeeklySlot, durationMinutes int, teacherID shared.Option[int]) (*scheduling.BookingMatch, error) {
+func (r *BookingRepo) FindExactMatch(ctx context.Context, subjectID, branchID int, slot shared.WeeklySlot, durationMinutes int, teacherID shared.Option[int], gender string) (*scheduling.BookingMatch, error) {
 	loc := shared.LoadLocation()
 	duration := time.Duration(durationMinutes) * time.Minute
 
@@ -62,8 +62,14 @@ func (r *BookingRepo) FindExactMatch(ctx context.Context, subjectID, branchID in
 		  AND ta.start_time <= $4::time
 		  AND ta.end_time >= $7::time
 		  AND ($8::int IS NULL OR t.id = $8)
+		  AND t.gender = $9
+		  AND NOT EXISTS (
+		    SELECT 1 FROM bookings b
+		    WHERE b.teacher_id = t.id
+		      AND tstzrange(b.start_time, b.end_time) && tstzrange($5::timestamptz, $6::timestamptz)
+		  )
 		LIMIT 1`,
-		subjectID, branchID, slot.DayOfWeek, string(slot.Start), startTS, endTS, string(windowEnd), teacherID.SQL(),
+		subjectID, branchID, slot.DayOfWeek, string(slot.Start), startTS, endTS, string(windowEnd), teacherID.SQL(), gender,
 	)
 
 	var booking scheduling.Booking

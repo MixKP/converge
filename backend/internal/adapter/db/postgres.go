@@ -113,7 +113,9 @@ func AutoMigrate(database *sql.DB) error {
 			EXCLUDE USING gist (teacher_id WITH =, tstzrange(start_time, end_time) WITH &&)
 		)`,
 		`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS client_name VARCHAR(255) NOT NULL DEFAULT ''`,
-		`ALTER TABLE teachers ADD COLUMN IF NOT EXISTS gender VARCHAR(20) NOT NULL CHECK (gender IN ('male','female','lgbtq+'))`,
+		`ALTER TABLE teachers ADD COLUMN IF NOT EXISTS gender VARCHAR(20) CHECK (gender IN ('male','female','lgbtq+'))`,
+		`UPDATE teachers SET gender = 'male' WHERE gender IS NULL`,
+		`ALTER TABLE teachers ALTER COLUMN gender SET NOT NULL`,
 	}
 	for _, q := range queries {
 		if _, err := database.Exec(q); err != nil {

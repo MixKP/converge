@@ -60,6 +60,10 @@ definitions:
         example: 5
         type: integer
       required_gender:
+        enum:
+        - male
+        - female
+        - lgbtq+
         example: female
         type: string
       subject_id:
@@ -200,6 +204,14 @@ definitions:
         items:
           $ref: '#/definitions/shared.WeeklySlot'
         type: array
+    type: object
+  teacher.UpdateGenderRequest:
+    properties:
+      gender:
+        example: female
+        type: string
+    required:
+    - gender
     type: object
   teacher.UpdateStatusRequest:
     properties:
@@ -474,6 +486,45 @@ paths:
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
       summary: Create a teacher
+      tags:
+      - teachers
+  /teachers/{id}/gender:
+    patch:
+      consumes:
+      - application/json
+      description: Sets a teacher's gender to male, female, or lgbtq+
+      parameters:
+      - description: Teacher ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: New gender
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/teacher.UpdateGenderRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/scheduling.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+      summary: Update a teacher's gender
       tags:
       - teachers
   /teachers/{id}/status:

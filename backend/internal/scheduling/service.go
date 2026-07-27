@@ -34,6 +34,11 @@ func (s *SchedulingService) Evaluate(ctx context.Context, req BookingRequest) (*
 	); err != nil {
 		return nil, err
 	}
+	switch req.RequiredGender {
+	case "male", "female", "lgbtq+":
+	default:
+		return nil, &ValidationError{Msg: fmt.Sprintf("required_gender must be one of male, female, lgbtq+, got %q", req.RequiredGender)}
+	}
 	for _, slot := range req.PreferredSlots {
 		if slot.DayOfWeek < 0 || slot.DayOfWeek > 6 {
 			return nil, &ValidationError{Msg: fmt.Sprintf("day_of_week must be between 0 and 6, got %d", slot.DayOfWeek)}
@@ -49,7 +54,7 @@ func (s *SchedulingService) Evaluate(ctx context.Context, req BookingRequest) (*
 	var results []SlotResult
 
 	for _, slot := range req.PreferredSlots {
-		match, err := s.bookingStore.FindExactMatch(ctx, req.SubjectID, req.BranchID, slot, req.DurationMinutes, req.PreferredTeacherID)
+		match, err := s.bookingStore.FindExactMatch(ctx, req.SubjectID, req.BranchID, slot, req.DurationMinutes, req.PreferredTeacherID, req.RequiredGender)
 		if err != nil {
 			return nil, fmt.Errorf("find exact match: %w", err)
 		}

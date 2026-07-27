@@ -403,6 +403,65 @@ const docTemplate = `{
                 }
             }
         },
+        "/teachers/{id}/gender": {
+            "patch": {
+                "description": "Sets a teacher's gender to male, female, or lgbtq+",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "teachers"
+                ],
+                "summary": "Update a teacher's gender",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Teacher ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New gender",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/teacher.UpdateGenderRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/teachers/{id}/status": {
             "patch": {
                 "description": "Sets a teacher's status to active or deactivated",
@@ -560,6 +619,11 @@ const docTemplate = `{
                 },
                 "required_gender": {
                     "type": "string",
+                    "enum": [
+                        "male",
+                        "female",
+                        "lgbtq+"
+                    ],
                     "example": "female"
                 },
                 "subject_id": {
@@ -752,6 +816,18 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/shared.WeeklySlot"
                     }
+                }
+            }
+        },
+        "teacher.UpdateGenderRequest": {
+            "type": "object",
+            "required": [
+                "gender"
+            ],
+            "properties": {
+                "gender": {
+                    "type": "string",
+                    "example": "female"
                 }
             }
         },
