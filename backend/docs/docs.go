@@ -433,6 +433,7 @@ const docTemplate = `{
             "required": [
                 "branch_id",
                 "preferred_slots",
+                "required_gender",
                 "subject_id"
             ],
             "properties": {
@@ -453,6 +454,10 @@ const docTemplate = `{
                 "preferred_teacher_id": {
                     "type": "integer",
                     "example": 5
+                },
+                "required_gender": {
+                    "type": "string",
+                    "example": "female"
                 },
                 "subject_id": {
                     "type": "integer",

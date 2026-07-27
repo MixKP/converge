@@ -94,7 +94,7 @@ func TestCLPEngine_Alternatives_ConflictPruned(t *testing.T) {
 	scorer := new(mockCLPScorer)
 	engine := NewCLPEngine(bStore, tRoster, scorer, nil, nil, slog.Default())
 
-	teacher := TeacherInfo{ID: 1, Name: "Alice"}
+	teacher := TeacherInfo{ID: 1, Name: "Alice", Gender: "female"}
 	tRoster.On("TeachersBySubject", mock.Anything, 1).Return([]TeacherInfo{teacher}, nil)
 	tRoster.On("TeacherAvailability", mock.Anything, 1).Return([]shared.WeeklySlot{
 		clpSlot(0, "09:00", "17:00"),
@@ -121,7 +121,7 @@ func TestCLPEngine_Alternatives_NoConflict(t *testing.T) {
 	scorer := new(mockCLPScorer)
 	engine := NewCLPEngine(bStore, tRoster, scorer, nil, nil, slog.Default())
 
-	teacher := TeacherInfo{ID: 1, Name: "Alice"}
+	teacher := TeacherInfo{ID: 1, Name: "Alice", Gender: "female"}
 	tRoster.On("TeachersBySubject", mock.Anything, 1).Return([]TeacherInfo{teacher}, nil)
 	tRoster.On("TeacherAvailability", mock.Anything, 1).Return([]shared.WeeklySlot{
 		clpSlot(0, "09:00", "17:00"),
@@ -149,10 +149,10 @@ func TestCLPEngine_Alternatives_Top3ByScore(t *testing.T) {
 	engine := NewCLPEngine(bStore, tRoster, scorer, nil, nil, slog.Default())
 
 	teachers := []TeacherInfo{
-		{ID: 1, Name: "Alice"},
-		{ID: 2, Name: "Bob"},
-		{ID: 3, Name: "Charlie"},
-		{ID: 4, Name: "Diana"},
+		{ID: 1, Name: "Alice", Gender: "female"},
+		{ID: 2, Name: "Bob", Gender: "female"},
+		{ID: 3, Name: "Charlie", Gender: "female"},
+		{ID: 4, Name: "Diana", Gender: "female"},
 	}
 	tRoster.On("TeachersBySubject", mock.Anything, 1).Return(teachers, nil)
 	for _, tc := range teachers {
@@ -180,4 +180,56 @@ func TestCLPEngine_Alternatives_Top3ByScore(t *testing.T) {
 	assert.Equal(t, "Charlie", result[0].TeacherName)
 	assert.Equal(t, "Diana", result[1].TeacherName)
 	assert.Equal(t, "Alice", result[2].TeacherName)
+}
+
+func TestCLPEngine_Alternatives_RequiredGender_ExcludesMismatch(t *testing.T) {
+	bStore := new(mockCLPBookingStore)
+	tRoster := new(mockCLPTeacherRoster)
+	scorer := new(mockCLPScorer)
+	engine := NewCLPEngine(bStore, tRoster, scorer, nil, nil, slog.Default())
+
+	teachers := []TeacherInfo{
+		{ID: 1, Name: "Alice", Gender: "male"},
+		{ID: 2, Name: "Betty", Gender: "female"},
+	}
+	tRoster.On("TeachersBySubject", mock.Anything, 1).Return(teachers, nil)
+	tRoster.On("TeacherAvailability", mock.Anything, 2).Return([]shared.WeeklySlot{
+		clpSlot(0, "09:00", "17:00"),
+	}, nil)
+	bStore.On("FindConflictingBookings", mock.Anything, 2,
+		mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).Return([]Booking{}, nil)
+	scorer.On("Score", mock.Anything, mock.AnythingOfType("ScorableCandidate")).
+		Return(ScoreResult{Score: 80, Reasons: []string{"ok"}})
+
+	req := bookingReq(1, 1, clpSlot(0, "13:00", "14:00"), 60)
+	req.RequiredGender = "female"
+	result, err := engine.FindAlternativesForSlot(context.Background(), req, req.PreferredSlots[0])
+
+	assert.NoError(t, err)
+	assert.NotEmpty(t, result)
+	for _, r := range result {
+		assert.Equal(t, "Betty", r.TeacherName)
+	}
+	tRoster.AssertNotCalled(t, "TeacherAvailability", mock.Anything, 1)
+	bStore.AssertNotCalled(t, "FindConflictingBookings", mock.Anything, 1, mock.Anything, mock.Anything)
+}
+
+func TestCLPEngine_Alternatives_RequiredGender_NoMatch_ReturnsEmpty(t *testing.T) {
+	bStore := new(mockCLPBookingStore)
+	tRoster := new(mockCLPTeacherRoster)
+	scorer := new(mockCLPScorer)
+	engine := NewCLPEngine(bStore, tRoster, scorer, nil, nil, slog.Default())
+
+	teachers := []TeacherInfo{
+		{ID: 1, Name: "Alice", Gender: "male"},
+	}
+	tRoster.On("TeachersBySubject", mock.Anything, 1).Return(teachers, nil)
+
+	req := bookingReq(1, 1, clpSlot(0, "13:00", "14:00"), 60)
+	req.RequiredGender = "female"
+	result, err := engine.FindAlternativesForSlot(context.Background(), req, req.PreferredSlots[0])
+
+	assert.NoError(t, err)
+	assert.Empty(t, result)
+	scorer.AssertNotCalled(t, "Score")
 }

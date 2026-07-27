@@ -28,7 +28,7 @@ func (a *TeacherRosterAdapter) TeachersBySubject(ctx context.Context, subjectID 
 	}
 	info := make([]scheduling.TeacherInfo, len(teachers))
 	for i, t := range teachers {
-		info[i] = scheduling.TeacherInfo{ID: t.ID, Name: t.Name}
+		info[i] = scheduling.TeacherInfo{ID: t.ID, Name: t.Name, Gender: t.Gender}
 	}
 	return info, nil
 }

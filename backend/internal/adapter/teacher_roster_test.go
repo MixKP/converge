@@ -39,8 +39,10 @@ func TestTeacherRosterAdapter_TeachersBySubject_Success(t *testing.T) {
 	assert.Len(t, result, 2)
 	assert.Equal(t, 1, result[0].ID)
 	assert.Equal(t, "Alice", result[0].Name)
+	assert.Equal(t, "female", result[0].Gender)
 	assert.Equal(t, 2, result[1].ID)
 	assert.Equal(t, "Bob", result[1].Name)
+	assert.Equal(t, "male", result[1].Gender)
 }
 
 func TestTeacherRosterAdapter_TeachersBySubject_Error(t *testing.T) {

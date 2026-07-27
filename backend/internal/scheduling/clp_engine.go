@@ -40,6 +40,14 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req BookingRequ
 		return nil, err
 	}
 
+	filtered := teachers[:0]
+	for _, t := range teachers {
+		if t.Gender == req.RequiredGender {
+			filtered = append(filtered, t)
+		}
+	}
+	teachers = filtered
+
 	e.logger.Debug("finding alternatives",
 		"request_id", shared.RequestIDFromContext(ctx),
 		"op", "CLPEngine.FindAlternativesForSlot",

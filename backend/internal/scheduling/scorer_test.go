@@ -142,6 +142,7 @@ func makeCandidate(teacher TeacherInfo, preferredTeacherID int, prefSlot shared.
 		SubjectID:      1,
 		BranchID:       1,
 		PreferredSlots: []shared.WeeklySlot{prefSlot},
+		RequiredGender: "female",
 	}
 	if preferredTeacherID > 0 {
 		req.PreferredTeacherID = shared.Some(preferredTeacherID)

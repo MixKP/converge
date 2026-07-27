@@ -73,6 +73,7 @@ func TestBookingHandler_CreateBooking_ExactMatch(t *testing.T) {
 		BranchID:        2,
 		PreferredSlots:  []scheduling.WeeklySlot{slot(0, "09:00", "10:00")},
 		DurationMinutes: 60,
+		RequiredGender:  "female",
 	}
 	body, _ := json.Marshal(payload)
 	req := httptest.NewRequest(http.MethodPost, "/api/bookings", bytes.NewReader(body))
@@ -123,6 +124,7 @@ func TestBookingHandler_CreateBooking_Alternatives(t *testing.T) {
 		BranchID:        2,
 		PreferredSlots:  []scheduling.WeeklySlot{slot(0, "09:00", "10:00")},
 		DurationMinutes: 60,
+		RequiredGender:  "female",
 	}
 	body, _ := json.Marshal(payload)
 	req := httptest.NewRequest(http.MethodPost, "/api/bookings", bytes.NewReader(body))
@@ -161,6 +163,7 @@ func TestBookingHandler_CreateBooking_EmptyAlternatives(t *testing.T) {
 		BranchID:        2,
 		PreferredSlots:  []scheduling.WeeklySlot{slot(0, "09:00", "10:00")},
 		DurationMinutes: 60,
+		RequiredGender:  "female",
 	}
 	body, _ := json.Marshal(payload)
 	req := httptest.NewRequest(http.MethodPost, "/api/bookings", bytes.NewReader(body))
@@ -184,8 +187,9 @@ func TestBookingHandler_CreateBooking_ValidationError(t *testing.T) {
 	handler := NewBookingHandler(mock, slog.Default())
 
 	payload := scheduling.BookingRequest{
-		SubjectID: 0,
-		BranchID:  2,
+		SubjectID:      0,
+		BranchID:       2,
+		RequiredGender: "female",
 	}
 	body, _ := json.Marshal(payload)
 	req := httptest.NewRequest(http.MethodPost, "/api/bookings", bytes.NewReader(body))
@@ -226,6 +230,7 @@ func TestBookingHandler_CreateBooking_ServiceError(t *testing.T) {
 		BranchID:        2,
 		PreferredSlots:  []scheduling.WeeklySlot{slot(0, "09:00", "10:00")},
 		DurationMinutes: 60,
+		RequiredGender:  "female",
 	}
 	body, _ := json.Marshal(payload)
 	req := httptest.NewRequest(http.MethodPost, "/api/bookings", bytes.NewReader(body))
@@ -270,6 +275,7 @@ func TestBookingHandler_CreateBooking_OptionalPreferredTeacher(t *testing.T) {
 		PreferredSlots:     []scheduling.WeeklySlot{slot(0, "09:00", "10:00")},
 		DurationMinutes:    60,
 		PreferredTeacherID: shared.Some(preferredTeacher),
+		RequiredGender:     "female",
 	}
 	body, _ := json.Marshal(payload)
 	req := httptest.NewRequest(http.MethodPost, "/api/bookings", bytes.NewReader(body))

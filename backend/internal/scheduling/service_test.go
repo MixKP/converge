@@ -74,6 +74,7 @@ func bookingReq(subjectID, branchID int, s shared.WeeklySlot, dur int) BookingRe
 		BranchID:        branchID,
 		PreferredSlots:  []shared.WeeklySlot{s},
 		DurationMinutes: dur,
+		RequiredGender:  "female",
 	}
 }
 
@@ -162,6 +163,7 @@ func TestSchedulingService_Evaluate_EmptySlots(t *testing.T) {
 		SubjectID:       1,
 		BranchID:        1,
 		DurationMinutes: 60,
+		RequiredGender:  "female",
 	}
 
 	_, err := svc.Evaluate(context.Background(), req)
@@ -198,6 +200,7 @@ func TestSchedulingService_Evaluate_TwoSlots(t *testing.T) {
 			friSlot,
 		},
 		DurationMinutes: 60,
+		RequiredGender:  "female",
 	}
 
 	exactMatch := &BookingMatch{

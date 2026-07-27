@@ -59,12 +59,16 @@ definitions:
       preferred_teacher_id:
         example: 5
         type: integer
+      required_gender:
+        example: female
+        type: string
       subject_id:
         example: 1
         type: integer
     required:
     - branch_id
     - preferred_slots
+    - required_gender
     - subject_id
     type: object
   scheduling.BookingResponse:
