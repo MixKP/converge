@@ -32,6 +32,8 @@ type mockService struct {
 	addedTeacher     *teacher.Teacher
 	addTeacherErr    error
 	addTeacherCalled bool
+	setStatusErr     error
+	setStatusCalled  bool
 }
 
 func (m *mockService) GetActiveTeachers(ctx context.Context) ([]teacher.Teacher, error) {
@@ -62,6 +64,11 @@ func (m *mockService) SubmitWeeklyAvailability(ctx context.Context, teacherID in
 func (m *mockService) AddTeacher(ctx context.Context, name, email, gender string) (*teacher.Teacher, error) {
 	m.addTeacherCalled = true
 	return m.addedTeacher, m.addTeacherErr
+}
+
+func (m *mockService) SetStatus(ctx context.Context, teacherID int, status string) error {
+	m.setStatusCalled = true
+	return m.setStatusErr
 }
 
 func TestAvailabilityHandler_GetTeachers_Success(t *testing.T) {
@@ -559,4 +566,103 @@ func TestAvailabilityHandler_CreateTeacher_ServiceError(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	assert.Contains(t, w.Body.String(), "failed to create teacher")
 	assert.True(t, mock.addTeacherCalled)
+}
+
+func TestAvailabilityHandler_UpdateTeacherStatus_Success(t *testing.T) {
+	mock := &mockService{}
+	handler := NewAvailabilityHandler(mock, slog.Default())
+
+	payload := map[string]interface{}{"status": "deactivated"}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPatch, "/api/teachers/1/status", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.PATCH("/api/teachers/:id/status", handler.UpdateTeacherStatus)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.True(t, mock.setStatusCalled)
+}
+
+func TestAvailabilityHandler_UpdateTeacherStatus_InvalidID(t *testing.T) {
+	mock := &mockService{}
+	handler := NewAvailabilityHandler(mock, slog.Default())
+
+	payload := map[string]interface{}{"status": "active"}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPatch, "/api/teachers/abc/status", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.PATCH("/api/teachers/:id/status", handler.UpdateTeacherStatus)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.False(t, mock.setStatusCalled)
+}
+
+func TestAvailabilityHandler_UpdateTeacherStatus_MissingStatus(t *testing.T) {
+	mock := &mockService{}
+	handler := NewAvailabilityHandler(mock, slog.Default())
+
+	req := httptest.NewRequest(http.MethodPatch, "/api/teachers/1/status", bytes.NewReader([]byte(`{}`)))
+	req.Header.Set("Content-Type", "application/json")
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.PATCH("/api/teachers/:id/status", handler.UpdateTeacherStatus)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.False(t, mock.setStatusCalled)
+}
+
+func TestAvailabilityHandler_UpdateTeacherStatus_NotFound(t *testing.T) {
+	mock := &mockService{setStatusErr: &shared.NotFoundError{Msg: "teacher 99 not found"}}
+	handler := NewAvailabilityHandler(mock, slog.Default())
+
+	payload := map[string]interface{}{"status": "active"}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPatch, "/api/teachers/99/status", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.PATCH("/api/teachers/:id/status", handler.UpdateTeacherStatus)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+	assert.True(t, mock.setStatusCalled)
+}
+
+func TestAvailabilityHandler_UpdateTeacherStatus_ServiceError(t *testing.T) {
+	mock := &mockService{setStatusErr: assert.AnError}
+	handler := NewAvailabilityHandler(mock, slog.Default())
+
+	payload := map[string]interface{}{"status": "active"}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPatch, "/api/teachers/1/status", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.PATCH("/api/teachers/:id/status", handler.UpdateTeacherStatus)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Contains(t, w.Body.String(), "failed to update teacher status")
+	assert.True(t, mock.setStatusCalled)
 }

@@ -201,6 +201,14 @@ definitions:
           $ref: '#/definitions/shared.WeeklySlot'
         type: array
     type: object
+  teacher.UpdateStatusRequest:
+    properties:
+      status:
+        example: deactivated
+        type: string
+    required:
+    - status
+    type: object
 info:
   contact: {}
   description: API for teacher availability management and bookings
@@ -466,6 +474,45 @@ paths:
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
       summary: Create a teacher
+      tags:
+      - teachers
+  /teachers/{id}/status:
+    patch:
+      consumes:
+      - application/json
+      description: Sets a teacher's status to active or deactivated
+      parameters:
+      - description: Teacher ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: New status
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/teacher.UpdateStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/scheduling.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+      summary: Toggle teacher active/deactivated status
       tags:
       - teachers
 swagger: "2.0"

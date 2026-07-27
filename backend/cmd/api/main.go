@@ -120,6 +120,7 @@ func main() {
 	api := r.Group("/api")
 	api.GET("/teachers", availHandler.GetTeachers)
 	api.POST("/teachers", availHandler.CreateTeacher)
+	api.PATCH("/teachers/:id/status", availHandler.UpdateTeacherStatus)
 	api.GET("/availability", availHandler.GetAllAvailability)
 	api.POST("/availability", availHandler.SubmitWeeklyAvailability)
 	api.GET("/branches", availHandler.GetBranches)

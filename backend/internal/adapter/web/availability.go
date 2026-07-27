@@ -21,6 +21,7 @@ type teacherService interface {
 	GetSubjects(ctx context.Context) ([]shared.Subject, error)
 	SubmitWeeklyAvailability(ctx context.Context, teacherID int, slots []shared.WeeklySlot) error
 	AddTeacher(ctx context.Context, name, email, gender string) (*teacher.Teacher, error)
+	SetStatus(ctx context.Context, teacherID int, status string) error
 }
 
 type AvailabilityHandler struct {
@@ -214,4 +215,49 @@ func (h *AvailabilityHandler) CreateTeacher(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, newTeacher)
+}
+
+// UpdateTeacherStatus godoc
+// @Summary      Toggle teacher active/deactivated status
+// @Description  Sets a teacher's status to active or deactivated
+// @Tags         teachers
+// @Accept       json
+// @Produce      json
+// @Param        id    path  int                         true  "Teacher ID"
+// @Param        body  body  teacher.UpdateStatusRequest  true  "New status"
+// @Success      200  {object}  scheduling.MessageResponse
+// @Failure      400  {object}  scheduling.ErrorResponse
+// @Failure      404  {object}  scheduling.ErrorResponse
+// @Failure      500  {object}  scheduling.ErrorResponse
+// @Router       /teachers/{id}/status [patch]
+func (h *AvailabilityHandler) UpdateTeacherStatus(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid teacher id"})
+		return
+	}
+
+	var req teacher.UpdateStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.svc.SetStatus(c.Request.Context(), id, req.Status); err != nil {
+		var notFoundErr *shared.NotFoundError
+		if errors.As(err, &notFoundErr) {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		} else {
+			h.logger.Error("request failed",
+				"request_id", requestID(c),
+				"op", "UpdateTeacherStatus",
+				"teacher_id", id,
+				"error", err,
+			)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update teacher status"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Teacher status updated successfully"})
 }

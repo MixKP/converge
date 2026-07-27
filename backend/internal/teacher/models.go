@@ -25,3 +25,7 @@ type CreateTeacherRequest struct {
 	Email  string `json:"email"  binding:"required" example:"alice@example.com"`
 	Gender string `json:"gender" binding:"required" example:"female"`
 }
+
+type UpdateStatusRequest struct {
+	Status string `json:"status" binding:"required" example:"deactivated"`
+}
