@@ -27,6 +27,10 @@ const router = createRouter({
       name: 'booking-confirm',
       component: BookingConfirm,
     },
+    {
+      path: '/:pathMatch(.*)*',
+      redirect: '/',
+    },
   ],
 })
 export default router
