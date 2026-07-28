@@ -182,6 +182,27 @@ func checkViolationError(err error, msg string) error {
 	return nil
 }
 
+// execUpdateOne runs an UPDATE expected to affect exactly one row, mapping a
+// Postgres CHECK constraint violation to a ValidationError and a
+// zero-rows-affected result to a NotFoundError.
+func execUpdateOne(ctx context.Context, db *sql.DB, query string, args []any, checkViolationMsg, notFoundMsg, wrapMsg string) error {
+	res, err := db.ExecContext(ctx, query, args...)
+	if err != nil {
+		if valErr := checkViolationError(err, checkViolationMsg); valErr != nil {
+			return valErr
+		}
+		return fmt.Errorf("%s: %w", wrapMsg, err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return &shared.NotFoundError{Msg: notFoundMsg}
+	}
+	return nil
+}
+
 func (p *PostgresRepo) AddTeacher(ctx context.Context, name, email, gender string) (*teacher.Teacher, error) {
 	row := p.DB.QueryRowContext(ctx, `
 		INSERT INTO teachers (name, email, gender, status) VALUES ($1, $2, $3, 'active')
@@ -198,37 +219,13 @@ func (p *PostgresRepo) AddTeacher(ctx context.Context, name, email, gender strin
 }
 
 func (p *PostgresRepo) SetStatus(ctx context.Context, teacherID int, status string) error {
-	res, err := p.DB.ExecContext(ctx, `UPDATE teachers SET status = $1 WHERE id = $2`, status, teacherID)
-	if err != nil {
-		if valErr := checkViolationError(err, "invalid status"); valErr != nil {
-			return valErr
-		}
-		return fmt.Errorf("set teacher status: %w", err)
-	}
-	rows, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if rows == 0 {
-		return &shared.NotFoundError{Msg: fmt.Sprintf("teacher %d not found", teacherID)}
-	}
-	return nil
+	return execUpdateOne(ctx, p.DB,
+		`UPDATE teachers SET status = $1 WHERE id = $2`, []any{status, teacherID},
+		"invalid status", fmt.Sprintf("teacher %d not found", teacherID), "set teacher status")
 }
 
 func (p *PostgresRepo) SetGender(ctx context.Context, teacherID int, gender string) error {
-	res, err := p.DB.ExecContext(ctx, `UPDATE teachers SET gender = $1 WHERE id = $2`, gender, teacherID)
-	if err != nil {
-		if valErr := checkViolationError(err, "invalid gender"); valErr != nil {
-			return valErr
-		}
-		return fmt.Errorf("set teacher gender: %w", err)
-	}
-	rows, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if rows == 0 {
-		return &shared.NotFoundError{Msg: fmt.Sprintf("teacher %d not found", teacherID)}
-	}
-	return nil
+	return execUpdateOne(ctx, p.DB,
+		`UPDATE teachers SET gender = $1 WHERE id = $2`, []any{gender, teacherID},
+		"invalid gender", fmt.Sprintf("teacher %d not found", teacherID), "set teacher gender")
 }

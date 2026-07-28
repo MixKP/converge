@@ -130,20 +130,18 @@ func (r *BookingRepo) FindBookingsByBranch(ctx context.Context, branchID int, st
 	return scanOverlappingBookings(rows)
 }
 
-// CreateBooking enforces branch capacity atomically: it takes a per-branch
-// advisory lock, counts overlapping bookings, and inserts within a single
-// transaction, so concurrent confirms for the same branch cannot both pass
-// the capacity check before either has committed.
+// CreateBooking enforces branch capacity atomically when a branch has one
+// configured: it takes a per-branch advisory lock, counts overlapping
+// bookings, and inserts within a single transaction, so concurrent confirms
+// for the same branch cannot both pass the capacity check before either has
+// committed. Branches with no capacity configured (capacity <= 0) skip the
+// lock entirely, since there is nothing to serialize against.
 func (r *BookingRepo) CreateBooking(ctx context.Context, req scheduling.ConfirmBookingRequest) (*scheduling.Booking, error) {
 	tx, err := r.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
-
-	if _, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock($1::bigint)`, req.BranchID); err != nil {
-		return nil, err
-	}
 
 	var capacity int
 	if err := tx.QueryRowContext(ctx, `SELECT capacity FROM branches WHERE id = $1`, req.BranchID).Scan(&capacity); err != nil {
@@ -154,6 +152,10 @@ func (r *BookingRepo) CreateBooking(ctx context.Context, req scheduling.ConfirmB
 	}
 
 	if capacity > 0 {
+		if _, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock($1::bigint)`, req.BranchID); err != nil {
+			return nil, err
+		}
+
 		var overlapping int
 		if err := tx.QueryRowContext(ctx, `
 			SELECT COUNT(*) FROM bookings

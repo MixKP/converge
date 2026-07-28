@@ -227,7 +227,7 @@ func (h *AvailabilityHandler) UpdateTeacherStatus(c *gin.Context) {
 	}
 
 	if err := h.svc.SetStatus(c.Request.Context(), id, req.Status); err != nil {
-		h.respondTeacherUpdateErr(c, err, "UpdateTeacherStatus/SetStatus", id, "failed to update teacher status")
+		respondFieldUpdateErr(c, h.logger, err, "UpdateTeacherStatus/SetStatus", "teacher", id, "failed to update teacher status")
 		return
 	}
 
@@ -261,36 +261,9 @@ func (h *AvailabilityHandler) UpdateTeacherGender(c *gin.Context) {
 	}
 
 	if err := h.svc.SetGender(c.Request.Context(), id, req.Gender); err != nil {
-		h.respondTeacherUpdateErr(c, err, "UpdateTeacherGender/SetGender", id, "failed to update teacher gender")
+		respondFieldUpdateErr(c, h.logger, err, "UpdateTeacherGender/SetGender", "teacher", id, "failed to update teacher gender")
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Teacher gender updated successfully"})
-}
-
-// respondTeacherUpdateErr writes the appropriate HTTP response for an error returned
-// by a teacher field-update service call (SetStatus, SetGender), dispatching on error
-// type: NotFoundError -> 404, ValidationError -> 400, anything else -> 500.
-func (h *AvailabilityHandler) respondTeacherUpdateErr(c *gin.Context, err error, op string, teacherID int, genericMsg string) {
-	var notFoundErr *shared.NotFoundError
-	var valErr *teacher.ValidationError
-	switch {
-	case errors.As(err, &notFoundErr):
-		h.logger.Warn("teacher not found",
-			"request_id", requestID(c),
-			"op", op,
-			"teacher_id", teacherID,
-		)
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-	case errors.As(err, &valErr):
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-	default:
-		h.logger.Error("request failed",
-			"request_id", requestID(c),
-			"op", op,
-			"teacher_id", teacherID,
-			"error", err,
-		)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": genericMsg})
-	}
 }

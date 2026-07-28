@@ -122,7 +122,7 @@ func (s *SchedulingService) Confirm(ctx context.Context, req ConfirmBookingReque
 			return nil, &ConflictError{Msg: "Teacher already has a booking in this time range"}
 		}
 		if errors.Is(err, ErrBranchCapacityExceeded) {
-			return nil, &ConflictError{Msg: ErrBranchCapacityExceeded.Error()}
+			return nil, &ConflictError{Msg: "Branch has no capacity remaining for this time range"}
 		}
 		return nil, err
 	}

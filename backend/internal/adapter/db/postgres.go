@@ -115,8 +115,12 @@ func AutoMigrate(database *sql.DB) error {
 		)`,
 		`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS client_name VARCHAR(255) NOT NULL DEFAULT ''`,
 		`ALTER TABLE branches ADD COLUMN IF NOT EXISTS capacity INTEGER NOT NULL DEFAULT 0`,
-		`ALTER TABLE branches DROP CONSTRAINT IF EXISTS branches_capacity_check`,
-		`ALTER TABLE branches ADD CONSTRAINT branches_capacity_check CHECK (capacity >= 0)`,
+		`DO $$
+		BEGIN
+			IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'branches_capacity_check') THEN
+				ALTER TABLE branches ADD CONSTRAINT branches_capacity_check CHECK (capacity >= 0);
+			END IF;
+		END $$;`,
 		`ALTER TABLE teachers ADD COLUMN IF NOT EXISTS gender VARCHAR(20) CHECK (gender IN ('male','female','lgbtq+'))`,
 		`UPDATE teachers SET gender = 'male' WHERE gender IS NULL`,
 		`ALTER TABLE teachers ALTER COLUMN gender SET NOT NULL`,

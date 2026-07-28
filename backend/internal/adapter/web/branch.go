@@ -2,13 +2,11 @@ package web
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
 
 	"github.com/RinZ5/converge/backend/internal/branch"
-	"github.com/RinZ5/converge/backend/internal/shared"
 
 	"github.com/gin-gonic/gin"
 )
@@ -76,27 +74,7 @@ func (h *BranchHandler) UpdateBranchCapacity(c *gin.Context) {
 	}
 
 	if err := h.svc.SetCapacity(c.Request.Context(), id, req.Capacity); err != nil {
-		var notFoundErr *shared.NotFoundError
-		var valErr *shared.ValidationError
-		switch {
-		case errors.As(err, &notFoundErr):
-			h.logger.Warn("branch not found",
-				"request_id", requestID(c),
-				"op", "UpdateBranchCapacity/SetCapacity",
-				"branch_id", id,
-			)
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-		case errors.As(err, &valErr):
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		default:
-			h.logger.Error("request failed",
-				"request_id", requestID(c),
-				"op", "UpdateBranchCapacity/SetCapacity",
-				"branch_id", id,
-				"error", err,
-			)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update branch capacity"})
-		}
+		respondFieldUpdateErr(c, h.logger, err, "UpdateBranchCapacity/SetCapacity", "branch", id, "failed to update branch capacity")
 		return
 	}
 

@@ -52,6 +52,18 @@ func seedBookingParents(t *testing.T, db *sql.DB) (teacherID, branchID, subjectI
 	return
 }
 
+// seedCappedBranchWithTwoTeachers seeds a branch with the given capacity and
+// two active teachers of different genders, for tests that need two
+// independent teachers competing for the same branch/time slot.
+func seedCappedBranchWithTwoTeachers(t *testing.T, db *sql.DB, capacity int) (teacherAID, teacherBID, branchID, subjectID int) {
+	t.Helper()
+	require.NoError(t, db.QueryRow(`INSERT INTO teachers (id, name, email, gender, status) VALUES (1, 'Teacher A', 'a@test.com', 'male', 'active') RETURNING id`).Scan(&teacherAID))
+	require.NoError(t, db.QueryRow(`INSERT INTO teachers (id, name, email, gender, status) VALUES (2, 'Teacher B', 'b@test.com', 'female', 'active') RETURNING id`).Scan(&teacherBID))
+	require.NoError(t, db.QueryRow(`INSERT INTO branches (id, name, capacity) VALUES (1, 'Capped Branch', $1) RETURNING id`, capacity).Scan(&branchID))
+	require.NoError(t, db.QueryRow(`INSERT INTO subjects (id, name) VALUES (1, 'Test Subject') RETURNING id`).Scan(&subjectID))
+	return
+}
+
 func TestBookingRepoCreateBooking(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewBookingRepository(db)
@@ -93,12 +105,7 @@ func TestBookingRepoCreateBooking(t *testing.T) {
 func TestBookingRepoCreateBooking_BranchCapacityExceeded(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewBookingRepository(db)
-
-	var teacherAID, teacherBID, branchID, subjectID int
-	require.NoError(t, db.QueryRow(`INSERT INTO teachers (id, name, email, gender, status) VALUES (1, 'Teacher A', 'a@test.com', 'male', 'active') RETURNING id`).Scan(&teacherAID))
-	require.NoError(t, db.QueryRow(`INSERT INTO teachers (id, name, email, gender, status) VALUES (2, 'Teacher B', 'b@test.com', 'female', 'active') RETURNING id`).Scan(&teacherBID))
-	require.NoError(t, db.QueryRow(`INSERT INTO branches (id, name, capacity) VALUES (1, 'Capped Branch', 1) RETURNING id`).Scan(&branchID))
-	require.NoError(t, db.QueryRow(`INSERT INTO subjects (id, name) VALUES (1, 'Test Subject') RETURNING id`).Scan(&subjectID))
+	teacherAID, teacherBID, branchID, subjectID := seedCappedBranchWithTwoTeachers(t, db, 1)
 
 	start := time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)
@@ -127,12 +134,7 @@ func TestBookingRepoCreateBooking_BranchCapacityConcurrent_OnlyOneWins(t *testin
 	db := setupTestDB(t)
 	db.SetMaxOpenConns(10)
 	repo := NewBookingRepository(db)
-
-	var teacherAID, teacherBID, branchID, subjectID int
-	require.NoError(t, db.QueryRow(`INSERT INTO teachers (id, name, email, gender, status) VALUES (1, 'Teacher A', 'a@test.com', 'male', 'active') RETURNING id`).Scan(&teacherAID))
-	require.NoError(t, db.QueryRow(`INSERT INTO teachers (id, name, email, gender, status) VALUES (2, 'Teacher B', 'b@test.com', 'female', 'active') RETURNING id`).Scan(&teacherBID))
-	require.NoError(t, db.QueryRow(`INSERT INTO branches (id, name, capacity) VALUES (1, 'Capped Branch', 1) RETURNING id`).Scan(&branchID))
-	require.NoError(t, db.QueryRow(`INSERT INTO subjects (id, name) VALUES (1, 'Test Subject') RETURNING id`).Scan(&subjectID))
+	teacherAID, teacherBID, branchID, subjectID := seedCappedBranchWithTwoTeachers(t, db, 1)
 
 	start := time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)
