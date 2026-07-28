@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { ref, watch } from 'vue'
+  import { ref, watch, computed } from 'vue'
   import type { BookingResponse } from '../types'
   import type { CartItem } from '../types/booking'
   import { rangesOverlap } from '../utils/dateValidation'
@@ -25,6 +25,13 @@
   }>()
 
   const bookedKeys = ref<Set<string>>(new Set())
+
+  const matchedCount = computed(() => {
+    if (!props.suggestions) return 0
+    return props.suggestions.results.filter(
+      (r) => r.exact_match || (r.alternatives && r.alternatives.length > 0)
+    ).length
+  })
 
   const getBookingKey = (teacherId: number, startTime: string): string => {
     return `${teacherId}-${startTime}`
@@ -126,7 +133,12 @@
       <div class="results-summary">
         <h3 class="summary-title">Booking Options Summary</h3>
         <p class="summary-text">
-          Found {{ suggestions.results.length }} time slot(s) with available teachers.
+          <template v-if="matchedCount > 0">
+            Found {{ matchedCount }} time slot{{ matchedCount !== 1 ? 's' : '' }} with available teachers.
+          </template>
+          <template v-else>
+            No teachers available for the selected time slots.
+          </template>
         </p>
       </div>
 

@@ -22,7 +22,6 @@ export const aiSuggestionsFormSchema = z.object({
         ctx.addIssue({ code: 'custom', message: 'All time slots must use the same duration' })
       }
     }),
-  required_gender: selectGender(),
 })
 
 export const manualBookingFormSchema = z.object({

@@ -54,7 +54,13 @@ export function useAISuggestions() {
       bookingStore.suggestions = response
       bookingStore.showDetailedResults = true
 
-      const msg = `${response.results.length} teacher${response.results.length > 1 ? 's' : ''} available. Click a time slot on the calendar or a suggestion below to book.`
+      const matchedCount = response.results.filter(
+        (r) => r.exact_match || (r.alternatives && r.alternatives.length > 0)
+      ).length
+      const msg =
+        matchedCount > 0
+          ? `${matchedCount} matching time slot${matchedCount !== 1 ? 's' : ''} found. Click a time slot on the calendar or a suggestion below to book.`
+          : 'No teachers available for those time slots. Try adding more time options or different days.'
       showSuccess(msg, 8000)
       return true
     } catch (error) {

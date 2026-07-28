@@ -52,7 +52,6 @@
       branch_id: props.selectedBranchId,
       teacher_id: props.selectedTeacherId,
       slots: props.modelValue,
-      required_gender: props.selectedGender,
     },
   })
 
@@ -335,20 +334,13 @@
 
       <!-- Gender Preference -->
       <div :class="getCls('field')">
-        <label :class="getCls('label')">
-          Gender Preference <span :class="getCls('required')">*</span>
-        </label>
-        <FormSelect
-          v-model="localGender"
-          name="required_gender"
-          :select-class="getCls('select')"
-          :show-error="showErrors"
-        >
+        <label :class="getCls('label')"> Gender Preference </label>
+        <select v-model="localGender" :class="getCls('select')">
           <option :value="null">Select gender</option>
           <option value="male">Male</option>
           <option value="female">Female</option>
           <option value="lgbtq+">LGBTQ+</option>
-        </FormSelect>
+        </select>
       </div>
 
       <!-- Teacher (Optional) -->
