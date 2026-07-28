@@ -274,7 +274,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/shared.Branch"
+                                "$ref": "#/definitions/branch.Branch"
                             }
                         }
                     },
@@ -523,6 +523,23 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "branch.Branch": {
+            "type": "object",
+            "properties": {
+                "capacity": {
+                    "type": "integer",
+                    "example": 30
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Siam"
+                }
+            }
+        },
         "scheduling.Booking": {
             "type": "object",
             "properties": {
@@ -555,6 +572,9 @@ const docTemplate = `{
         "scheduling.BookingAlternative": {
             "type": "object",
             "properties": {
+                "branch_available": {
+                    "type": "boolean"
+                },
                 "branch_id": {
                     "type": "integer"
                 },
@@ -569,9 +589,6 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
-                },
-                "room_available": {
-                    "type": "boolean"
                 },
                 "score": {
                     "type": "integer"
@@ -715,17 +732,6 @@ const docTemplate = `{
                 },
                 "slot": {
                     "$ref": "#/definitions/shared.WeeklySlot"
-                }
-            }
-        },
-        "shared.Branch": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "integer"
-                },
-                "name": {
-                    "type": "string"
                 }
             }
         },

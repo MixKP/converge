@@ -151,10 +151,6 @@ func (s *SchedulingService) ListAll(ctx context.Context) ([]Booking, error) {
 	return bookings, nil
 }
 
-func (s *SchedulingService) GetBranches(ctx context.Context) ([]Branch, error) {
-	return s.refStore.GetBranches(ctx)
-}
-
 func (s *SchedulingService) GetSubjects(ctx context.Context) ([]Subject, error) {
 	return s.refStore.GetSubjects(ctx)
 }

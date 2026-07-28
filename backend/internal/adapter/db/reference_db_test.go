@@ -10,22 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPostgresRepoGetBranches(t *testing.T) {
-	db := setupTestDB(t)
-	repo := NewPostgresRepo(db)
-
-	_, err := db.Exec(`INSERT INTO branches (id, name) VALUES (1, 'Main Campus'), (2, 'Downtown')`)
-	require.NoError(t, err)
-
-	branches, err := repo.GetBranches(context.Background())
-	require.NoError(t, err)
-	assert.Len(t, branches, 2)
-	assert.Equal(t, 1, branches[0].ID)
-	assert.Equal(t, "Main Campus", branches[0].Name)
-	assert.Equal(t, 2, branches[1].ID)
-	assert.Equal(t, "Downtown", branches[1].Name)
-}
-
 func TestPostgresRepoGetSubjects(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewPostgresRepo(db)

@@ -45,11 +45,6 @@ func (m *mockStore) FindAllBookings(ctx context.Context) ([]Booking, error) {
 	return args.Get(0).([]Booking), args.Error(1)
 }
 
-func (m *mockStore) GetBranches(ctx context.Context) ([]Branch, error) {
-	args := m.Called(ctx)
-	return args.Get(0).([]Branch), args.Error(1)
-}
-
 func (m *mockStore) GetSubjects(ctx context.Context) ([]Subject, error) {
 	args := m.Called(ctx)
 	return args.Get(0).([]Subject), args.Error(1)
@@ -353,18 +348,6 @@ func TestSchedulingService_ListAll_Error(t *testing.T) {
 
 	_, err := svc.ListAll(context.Background())
 	assert.Error(t, err)
-}
-
-func TestSchedulingService_GetBranches_Success(t *testing.T) {
-	store := new(mockStore)
-	svc := NewSchedulingService(store, store, new(mockEngine))
-
-	expected := []Branch{{ID: 1, Name: "Main"}}
-	store.On("GetBranches", mock.Anything).Return(expected, nil)
-
-	branches, err := svc.GetBranches(context.Background())
-	assert.NoError(t, err)
-	assert.Len(t, branches, 1)
 }
 
 func TestSchedulingService_GetSubjects_Success(t *testing.T) {

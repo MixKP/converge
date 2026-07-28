@@ -1,5 +1,17 @@
 basePath: /api
 definitions:
+  branch.Branch:
+    properties:
+      capacity:
+        example: 30
+        type: integer
+      id:
+        example: 1
+        type: integer
+      name:
+        example: Siam
+        type: string
+    type: object
   scheduling.Booking:
     properties:
       branch_id:
@@ -21,6 +33,8 @@ definitions:
     type: object
   scheduling.BookingAlternative:
     properties:
+      branch_available:
+        type: boolean
       branch_id:
         type: integer
       commute_minutes:
@@ -31,8 +45,6 @@ definitions:
         items:
           type: string
         type: array
-      room_available:
-        type: boolean
       score:
         type: integer
       start_time:
@@ -134,13 +146,6 @@ definitions:
         type: string
       slot:
         $ref: '#/definitions/shared.WeeklySlot'
-    type: object
-  shared.Branch:
-    properties:
-      id:
-        type: integer
-      name:
-        type: string
     type: object
   shared.Subject:
     properties:
@@ -402,7 +407,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/shared.Branch'
+              $ref: '#/definitions/branch.Branch'
             type: array
         "500":
           description: Internal Server Error

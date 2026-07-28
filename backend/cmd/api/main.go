@@ -18,8 +18,8 @@ import (
 	"github.com/RinZ5/converge/backend/internal/adapter"
 	"github.com/RinZ5/converge/backend/internal/adapter/db"
 	"github.com/RinZ5/converge/backend/internal/adapter/web"
+	"github.com/RinZ5/converge/backend/internal/branch"
 	"github.com/RinZ5/converge/backend/internal/commute"
-	"github.com/RinZ5/converge/backend/internal/room"
 	"github.com/RinZ5/converge/backend/internal/scheduling"
 	"github.com/RinZ5/converge/backend/internal/shared"
 	"github.com/RinZ5/converge/backend/internal/teacher"
@@ -98,20 +98,22 @@ func main() {
 
 	availRepo := db.NewPostgresRepo(database)
 	bookingRepo := db.NewBookingRepository(database)
+	branchRepo := db.NewBranchRepository(database)
 	teacherSvc := teacher.NewService(availRepo, availRepo, availRepo, logger)
+	branchSvc := branch.NewService(branchRepo, logger)
 	teacherRoster := adapter.NewTeacherRosterAdapter(teacherSvc)
 	commuteSvc := commute.NewService(logger)
-	roomSvc := room.NewService(logger)
 	commuteAdapter := adapter.NewCommuteAdapter(commuteSvc)
-	roomAdapter := adapter.NewRoomAdapter(roomSvc)
+	branchCapacityAdapter := adapter.NewBranchCapacityAdapter(branchSvc)
 
 	scorer := scheduling.NewWeightedScorer()
-	clpEngine := scheduling.NewCLPEngine(bookingRepo, teacherRoster, scorer, commuteAdapter, roomAdapter, logger)
+	clpEngine := scheduling.NewCLPEngine(bookingRepo, teacherRoster, scorer, commuteAdapter, branchCapacityAdapter, logger)
 
 	schedulingSvc := scheduling.NewSchedulingService(bookingRepo, availRepo, clpEngine)
 
 	availHandler := web.NewAvailabilityHandler(teacherSvc, logger)
 	bookingHandler := web.NewBookingHandler(schedulingSvc, logger)
+	branchHandler := web.NewBranchHandler(branchSvc, logger)
 
 	r := gin.Default()
 	r.Use(requestIDMiddleware())
@@ -124,7 +126,7 @@ func main() {
 	api.PATCH("/teachers/:id/gender", availHandler.UpdateTeacherGender)
 	api.GET("/availability", availHandler.GetAllAvailability)
 	api.POST("/availability", availHandler.SubmitWeeklyAvailability)
-	api.GET("/branches", availHandler.GetBranches)
+	api.GET("/branches", branchHandler.GetBranches)
 	api.GET("/subjects", availHandler.GetSubjects)
 	api.POST("/bookings", bookingHandler.CreateBooking)
 	api.GET("/bookings", bookingHandler.ListBookings)

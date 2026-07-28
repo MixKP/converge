@@ -96,7 +96,8 @@ func AutoMigrate(database *sql.DB) error {
 
 		`CREATE TABLE IF NOT EXISTS branches (
 			id SERIAL PRIMARY KEY,
-			name VARCHAR(100) NOT NULL UNIQUE
+			name VARCHAR(100) NOT NULL UNIQUE,
+			capacity INTEGER NOT NULL DEFAULT 0
 		)`,
 
 		`CREATE EXTENSION IF NOT EXISTS btree_gist;`,
@@ -113,6 +114,7 @@ func AutoMigrate(database *sql.DB) error {
 			EXCLUDE USING gist (teacher_id WITH =, tstzrange(start_time, end_time) WITH &&)
 		)`,
 		`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS client_name VARCHAR(255) NOT NULL DEFAULT ''`,
+		`ALTER TABLE branches ADD COLUMN IF NOT EXISTS capacity INTEGER NOT NULL DEFAULT 0`,
 		`ALTER TABLE teachers ADD COLUMN IF NOT EXISTS gender VARCHAR(20) CHECK (gender IN ('male','female','lgbtq+'))`,
 		`UPDATE teachers SET gender = 'male' WHERE gender IS NULL`,
 		`ALTER TABLE teachers ALTER COLUMN gender SET NOT NULL`,

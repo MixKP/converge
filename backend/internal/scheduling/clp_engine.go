@@ -10,22 +10,22 @@ import (
 )
 
 type CLPEngine struct {
-	bookingStore  BookingStore
-	teacherRoster TeacherRoster
-	scorer        Scorer
-	commute       CommuteEstimate
-	room          RoomCheck
-	logger        *slog.Logger
+	bookingStore   BookingStore
+	teacherRoster  TeacherRoster
+	scorer         Scorer
+	commute        CommuteEstimate
+	branchCapacity BranchCapacityCheck
+	logger         *slog.Logger
 }
 
-func NewCLPEngine(bookingStore BookingStore, teacherRoster TeacherRoster, scorer Scorer, commute CommuteEstimate, room RoomCheck, logger *slog.Logger) *CLPEngine {
+func NewCLPEngine(bookingStore BookingStore, teacherRoster TeacherRoster, scorer Scorer, commute CommuteEstimate, branchCapacity BranchCapacityCheck, logger *slog.Logger) *CLPEngine {
 	return &CLPEngine{
-		bookingStore:  bookingStore,
-		teacherRoster: teacherRoster,
-		scorer:        scorer,
-		commute:       commute,
-		room:          room,
-		logger:        logger,
+		bookingStore:   bookingStore,
+		teacherRoster:  teacherRoster,
+		scorer:         scorer,
+		commute:        commute,
+		branchCapacity: branchCapacity,
+		logger:         logger,
 	}
 }
 
@@ -157,7 +157,7 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req BookingRequ
 			Reasons:     a.Reasons,
 		}
 		alt = e.enrichWithCommute(ctx, alt, req.BranchID, o.start)
-		alt = e.enrichWithRoom(ctx, alt, req.BranchID, o.start, o.end)
+		alt = e.enrichWithBranchCapacity(ctx, alt, req.BranchID, o.start, o.end)
 		alts = append(alts, alt)
 	}
 	return alts, nil
@@ -184,21 +184,21 @@ func (e *CLPEngine) enrichWithCommute(ctx context.Context, alt BookingAlternativ
 	return alt
 }
 
-func (e *CLPEngine) enrichWithRoom(ctx context.Context, alt BookingAlternative, branchID int, start, end time.Time) BookingAlternative {
-	if e.room == nil {
+func (e *CLPEngine) enrichWithBranchCapacity(ctx context.Context, alt BookingAlternative, branchID int, start, end time.Time) BookingAlternative {
+	if e.branchCapacity == nil {
 		return alt
 	}
-	available, err := e.room.CheckAvailability(ctx, branchID, start, end)
+	available, err := e.branchCapacity.CheckCapacity(ctx, branchID, start, end)
 	if err != nil {
-		e.logger.Warn("room check failed",
+		e.logger.Warn("branch capacity check failed",
 			"request_id", shared.RequestIDFromContext(ctx),
-			"op", "CLPEngine.enrichWithRoom",
+			"op", "CLPEngine.enrichWithBranchCapacity",
 			"branch_id", branchID,
 			"error", err,
 		)
 		return alt
 	}
-	alt.RoomAvailable = shared.Some(available)
+	alt.BranchAvailable = shared.Some(available)
 	return alt
 }
 

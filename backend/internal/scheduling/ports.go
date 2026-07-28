@@ -23,7 +23,6 @@ type TeacherRoster interface {
 }
 
 type ReferenceStore interface {
-	GetBranches(ctx context.Context) ([]Branch, error)
 	GetSubjects(ctx context.Context) ([]Subject, error)
 }
 
@@ -31,8 +30,8 @@ type CommuteEstimate interface {
 	Estimate(ctx context.Context, fromBranchID, toBranchID int, arrivalTime time.Time) (time.Duration, error)
 }
 
-type RoomCheck interface {
-	CheckAvailability(ctx context.Context, branchID int, startTime, endTime time.Time) (bool, error)
+type BranchCapacityCheck interface {
+	CheckCapacity(ctx context.Context, branchID int, startTime, endTime time.Time) (bool, error)
 }
 
 // ---- Domain port ----

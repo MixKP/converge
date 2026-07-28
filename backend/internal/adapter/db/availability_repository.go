@@ -64,24 +64,6 @@ func (p *PostgresRepo) GetTeachersBySubject(ctx context.Context, subjectID int) 
 	return teachers, rows.Err()
 }
 
-func (p *PostgresRepo) GetBranches(ctx context.Context) ([]shared.Branch, error) {
-	rows, err := p.DB.QueryContext(ctx, `SELECT id, name FROM branches ORDER BY id`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var branches []shared.Branch
-	for rows.Next() {
-		var b shared.Branch
-		if err := rows.Scan(&b.ID, &b.Name); err != nil {
-			return nil, err
-		}
-		branches = append(branches, b)
-	}
-	return branches, rows.Err()
-}
-
 func (p *PostgresRepo) GetSubjects(ctx context.Context) ([]shared.Subject, error) {
 	rows, err := p.DB.QueryContext(ctx, `SELECT id, name FROM subjects ORDER BY id`)
 	if err != nil {

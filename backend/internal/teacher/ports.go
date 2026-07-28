@@ -22,6 +22,5 @@ type AvailabilityStore interface {
 }
 
 type ReferenceStore interface {
-	GetBranches(ctx context.Context) ([]shared.Branch, error)
 	GetSubjects(ctx context.Context) ([]shared.Subject, error)
 }

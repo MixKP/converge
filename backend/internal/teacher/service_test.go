@@ -46,11 +46,6 @@ func (m *mockStore) GetAllAvailability(ctx context.Context) ([]TeacherAvailabili
 	return args.Get(0).([]TeacherAvailability), args.Error(1)
 }
 
-func (m *mockStore) GetBranches(ctx context.Context) ([]shared.Branch, error) {
-	args := m.Called(ctx)
-	return args.Get(0).([]shared.Branch), args.Error(1)
-}
-
 func (m *mockStore) GetSubjects(ctx context.Context) ([]shared.Subject, error) {
 	args := m.Called(ctx)
 	return args.Get(0).([]shared.Subject), args.Error(1)
@@ -231,18 +226,6 @@ func TestTeacherService_GetActiveTeachers_Error(t *testing.T) {
 
 	_, err := svc.GetActiveTeachers(context.Background())
 	assert.Error(t, err)
-}
-
-func TestTeacherService_GetBranches_Success(t *testing.T) {
-	store := new(mockStore)
-	svc := NewService(store, store, store, slog.Default())
-
-	expected := []shared.Branch{{ID: 1, Name: "Main"}}
-	store.On("GetBranches", mock.Anything).Return(expected, nil)
-
-	branches, err := svc.GetBranches(context.Background())
-	assert.NoError(t, err)
-	assert.Len(t, branches, 1)
 }
 
 func TestTeacherService_GetSubjects_Success(t *testing.T) {

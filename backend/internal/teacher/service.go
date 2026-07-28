@@ -55,10 +55,6 @@ func (s *Service) TeacherAvailability(ctx context.Context, teacherID int) ([]sha
 	return s.availabilityStore.FindTeacherAvailability(ctx, teacherID)
 }
 
-func (s *Service) GetBranches(ctx context.Context) ([]shared.Branch, error) {
-	return s.referenceStore.GetBranches(ctx)
-}
-
 func (s *Service) GetSubjects(ctx context.Context) ([]shared.Subject, error) {
 	return s.referenceStore.GetSubjects(ctx)
 }

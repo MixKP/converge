@@ -17,7 +17,6 @@ type teacherService interface {
 	GetActiveTeachers(ctx context.Context) ([]teacher.Teacher, error)
 	GetTeachersBySubject(ctx context.Context, subjectID int) ([]teacher.Teacher, error)
 	GetAllAvailability(ctx context.Context) ([]teacher.TeacherAvailability, error)
-	GetBranches(ctx context.Context) ([]shared.Branch, error)
 	GetSubjects(ctx context.Context) ([]shared.Subject, error)
 	SubmitWeeklyAvailability(ctx context.Context, teacherID int, slots []shared.WeeklySlot) error
 	AddTeacher(ctx context.Context, name, email, gender string) (*teacher.Teacher, error)
@@ -100,28 +99,6 @@ func (h *AvailabilityHandler) GetAllAvailability(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, availability)
-}
-
-// GetBranches godoc
-// @Summary      List branches
-// @Description  Returns all branches ordered by id
-// @Tags         branches
-// @Produce      json
-// @Success      200  {array}  shared.Branch
-// @Failure      500  {object}  scheduling.ErrorResponse
-// @Router       /branches [get]
-func (h *AvailabilityHandler) GetBranches(c *gin.Context) {
-	branches, err := h.svc.GetBranches(c.Request.Context())
-	if err != nil {
-		h.logger.Error("request failed",
-			"request_id", requestID(c),
-			"op", "GetBranches",
-			"error", err,
-		)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve branches"})
-		return
-	}
-	c.JSON(http.StatusOK, branches)
 }
 
 // GetSubjects godoc

@@ -21,8 +21,6 @@ type mockService struct {
 	getErr           error
 	teachersBySub    []teacher.Teacher
 	teachersBySubErr error
-	branches         []shared.Branch
-	branchesErr      error
 	subjects         []shared.Subject
 	subjectsErr      error
 	availability     []teacher.TeacherAvailability
@@ -44,10 +42,6 @@ func (m *mockService) GetActiveTeachers(ctx context.Context) ([]teacher.Teacher,
 
 func (m *mockService) GetTeachersBySubject(ctx context.Context, subjectID int) ([]teacher.Teacher, error) {
 	return m.teachersBySub, m.teachersBySubErr
-}
-
-func (m *mockService) GetBranches(ctx context.Context) ([]shared.Branch, error) {
-	return m.branches, m.branchesErr
 }
 
 func (m *mockService) GetSubjects(ctx context.Context) ([]shared.Subject, error) {
@@ -395,47 +389,6 @@ func TestAvailabilityHandler_GetTeachersBySubject_Error(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	assert.Contains(t, w.Body.String(), "failed to retrieve teachers")
-}
-
-func TestAvailabilityHandler_GetBranches_Success(t *testing.T) {
-	mock := &mockService{
-		branches: []shared.Branch{
-			{ID: 1, Name: "Main Campus"},
-			{ID: 2, Name: "Downtown"},
-		},
-	}
-	handler := NewAvailabilityHandler(mock, slog.Default())
-
-	gin.SetMode(gin.TestMode)
-	r := gin.Default()
-	r.GET("/api/branches", handler.GetBranches)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/branches", nil)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	var branches []shared.Branch
-	err := json.Unmarshal(w.Body.Bytes(), &branches)
-	require.NoError(t, err)
-	assert.Len(t, branches, 2)
-	assert.Equal(t, "Main Campus", branches[0].Name)
-}
-
-func TestAvailabilityHandler_GetBranches_Error(t *testing.T) {
-	mock := &mockService{branchesErr: assert.AnError}
-	handler := NewAvailabilityHandler(mock, slog.Default())
-
-	gin.SetMode(gin.TestMode)
-	r := gin.Default()
-	r.GET("/api/branches", handler.GetBranches)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/branches", nil)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Contains(t, w.Body.String(), "failed to retrieve branches")
 }
 
 func TestAvailabilityHandler_GetSubjects_Success(t *testing.T) {
