@@ -25,3 +25,7 @@ func (s *Service) GetCapacity(ctx context.Context, branchID int) (int, error) {
 	}
 	return b.Capacity, nil
 }
+
+func (s *Service) SetCapacity(ctx context.Context, branchID, capacity int) error {
+	return s.store.SetCapacity(ctx, branchID, capacity)
+}

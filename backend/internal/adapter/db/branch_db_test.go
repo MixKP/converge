@@ -53,3 +53,54 @@ func TestBranchRepoGetBranchByID_NotFound(t *testing.T) {
 	var notFoundErr *shared.NotFoundError
 	assert.True(t, errors.As(err, &notFoundErr))
 }
+
+func TestBranchRepoSetCapacity_Success(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBranchRepository(db)
+
+	_, err := db.Exec(`INSERT INTO branches (id, name, capacity) VALUES (1, 'Main Campus', 10)`)
+	require.NoError(t, err)
+
+	require.NoError(t, repo.SetCapacity(context.Background(), 1, 25))
+
+	b, err := repo.GetBranchByID(context.Background(), 1)
+	require.NoError(t, err)
+	assert.Equal(t, 25, b.Capacity)
+}
+
+func TestBranchRepoSetCapacity_Zero_Allowed(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBranchRepository(db)
+
+	_, err := db.Exec(`INSERT INTO branches (id, name, capacity) VALUES (1, 'Main Campus', 10)`)
+	require.NoError(t, err)
+
+	require.NoError(t, repo.SetCapacity(context.Background(), 1, 0))
+
+	b, err := repo.GetBranchByID(context.Background(), 1)
+	require.NoError(t, err)
+	assert.Equal(t, 0, b.Capacity)
+}
+
+func TestBranchRepoSetCapacity_Negative_ReturnsValidationError(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBranchRepository(db)
+
+	_, err := db.Exec(`INSERT INTO branches (id, name, capacity) VALUES (1, 'Main Campus', 10)`)
+	require.NoError(t, err)
+
+	err = repo.SetCapacity(context.Background(), 1, -1)
+	require.Error(t, err)
+	var valErr *shared.ValidationError
+	assert.True(t, errors.As(err, &valErr))
+}
+
+func TestBranchRepoSetCapacity_NotFound(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBranchRepository(db)
+
+	err := repo.SetCapacity(context.Background(), 99, 10)
+	require.Error(t, err)
+	var notFoundErr *shared.NotFoundError
+	assert.True(t, errors.As(err, &notFoundErr))
+}

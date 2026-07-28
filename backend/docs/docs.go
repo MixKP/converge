@@ -287,6 +287,65 @@ const docTemplate = `{
                 }
             }
         },
+        "/branches/{id}/capacity": {
+            "patch": {
+                "description": "Sets how many bookings a branch can hold concurrently. 0 means unlimited/unenforced.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "branches"
+                ],
+                "summary": "Update a branch's capacity",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Branch ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New capacity",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/branch.UpdateCapacityRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/subjects": {
             "get": {
                 "description": "Returns all subjects ordered by id",
@@ -537,6 +596,15 @@ const docTemplate = `{
                 "name": {
                     "type": "string",
                     "example": "Siam"
+                }
+            }
+        },
+        "branch.UpdateCapacityRequest": {
+            "type": "object",
+            "properties": {
+                "capacity": {
+                    "type": "integer",
+                    "example": 30
                 }
             }
         },

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"testing"
 
+	"github.com/RinZ5/converge/backend/internal/shared"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -25,6 +26,11 @@ func (m *mockStore) GetBranchByID(ctx context.Context, branchID int) (*Branch, e
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*Branch), args.Error(1)
+}
+
+func (m *mockStore) SetCapacity(ctx context.Context, branchID, capacity int) error {
+	args := m.Called(ctx, branchID, capacity)
+	return args.Error(0)
 }
 
 func TestBranchService_GetBranches_Success(t *testing.T) {
@@ -68,4 +74,26 @@ func TestBranchService_GetCapacity_BranchNotFound_Propagates(t *testing.T) {
 
 	_, err := svc.GetCapacity(context.Background(), 99)
 	assert.Error(t, err)
+}
+
+func TestBranchService_SetCapacity_Success(t *testing.T) {
+	store := new(mockStore)
+	svc := NewService(store, slog.Default())
+
+	store.On("SetCapacity", mock.Anything, 1, 30).Return(nil)
+
+	err := svc.SetCapacity(context.Background(), 1, 30)
+	assert.NoError(t, err)
+}
+
+func TestBranchService_SetCapacity_StoreError_Propagates(t *testing.T) {
+	store := new(mockStore)
+	svc := NewService(store, slog.Default())
+
+	store.On("SetCapacity", mock.Anything, 99, 30).Return(&shared.NotFoundError{Msg: "branch 99 not found"})
+
+	err := svc.SetCapacity(context.Background(), 99, 30)
+
+	var notFoundErr *shared.NotFoundError
+	assert.ErrorAs(t, err, &notFoundErr)
 }

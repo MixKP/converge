@@ -9,25 +9,20 @@ import (
 )
 
 type SchedulingService struct {
-	bookingStore   BookingStore
-	refStore       ReferenceStore
-	engine         bookingEngine
-	branchCapacity BranchCapacityCheck
+	bookingStore BookingStore
+	refStore     ReferenceStore
+	engine       bookingEngine
 }
 
 type bookingEngine interface {
 	FindAlternativesForSlot(ctx context.Context, req BookingRequest, window shared.WeeklySlot) ([]BookingAlternative, error)
 }
 
-func NewSchedulingService(bookingStore BookingStore, refStore ReferenceStore, engine bookingEngine, branchCapacity BranchCapacityCheck) *SchedulingService {
-	if branchCapacity == nil {
-		panic("scheduling: NewSchedulingService requires a non-nil BranchCapacityCheck; pass a no-op implementation if capacity should not be enforced")
-	}
+func NewSchedulingService(bookingStore BookingStore, refStore ReferenceStore, engine bookingEngine) *SchedulingService {
 	return &SchedulingService{
-		bookingStore:   bookingStore,
-		refStore:       refStore,
-		engine:         engine,
-		branchCapacity: branchCapacity,
+		bookingStore: bookingStore,
+		refStore:     refStore,
+		engine:       engine,
 	}
 }
 
@@ -121,24 +116,13 @@ func (s *SchedulingService) Confirm(ctx context.Context, req ConfirmBookingReque
 		return nil, &ValidationError{Msg: "end_time must be after start_time"}
 	}
 
-	capacity, err := s.branchCapacity.GetCapacity(ctx, req.BranchID)
-	if err != nil {
-		return nil, err
-	}
-	if capacity > 0 {
-		overlapping, err := s.bookingStore.FindBookingsByBranch(ctx, req.BranchID, req.StartTime, req.EndTime)
-		if err != nil {
-			return nil, err
-		}
-		if len(overlapping) >= capacity {
-			return nil, &ConflictError{Msg: "Branch has no capacity remaining for this time range"}
-		}
-	}
-
 	booking, err := s.bookingStore.CreateBooking(ctx, req)
 	if err != nil {
 		if errors.Is(err, ErrBookingConflict) {
 			return nil, &ConflictError{Msg: "Teacher already has a booking in this time range"}
+		}
+		if errors.Is(err, ErrBranchCapacityExceeded) {
+			return nil, &ConflictError{Msg: ErrBranchCapacityExceeded.Error()}
 		}
 		return nil, err
 	}

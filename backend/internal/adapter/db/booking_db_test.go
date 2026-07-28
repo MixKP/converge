@@ -5,7 +5,9 @@ package db
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -86,6 +88,86 @@ func TestBookingRepoCreateBooking(t *testing.T) {
 	_, err = repo.CreateBooking(context.Background(), overlap)
 	require.Error(t, err)
 	assert.ErrorIs(t, err, scheduling.ErrBookingConflict)
+}
+
+func TestBookingRepoCreateBooking_BranchCapacityExceeded(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBookingRepository(db)
+
+	var teacherAID, teacherBID, branchID, subjectID int
+	require.NoError(t, db.QueryRow(`INSERT INTO teachers (id, name, email, gender, status) VALUES (1, 'Teacher A', 'a@test.com', 'male', 'active') RETURNING id`).Scan(&teacherAID))
+	require.NoError(t, db.QueryRow(`INSERT INTO teachers (id, name, email, gender, status) VALUES (2, 'Teacher B', 'b@test.com', 'female', 'active') RETURNING id`).Scan(&teacherBID))
+	require.NoError(t, db.QueryRow(`INSERT INTO branches (id, name, capacity) VALUES (1, 'Capped Branch', 1) RETURNING id`).Scan(&branchID))
+	require.NoError(t, db.QueryRow(`INSERT INTO subjects (id, name) VALUES (1, 'Test Subject') RETURNING id`).Scan(&subjectID))
+
+	start := time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)
+
+	_, err := repo.CreateBooking(context.Background(), scheduling.ConfirmBookingRequest{
+		TeacherID: teacherAID, BranchID: branchID, SubjectID: subjectID,
+		StartTime: start, EndTime: end, ClientName: "First",
+	})
+	require.NoError(t, err)
+
+	_, err = repo.CreateBooking(context.Background(), scheduling.ConfirmBookingRequest{
+		TeacherID: teacherBID, BranchID: branchID, SubjectID: subjectID,
+		StartTime: start, EndTime: end, ClientName: "Second (should be rejected)",
+	})
+	require.Error(t, err)
+	assert.ErrorIs(t, err, scheduling.ErrBranchCapacityExceeded)
+}
+
+// TestBookingRepoCreateBooking_BranchCapacityConcurrent_OnlyOneWins is the
+// direct proof that branch capacity is enforced atomically: without the
+// per-branch advisory lock in CreateBooking, two concurrent confirms against
+// a capacity-1 branch could both read "0 overlapping" before either commits
+// and both succeed, exceeding capacity. This fires them concurrently for
+// real and asserts exactly one wins.
+func TestBookingRepoCreateBooking_BranchCapacityConcurrent_OnlyOneWins(t *testing.T) {
+	db := setupTestDB(t)
+	db.SetMaxOpenConns(10)
+	repo := NewBookingRepository(db)
+
+	var teacherAID, teacherBID, branchID, subjectID int
+	require.NoError(t, db.QueryRow(`INSERT INTO teachers (id, name, email, gender, status) VALUES (1, 'Teacher A', 'a@test.com', 'male', 'active') RETURNING id`).Scan(&teacherAID))
+	require.NoError(t, db.QueryRow(`INSERT INTO teachers (id, name, email, gender, status) VALUES (2, 'Teacher B', 'b@test.com', 'female', 'active') RETURNING id`).Scan(&teacherBID))
+	require.NoError(t, db.QueryRow(`INSERT INTO branches (id, name, capacity) VALUES (1, 'Capped Branch', 1) RETURNING id`).Scan(&branchID))
+	require.NoError(t, db.QueryRow(`INSERT INTO subjects (id, name) VALUES (1, 'Test Subject') RETURNING id`).Scan(&subjectID))
+
+	start := time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)
+	teacherIDs := []int{teacherAID, teacherBID}
+
+	var wg sync.WaitGroup
+	errs := make([]error, 2)
+	for i := range 2 {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			_, err := repo.CreateBooking(context.Background(), scheduling.ConfirmBookingRequest{
+				TeacherID: teacherIDs[i], BranchID: branchID, SubjectID: subjectID,
+				StartTime: start, EndTime: end, ClientName: fmt.Sprintf("Concurrent %d", i),
+			})
+			errs[i] = err
+		}(i)
+	}
+	wg.Wait()
+
+	successCount, capacityErrCount := 0, 0
+	for _, err := range errs {
+		switch {
+		case err == nil:
+			successCount++
+		case errors.Is(err, scheduling.ErrBranchCapacityExceeded):
+			capacityErrCount++
+		}
+	}
+	assert.Equal(t, 1, successCount, "exactly one of the two concurrent bookings should succeed")
+	assert.Equal(t, 1, capacityErrCount, "exactly one of the two concurrent bookings should be rejected for capacity")
+
+	var count int
+	require.NoError(t, db.QueryRow(`SELECT COUNT(*) FROM bookings WHERE branch_id = $1`, branchID).Scan(&count))
+	assert.Equal(t, 1, count, "only one row should actually be committed to the branch")
 }
 
 func TestBookingRepoFindConflictingBookings(t *testing.T) {

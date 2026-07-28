@@ -47,3 +47,21 @@ func (r *BranchRepo) GetBranchByID(ctx context.Context, branchID int) (*branch.B
 	}
 	return &b, nil
 }
+
+func (r *BranchRepo) SetCapacity(ctx context.Context, branchID, capacity int) error {
+	res, err := r.DB.ExecContext(ctx, `UPDATE branches SET capacity = $1 WHERE id = $2`, capacity, branchID)
+	if err != nil {
+		if valErr := checkViolationError(err, "capacity must not be negative"); valErr != nil {
+			return valErr
+		}
+		return fmt.Errorf("set branch capacity: %w", err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return &shared.NotFoundError{Msg: fmt.Sprintf("branch %d not found", branchID)}
+	}
+	return nil
+}

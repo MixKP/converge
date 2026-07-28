@@ -109,7 +109,7 @@ func main() {
 	scorer := scheduling.NewWeightedScorer()
 	clpEngine := scheduling.NewCLPEngine(bookingRepo, teacherRoster, scorer, commuteAdapter, branchCapacityAdapter, logger)
 
-	schedulingSvc := scheduling.NewSchedulingService(bookingRepo, availRepo, clpEngine, branchCapacityAdapter)
+	schedulingSvc := scheduling.NewSchedulingService(bookingRepo, availRepo, clpEngine)
 
 	availHandler := web.NewAvailabilityHandler(teacherSvc, logger)
 	bookingHandler := web.NewBookingHandler(schedulingSvc, logger)
@@ -127,6 +127,7 @@ func main() {
 	api.GET("/availability", availHandler.GetAllAvailability)
 	api.POST("/availability", availHandler.SubmitWeeklyAvailability)
 	api.GET("/branches", branchHandler.GetBranches)
+	api.PATCH("/branches/:id/capacity", branchHandler.UpdateBranchCapacity)
 	api.GET("/subjects", availHandler.GetSubjects)
 	api.POST("/bookings", bookingHandler.CreateBooking)
 	api.GET("/bookings", bookingHandler.ListBookings)

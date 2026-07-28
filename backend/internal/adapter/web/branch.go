@@ -2,16 +2,20 @@ package web
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/RinZ5/converge/backend/internal/branch"
+	"github.com/RinZ5/converge/backend/internal/shared"
 
 	"github.com/gin-gonic/gin"
 )
 
 type branchService interface {
 	GetBranches(ctx context.Context) ([]branch.Branch, error)
+	SetCapacity(ctx context.Context, branchID, capacity int) error
 }
 
 type BranchHandler struct {
@@ -43,4 +47,58 @@ func (h *BranchHandler) GetBranches(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, branches)
+}
+
+// UpdateBranchCapacity godoc
+// @Summary      Update a branch's capacity
+// @Description  Sets how many bookings a branch can hold concurrently. 0 means unlimited/unenforced.
+// @Tags         branches
+// @Accept       json
+// @Produce      json
+// @Param        id    path  int                          true  "Branch ID"
+// @Param        body  body  branch.UpdateCapacityRequest  true  "New capacity"
+// @Success      200  {object}  scheduling.MessageResponse
+// @Failure      400  {object}  scheduling.ErrorResponse
+// @Failure      404  {object}  scheduling.ErrorResponse
+// @Failure      500  {object}  scheduling.ErrorResponse
+// @Router       /branches/{id}/capacity [patch]
+func (h *BranchHandler) UpdateBranchCapacity(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid branch id"})
+		return
+	}
+
+	var req branch.UpdateCapacityRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.svc.SetCapacity(c.Request.Context(), id, req.Capacity); err != nil {
+		var notFoundErr *shared.NotFoundError
+		var valErr *shared.ValidationError
+		switch {
+		case errors.As(err, &notFoundErr):
+			h.logger.Warn("branch not found",
+				"request_id", requestID(c),
+				"op", "UpdateBranchCapacity/SetCapacity",
+				"branch_id", id,
+			)
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		case errors.As(err, &valErr):
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		default:
+			h.logger.Error("request failed",
+				"request_id", requestID(c),
+				"op", "UpdateBranchCapacity/SetCapacity",
+				"branch_id", id,
+				"error", err,
+			)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update branch capacity"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Branch capacity updated successfully"})
 }

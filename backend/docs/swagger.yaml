@@ -12,6 +12,12 @@ definitions:
         example: Siam
         type: string
     type: object
+  branch.UpdateCapacityRequest:
+    properties:
+      capacity:
+        example: 30
+        type: integer
+    type: object
   scheduling.Booking:
     properties:
       branch_id:
@@ -412,6 +418,46 @@ paths:
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
       summary: List branches
+      tags:
+      - branches
+  /branches/{id}/capacity:
+    patch:
+      consumes:
+      - application/json
+      description: Sets how many bookings a branch can hold concurrently. 0 means
+        unlimited/unenforced.
+      parameters:
+      - description: Branch ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: New capacity
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/branch.UpdateCapacityRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/scheduling.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+      summary: Update a branch's capacity
       tags:
       - branches
   /subjects:

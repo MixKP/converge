@@ -130,8 +130,45 @@ func (r *BookingRepo) FindBookingsByBranch(ctx context.Context, branchID int, st
 	return scanOverlappingBookings(rows)
 }
 
+// CreateBooking enforces branch capacity atomically: it takes a per-branch
+// advisory lock, counts overlapping bookings, and inserts within a single
+// transaction, so concurrent confirms for the same branch cannot both pass
+// the capacity check before either has committed.
 func (r *BookingRepo) CreateBooking(ctx context.Context, req scheduling.ConfirmBookingRequest) (*scheduling.Booking, error) {
-	row := r.DB.QueryRowContext(ctx, `
+	tx, err := r.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock($1::bigint)`, req.BranchID); err != nil {
+		return nil, err
+	}
+
+	var capacity int
+	if err := tx.QueryRowContext(ctx, `SELECT capacity FROM branches WHERE id = $1`, req.BranchID).Scan(&capacity); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, &shared.NotFoundError{Msg: fmt.Sprintf("branch %d not found", req.BranchID)}
+		}
+		return nil, err
+	}
+
+	if capacity > 0 {
+		var overlapping int
+		if err := tx.QueryRowContext(ctx, `
+			SELECT COUNT(*) FROM bookings
+			WHERE branch_id = $1
+			  AND tstzrange(start_time, end_time) && tstzrange($2, $3)`,
+			req.BranchID, req.StartTime, req.EndTime,
+		).Scan(&overlapping); err != nil {
+			return nil, err
+		}
+		if overlapping >= capacity {
+			return nil, scheduling.ErrBranchCapacityExceeded
+		}
+	}
+
+	row := tx.QueryRowContext(ctx, `
 		INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time, client_name)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id, teacher_id, branch_id, subject_id, start_time, end_time, client_name, created_at`,
@@ -145,6 +182,10 @@ func (r *BookingRepo) CreateBooking(ctx context.Context, req scheduling.ConfirmB
 		if errors.As(err, &pgErr) && pgErr.Code == pgExclusionViolation {
 			return nil, scheduling.ErrBookingConflict
 		}
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 	return &b, nil

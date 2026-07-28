@@ -11,6 +11,9 @@ type BranchCapacityAdapter struct {
 }
 
 func NewBranchCapacityAdapter(svc *branch.Service) *BranchCapacityAdapter {
+	if svc == nil {
+		panic("adapter: NewBranchCapacityAdapter requires a non-nil branch.Service")
+	}
 	return &BranchCapacityAdapter{svc: svc}
 }
 
