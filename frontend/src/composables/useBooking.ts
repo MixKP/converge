@@ -10,10 +10,12 @@ export function useBooking() {
     subjects: refs.subjects,
     branches: refs.branches,
     filteredTeachers: refs.filteredTeachers,
+    genderFilteredTeachers: refs.genderFilteredTeachers,
     selectedSubjectId: refs.selectedSubjectId,
     selectedBranchId: refs.selectedBranchId,
     selectedTeacherId: refs.selectedTeacherId,
     isLoadingTeachers: refs.isLoadingTeachers,
+    requiredGender: refs.requiredGender,
 
     // Calendar & Availability State
     calendarRef: refs.calendarRef,

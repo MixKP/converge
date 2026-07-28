@@ -151,6 +151,7 @@ export const useCartStore = defineStore('cart', () => {
           start_time: item.start_time,
           end_time: item.end_time,
           client_name: item.client_name,
+          required_gender: booking.requiredGender ?? 'male',
         })
       )
 

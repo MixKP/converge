@@ -14,6 +14,7 @@
     selectedSubjectId: number | null
     selectedBranchId: number | null
     selectedTeacherId: number | null
+    selectedGender: 'male' | 'female' | 'lgbtq+' | null
     subjects: Array<{ id: number; name: string }>
     branches: Array<{ id: number; name: string }>
     filteredTeachers: Array<{ id: number; name: string }>
@@ -37,6 +38,7 @@
     'update:selectedSubjectId': [value: number | null]
     'update:selectedBranchId': [value: number | null]
     'update:selectedTeacherId': [value: number | null]
+    'update:selectedGender': [value: 'male' | 'female' | 'lgbtq+' | null]
     submit: []
     close: []
     reset: []
@@ -50,6 +52,7 @@
       branch_id: props.selectedBranchId,
       teacher_id: props.selectedTeacherId,
       slots: props.modelValue,
+      required_gender: props.selectedGender,
     },
   })
 
@@ -66,6 +69,11 @@
   const localTeacherId = computed({
     get: () => props.selectedTeacherId,
     set: (val) => emit('update:selectedTeacherId', val),
+  })
+
+  const localGender = computed({
+    get: () => props.selectedGender,
+    set: (val) => emit('update:selectedGender', val),
   })
 
   const timeSlots = computed({
@@ -322,6 +330,24 @@
           <option v-for="branch in branches" :key="branch.id" :value="branch.id">
             {{ branch.name }}
           </option>
+        </FormSelect>
+      </div>
+
+      <!-- Gender Preference -->
+      <div :class="getCls('field')">
+        <label :class="getCls('label')">
+          Gender Preference <span :class="getCls('required')">*</span>
+        </label>
+        <FormSelect
+          v-model="localGender"
+          name="required_gender"
+          :select-class="getCls('select')"
+          :show-error="showErrors"
+        >
+          <option :value="null">Select gender</option>
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+          <option value="lgbtq+">LGBTQ+</option>
         </FormSelect>
       </div>
 

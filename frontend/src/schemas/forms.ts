@@ -3,6 +3,12 @@ import { toMinutes } from '../utils/dateValidation'
 import { selectId } from './common'
 import { weeklySlotSchema, noPerDayOverlap } from './calendar'
 
+const selectGender = () =>
+  z
+    .enum(['male', 'female', 'lgbtq+'])
+    .nullable()
+    .refine((v): v is 'male' | 'female' | 'lgbtq+' => v !== null, 'Please select a gender preference')
+
 export const aiSuggestionsFormSchema = z.object({
   subject_id: selectId('a subject'),
   branch_id: selectId('a branch'),
@@ -16,12 +22,14 @@ export const aiSuggestionsFormSchema = z.object({
         ctx.addIssue({ code: 'custom', message: 'All time slots must use the same duration' })
       }
     }),
+  required_gender: selectGender(),
 })
 
 export const manualBookingFormSchema = z.object({
   subject_id: selectId('a subject'),
   branch_id: selectId('a branch'),
   teacher_id: selectId('a teacher'),
+  required_gender: selectGender(),
 })
 
 export const availabilityFormSchema = z.object({

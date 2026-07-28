@@ -2,6 +2,8 @@ import { z } from 'zod'
 import { weeklySlotSchema } from './calendar'
 import { isoDateTime } from './common'
 
+const genderSchema = z.enum(['male', 'female', 'lgbtq+'])
+
 export const branchSchema = z.object({
   id: z.number(),
   name: z.string(),
@@ -12,6 +14,7 @@ export const bookingRequestSchema = z.object({
   branch_id: z.number().int().positive(),
   preferred_slots: z.array(weeklySlotSchema).min(1),
   duration_minutes: z.number().int().positive().optional(),
+  required_gender: genderSchema,
   // preferred_teacher_id is *int in Go: optional & nullable.
   preferred_teacher_id: z.number().int().positive().nullish(),
 })
@@ -24,6 +27,7 @@ export const confirmBookingRequestSchema = z
     start_time: isoDateTime,
     end_time: isoDateTime,
     client_name: z.string(),
+    required_gender: genderSchema,
   })
   .refine((v) => new Date(v.start_time) < new Date(v.end_time), {
     message: 'Start time must be before end time',

@@ -39,6 +39,12 @@ export const useBookingStore = defineStore('booking', () => {
   const selectedSubjectId = ref<number | null>(null)
   const selectedBranchId = ref<number | null>(null)
   const isLoadingTeachers = ref(false)
+  const requiredGender = ref<'male' | 'female' | 'lgbtq+' | null>(null)
+
+  const genderFilteredTeachers = computed(() => {
+    if (!requiredGender.value) return filteredTeachers.value
+    return filteredTeachers.value.filter((t) => t.gender === requiredGender.value)
+  })
 
   const selectedTeacherId = computed({
     get: () => teacherStore.selectedTeacherId,
@@ -387,15 +393,25 @@ export const useBookingStore = defineStore('booking', () => {
       if (teacherId) {
         updateBusinessHours(teacherId)
       } else if (selectedSubjectId.value) {
-        updateBusinessHoursFromTeachers(filteredTeachers.value)
+        updateBusinessHoursFromTeachers(genderFilteredTeachers.value)
       } else {
         businessHours.value = []
       }
       resetBookingState()
     })
 
-    watch(filteredTeachers, (teachers) => {
+    watch(genderFilteredTeachers, (teachers) => {
       updateBusinessHoursFromTeachers(teachers)
+    })
+
+    watch(requiredGender, () => {
+      if (selectedTeacherId.value) {
+        const match = filteredTeachers.value.find((t) => t.id === selectedTeacherId.value)
+        if (match && requiredGender.value && match.gender !== requiredGender.value) {
+          teacherStore.setSelectedTeacherById(null)
+          resetBookingState()
+        }
+      }
     })
 
     watch(selectedBranchId, (newBranchId) => {
@@ -411,10 +427,12 @@ export const useBookingStore = defineStore('booking', () => {
     subjects,
     branches,
     filteredTeachers,
+    genderFilteredTeachers,
     selectedSubjectId,
     selectedBranchId,
     selectedTeacherId,
     isLoadingTeachers,
+    requiredGender,
 
     // Calendar & Availability State
     calendarRef,

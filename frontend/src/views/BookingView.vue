@@ -23,9 +23,11 @@
     subjects,
     branches,
     filteredTeachers,
+    genderFilteredTeachers,
     selectedSubjectId,
     selectedBranchId,
     selectedTeacherId,
+    requiredGender,
     suggestions,
     showDetailedResults,
     filteredSuggestionEvents,
@@ -54,6 +56,7 @@
       subject_id: selectedSubjectId.value,
       branch_id: selectedBranchId.value,
       teacher_id: selectedTeacherId.value,
+      required_gender: requiredGender.value,
     },
   })
 
@@ -179,7 +182,7 @@
             </FormSelect>
           </div>
 
-          <!-- Branch + Teacher - 2 Columns -->
+          <!-- Branch + Gender - 2 Columns -->
           <div class="grid grid-cols-2 gap-3">
             <div class="flex flex-col gap-2">
               <label
@@ -207,22 +210,44 @@
                 class="flex items-center gap-2 font-[Inter,sans-serif] text-[0.6875rem] font-semibold tracking-[0.08em] text-(--text-muted) uppercase"
               >
                 <span class="h-1 w-1 rounded-full bg-(--text-muted)"></span>
-                <span>TEACHER</span>
+                <span>GENDER</span>
               </label>
               <FormSelect
-                v-model="selectedTeacherId"
-                name="teacher_id"
-                :disabled="!selectedSubjectId"
+                v-model="requiredGender"
+                name="required_gender"
                 select-class="mobile-select"
-                aria-label="Select teacher"
+                aria-label="Select gender preference"
                 :show-error="showErrors"
               >
-                <option :value="null">All teachers</option>
-                <option v-for="teacher in filteredTeachers" :key="teacher.id" :value="teacher.id">
-                  {{ teacher.name }}
-                </option>
+                <option :value="null">Any</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="lgbtq+">LGBTQ+</option>
               </FormSelect>
             </div>
+          </div>
+
+          <!-- Teacher - Full Width -->
+          <div class="flex flex-col gap-2">
+            <label
+              class="flex items-center gap-2 font-[Inter,sans-serif] text-[0.6875rem] font-semibold tracking-[0.08em] text-(--text-muted) uppercase"
+            >
+              <span class="h-1 w-1 rounded-full bg-(--text-muted)"></span>
+              <span>TEACHER</span>
+            </label>
+            <FormSelect
+              v-model="selectedTeacherId"
+              name="teacher_id"
+              :disabled="!selectedSubjectId"
+              select-class="mobile-select"
+              aria-label="Select teacher"
+              :show-error="showErrors"
+            >
+              <option :value="null">All teachers</option>
+              <option v-for="teacher in genderFilteredTeachers" :key="teacher.id" :value="teacher.id">
+                {{ teacher.name }}
+              </option>
+            </FormSelect>
           </div>
         </div>
 
@@ -317,9 +342,10 @@
           :selected-subject-id="selectedSubjectId"
           :selected-branch-id="selectedBranchId"
           :selected-teacher-id="selectedTeacherId"
+          :selected-gender="requiredGender"
           :subjects="subjects"
           :branches="branches"
-          :filtered-teachers="filteredTeachers"
+          :filtered-teachers="genderFilteredTeachers"
           :suggestions="suggestions"
           :show-detailed-results="showDetailedResults"
           :is-evaluating="isEvaluating"
@@ -329,6 +355,7 @@
           @update:selected-subject-id="(v) => (selectedSubjectId = v)"
           @update:selected-branch-id="(v) => (selectedBranchId = v)"
           @update:selected-teacher-id="(v) => (selectedTeacherId = v)"
+          @update:selected-gender="(v) => (requiredGender = v)"
           @submit="handleGetAISuggestions"
           @close="closeAIMode"
           @reset="handleResetAIResults"
@@ -381,22 +408,42 @@
             <div class="flex flex-col gap-2.5">
               <label
                 class="font-[Inter,sans-serif] text-xs font-semibold tracking-wider text-(--text-muted) uppercase"
-                >Teacher</label
+                >Gender</label
               >
               <FormSelect
-                v-model="selectedTeacherId"
-                name="teacher_id"
-                :disabled="!selectedSubjectId"
+                v-model="requiredGender"
+                name="required_gender"
                 select-class="tablet-select"
-                aria-label="Select teacher"
+                aria-label="Select gender preference"
                 :show-error="showErrors"
               >
-                <option :value="null">All teachers</option>
-                <option v-for="teacher in filteredTeachers" :key="teacher.id" :value="teacher.id">
-                  {{ teacher.name }}
-                </option>
+                <option :value="null">Any</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="lgbtq+">LGBTQ+</option>
               </FormSelect>
             </div>
+          </div>
+
+          <!-- Teacher -->
+          <div class="flex flex-col gap-2.5">
+            <label
+              class="font-[Inter,sans-serif] text-xs font-semibold tracking-wider text-(--text-muted) uppercase"
+              >Teacher</label
+            >
+            <FormSelect
+              v-model="selectedTeacherId"
+              name="teacher_id"
+              :disabled="!selectedSubjectId"
+              select-class="tablet-select"
+              aria-label="Select teacher"
+              :show-error="showErrors"
+            >
+              <option :value="null">All teachers</option>
+              <option v-for="teacher in genderFilteredTeachers" :key="teacher.id" :value="teacher.id">
+                {{ teacher.name }}
+              </option>
+            </FormSelect>
           </div>
         </div>
 
@@ -521,9 +568,10 @@
           :selected-subject-id="selectedSubjectId"
           :selected-branch-id="selectedBranchId"
           :selected-teacher-id="selectedTeacherId"
+          :selected-gender="requiredGender"
           :subjects="subjects"
           :branches="branches"
-          :filtered-teachers="filteredTeachers"
+          :filtered-teachers="genderFilteredTeachers"
           :suggestions="suggestions"
           :show-detailed-results="showDetailedResults"
           :is-evaluating="isEvaluating"
@@ -532,6 +580,7 @@
           @update:selected-subject-id="(v) => (selectedSubjectId = v)"
           @update:selected-branch-id="(v) => (selectedBranchId = v)"
           @update:selected-teacher-id="(v) => (selectedTeacherId = v)"
+          @update:selected-gender="(v) => (requiredGender = v)"
           @submit="handleGetAISuggestions"
           @close="closeAIMode"
           @reset="handleResetAIResults"
@@ -679,6 +728,32 @@
                     ></span>
                     <span
                       class="font-[Inter,sans-serif] text-[0.8125rem] font-medium text-(--text-primary)"
+                      >Gender</span
+                    >
+                  </div>
+                  <FormSelect
+                    v-model="requiredGender"
+                    name="required_gender"
+                    select-class="field-select"
+                    aria-label="Select gender preference"
+                    :show-error="showErrors"
+                  >
+                    <option :value="null">Any</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="lgbtq+">LGBTQ+</option>
+                  </FormSelect>
+                </div>
+              </div>
+
+              <div class="flex flex-col gap-1.5">
+                <div class="flex flex-col gap-1.5">
+                  <div class="flex items-center gap-2">
+                    <span
+                      class="h-3 w-0.75 rounded-[1.5px] bg-(--primary-indigo) opacity-80"
+                    ></span>
+                    <span
+                      class="font-[Inter,sans-serif] text-[0.8125rem] font-medium text-(--text-primary)"
                       >Teacher</span
                     >
                   </div>
@@ -692,7 +767,7 @@
                   >
                     <option :value="null">Show all available teachers</option>
                     <option
-                      v-for="teacher in filteredTeachers"
+                      v-for="teacher in genderFilteredTeachers"
                       :key="teacher.id"
                       :value="teacher.id"
                     >
@@ -740,9 +815,10 @@
             :selected-subject-id="selectedSubjectId"
             :selected-branch-id="selectedBranchId"
             :selected-teacher-id="selectedTeacherId"
+            :selected-gender="requiredGender"
             :subjects="subjects"
             :branches="branches"
-            :filtered-teachers="filteredTeachers"
+            :filtered-teachers="genderFilteredTeachers"
             :suggestions="suggestions"
             :show-detailed-results="showDetailedResults"
             :is-evaluating="isEvaluating"
@@ -751,6 +827,7 @@
             @update:selected-subject-id="(v) => (selectedSubjectId = v)"
             @update:selected-branch-id="(v) => (selectedBranchId = v)"
             @update:selected-teacher-id="(v) => (selectedTeacherId = v)"
+            @update:selected-gender="(v) => (requiredGender = v)"
             @submit="handleGetAISuggestions"
             @close="closeAIMode"
             @reset="handleResetAIResults"
