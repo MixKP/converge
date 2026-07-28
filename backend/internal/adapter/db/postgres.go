@@ -117,7 +117,11 @@ func AutoMigrate(database *sql.DB) error {
 		`ALTER TABLE branches ADD COLUMN IF NOT EXISTS capacity INTEGER NOT NULL DEFAULT 0`,
 		`DO $$
 		BEGIN
-			IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'branches_capacity_check') THEN
+			IF NOT EXISTS (
+				SELECT 1 FROM pg_constraint
+				WHERE conrelid = 'branches'::regclass
+				  AND conname = 'branches_capacity_check'
+			) THEN
 				ALTER TABLE branches ADD CONSTRAINT branches_capacity_check CHECK (capacity >= 0);
 			END IF;
 		END $$;`,

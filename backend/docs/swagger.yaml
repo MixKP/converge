@@ -17,6 +17,8 @@ definitions:
       capacity:
         example: 30
         type: integer
+    required:
+    - capacity
     type: object
   scheduling.Booking:
     properties:

@@ -1,5 +1,7 @@
 package branch
 
+import "github.com/RinZ5/converge/backend/internal/shared"
+
 type Branch struct {
 	ID       int    `json:"id"       example:"1"`
 	Name     string `json:"name"     example:"Siam"`
@@ -7,5 +9,5 @@ type Branch struct {
 }
 
 type UpdateCapacityRequest struct {
-	Capacity int `json:"capacity" example:"30"`
+	Capacity shared.Option[int] `json:"capacity" binding:"required" swaggertype:"integer" example:"30"`
 }

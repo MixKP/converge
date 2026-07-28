@@ -108,6 +108,22 @@ func TestBranchHandler_UpdateBranchCapacity(t *testing.T) {
 			wantCalled: false,
 		},
 		{
+			name:       "capacity omitted",
+			path:       "/api/branches/1/capacity",
+			body:       `{}`,
+			mock:       &mockBranchService{},
+			wantStatus: http.StatusBadRequest,
+			wantCalled: false,
+		},
+		{
+			name:       "capacity null",
+			path:       "/api/branches/1/capacity",
+			body:       `{"capacity": null}`,
+			mock:       &mockBranchService{},
+			wantStatus: http.StatusBadRequest,
+			wantCalled: false,
+		},
+		{
 			name:         "not found",
 			path:         "/api/branches/99/capacity",
 			body:         `{"capacity": 30}`,

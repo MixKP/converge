@@ -73,7 +73,13 @@ func (h *BranchHandler) UpdateBranchCapacity(c *gin.Context) {
 		return
 	}
 
-	if err := h.svc.SetCapacity(c.Request.Context(), id, req.Capacity); err != nil {
+	capacity, ok := req.Capacity.Value()
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "capacity is required"})
+		return
+	}
+
+	if err := h.svc.SetCapacity(c.Request.Context(), id, capacity); err != nil {
 		respondFieldUpdateErr(c, h.logger, err, "UpdateBranchCapacity/SetCapacity", "branch", id, "failed to update branch capacity")
 		return
 	}

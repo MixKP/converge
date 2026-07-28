@@ -601,6 +601,9 @@ const docTemplate = `{
         },
         "branch.UpdateCapacityRequest": {
             "type": "object",
+            "required": [
+                "capacity"
+            ],
             "properties": {
                 "capacity": {
                     "type": "integer",
