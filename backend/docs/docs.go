@@ -572,9 +572,6 @@ const docTemplate = `{
         "scheduling.BookingAlternative": {
             "type": "object",
             "properties": {
-                "branch_available": {
-                    "type": "boolean"
-                },
                 "branch_id": {
                     "type": "integer"
                 },

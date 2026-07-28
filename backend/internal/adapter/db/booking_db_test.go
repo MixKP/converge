@@ -116,6 +116,37 @@ func TestBookingRepoFindConflictingBookings(t *testing.T) {
 	assert.Empty(t, noConflicts)
 }
 
+func TestBookingRepoFindBookingsByBranch(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBookingRepository(db)
+	teacherID, branchID, subjectID := seedBookingParents(t, db)
+
+	var secondTeacherID int
+	require.NoError(t, db.QueryRow(`INSERT INTO teachers (id, name, email, gender, status) VALUES (2, 'Teacher B', 'b@test.com', 'female', 'active') RETURNING id`).Scan(&secondTeacherID))
+
+	_, err := db.Exec(`
+		INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time, client_name)
+		VALUES ($1, $2, $3, '2026-06-01T09:00:00Z', '2026-06-01T10:00:00Z', 'Booking 1')`, teacherID, branchID, subjectID)
+	require.NoError(t, err)
+
+	_, err = db.Exec(`
+		INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time, client_name)
+		VALUES ($1, $2, $3, '2026-06-01T09:30:00Z', '2026-06-01T10:30:00Z', 'Booking 2')`, secondTeacherID, branchID, subjectID)
+	require.NoError(t, err)
+
+	overlapping, err := repo.FindBookingsByBranch(context.Background(), branchID,
+		time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+	assert.Len(t, overlapping, 2, "should count bookings from different teachers at the same branch")
+
+	noOverlap, err := repo.FindBookingsByBranch(context.Background(), branchID,
+		time.Date(2026, 6, 1, 14, 0, 0, 0, time.UTC),
+		time.Date(2026, 6, 1, 15, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+	assert.Empty(t, noOverlap)
+}
+
 func TestBookingRepoDeleteBooking(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewBookingRepository(db)

@@ -109,7 +109,7 @@ func main() {
 	scorer := scheduling.NewWeightedScorer()
 	clpEngine := scheduling.NewCLPEngine(bookingRepo, teacherRoster, scorer, commuteAdapter, branchCapacityAdapter, logger)
 
-	schedulingSvc := scheduling.NewSchedulingService(bookingRepo, availRepo, clpEngine)
+	schedulingSvc := scheduling.NewSchedulingService(bookingRepo, availRepo, clpEngine, branchCapacityAdapter)
 
 	availHandler := web.NewAvailabilityHandler(teacherSvc, logger)
 	bookingHandler := web.NewBookingHandler(schedulingSvc, logger)

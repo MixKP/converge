@@ -33,8 +33,6 @@ definitions:
     type: object
   scheduling.BookingAlternative:
     properties:
-      branch_available:
-        type: boolean
       branch_id:
         type: integer
       commute_minutes:

@@ -87,6 +87,21 @@ func (r *BookingRepo) FindExactMatch(ctx context.Context, subjectID, branchID in
 	return &scheduling.BookingMatch{Booking: booking, TeacherName: name}, nil
 }
 
+// scanOverlappingBookings scans rows shaped like the overlap queries below
+// (id, teacher_id, branch_id, subject_id, start_time, end_time).
+func scanOverlappingBookings(rows *sql.Rows) ([]scheduling.Booking, error) {
+	var bookings []scheduling.Booking
+	for rows.Next() {
+		var b scheduling.Booking
+		if err := rows.Scan(&b.ID, &b.TeacherID, &b.BranchID, &b.SubjectID,
+			&b.StartTime, &b.EndTime); err != nil {
+			return nil, err
+		}
+		bookings = append(bookings, b)
+	}
+	return bookings, rows.Err()
+}
+
 func (r *BookingRepo) FindConflictingBookings(ctx context.Context, teacherID int, startTime, endTime time.Time) ([]scheduling.Booking, error) {
 	rows, err := r.DB.QueryContext(ctx, `
 		SELECT id, teacher_id, branch_id, subject_id, start_time, end_time
@@ -98,17 +113,21 @@ func (r *BookingRepo) FindConflictingBookings(ctx context.Context, teacherID int
 		return nil, err
 	}
 	defer rows.Close()
+	return scanOverlappingBookings(rows)
+}
 
-	var bookings []scheduling.Booking
-	for rows.Next() {
-		var b scheduling.Booking
-		if err := rows.Scan(&b.ID, &b.TeacherID, &b.BranchID, &b.SubjectID,
-			&b.StartTime, &b.EndTime); err != nil {
-			return nil, err
-		}
-		bookings = append(bookings, b)
+func (r *BookingRepo) FindBookingsByBranch(ctx context.Context, branchID int, startTime, endTime time.Time) ([]scheduling.Booking, error) {
+	rows, err := r.DB.QueryContext(ctx, `
+		SELECT id, teacher_id, branch_id, subject_id, start_time, end_time
+		FROM bookings
+		WHERE branch_id = $1
+		  AND tstzrange(start_time, end_time) && tstzrange($2, $3)`,
+		branchID, startTime, endTime)
+	if err != nil {
+		return nil, err
 	}
-	return bookings, rows.Err()
+	defer rows.Close()
+	return scanOverlappingBookings(rows)
 }
 
 func (r *BookingRepo) CreateBooking(ctx context.Context, req scheduling.ConfirmBookingRequest) (*scheduling.Booking, error) {

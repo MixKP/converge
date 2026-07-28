@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"time"
 
 	"github.com/RinZ5/converge/backend/internal/branch"
 	"github.com/RinZ5/converge/backend/internal/shared"
@@ -47,18 +46,4 @@ func (r *BranchRepo) GetBranchByID(ctx context.Context, branchID int) (*branch.B
 		return nil, err
 	}
 	return &b, nil
-}
-
-func (r *BranchRepo) CountOverlappingBookings(ctx context.Context, branchID int, startTime, endTime time.Time) (int, error) {
-	var count int
-	err := r.DB.QueryRowContext(ctx, `
-		SELECT COUNT(*) FROM bookings
-		WHERE branch_id = $1
-		  AND tstzrange(start_time, end_time) && tstzrange($2, $3)`,
-		branchID, startTime, endTime,
-	).Scan(&count)
-	if err != nil {
-		return 0, err
-	}
-	return count, nil
 }

@@ -2,7 +2,6 @@ package adapter
 
 import (
 	"context"
-	"time"
 
 	"github.com/RinZ5/converge/backend/internal/branch"
 )
@@ -15,6 +14,6 @@ func NewBranchCapacityAdapter(svc *branch.Service) *BranchCapacityAdapter {
 	return &BranchCapacityAdapter{svc: svc}
 }
 
-func (a *BranchCapacityAdapter) CheckCapacity(ctx context.Context, branchID int, startTime, endTime time.Time) (bool, error) {
-	return a.svc.CheckCapacity(ctx, branchID, startTime, endTime)
+func (a *BranchCapacityAdapter) GetCapacity(ctx context.Context, branchID int) (int, error) {
+	return a.svc.GetCapacity(ctx, branchID)
 }

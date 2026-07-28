@@ -40,16 +40,15 @@ type ConfirmBookingRequest struct {
 }
 
 type BookingAlternative struct {
-	TeacherID       int                 `json:"teacher_id"`
-	TeacherName     string              `json:"teacher_name"`
-	BranchID        int                 `json:"branch_id"`
-	SubjectID       int                 `json:"subject_id"`
-	StartTime       time.Time           `json:"start_time"`
-	EndTime         time.Time           `json:"end_time"`
-	Score           int                 `json:"score"`
-	Reasons         []string            `json:"reasons"`
-	BranchAvailable shared.Option[bool] `json:"branch_available,omitempty" swaggertype:"boolean"`
-	CommuteMinutes  shared.Option[int]  `json:"commute_minutes,omitempty" swaggertype:"integer"`
+	TeacherID      int                `json:"teacher_id"`
+	TeacherName    string             `json:"teacher_name"`
+	BranchID       int                `json:"branch_id"`
+	SubjectID      int                `json:"subject_id"`
+	StartTime      time.Time          `json:"start_time"`
+	EndTime        time.Time          `json:"end_time"`
+	Score          int                `json:"score"`
+	Reasons        []string           `json:"reasons"`
+	CommuteMinutes shared.Option[int] `json:"commute_minutes,omitempty" swaggertype:"integer"`
 }
 
 type SlotResult struct {

@@ -3,7 +3,6 @@ package branch
 import (
 	"context"
 	"log/slog"
-	"time"
 )
 
 type Service struct {
@@ -19,14 +18,10 @@ func (s *Service) GetBranches(ctx context.Context) ([]Branch, error) {
 	return s.store.GetBranches(ctx)
 }
 
-func (s *Service) CheckCapacity(ctx context.Context, branchID int, startTime, endTime time.Time) (bool, error) {
+func (s *Service) GetCapacity(ctx context.Context, branchID int) (int, error) {
 	b, err := s.store.GetBranchByID(ctx, branchID)
 	if err != nil {
-		return false, err
+		return 0, err
 	}
-	count, err := s.store.CountOverlappingBookings(ctx, branchID, startTime, endTime)
-	if err != nil {
-		return false, err
-	}
-	return count < b.Capacity, nil
+	return b.Capacity, nil
 }

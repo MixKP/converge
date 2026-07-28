@@ -27,6 +27,11 @@ func (m *mockStore) FindConflictingBookings(ctx context.Context, teacherID int, 
 	return args.Get(0).([]Booking), args.Error(1)
 }
 
+func (m *mockStore) FindBookingsByBranch(ctx context.Context, branchID int, startTime, endTime time.Time) ([]Booking, error) {
+	args := m.Called(ctx, branchID, startTime, endTime)
+	return args.Get(0).([]Booking), args.Error(1)
+}
+
 func (m *mockStore) CreateBooking(ctx context.Context, req ConfirmBookingRequest) (*Booking, error) {
 	args := m.Called(ctx, req)
 	if args.Get(0) == nil {
@@ -76,7 +81,7 @@ func bookingReq(subjectID, branchID int, s shared.WeeklySlot, dur int) BookingRe
 func TestSchedulingService_Evaluate_ExactMatch(t *testing.T) {
 	store := new(mockStore)
 	engine := new(mockEngine)
-	svc := NewSchedulingService(store, store, engine)
+	svc := NewSchedulingService(store, store, engine, zeroBranchCapacity{})
 
 	s := slot(0, "09:00", "10:00")
 	req := bookingReq(1, 1, s, 60)
@@ -108,7 +113,7 @@ func TestSchedulingService_Evaluate_ExactMatch(t *testing.T) {
 func TestSchedulingService_Evaluate_Alternatives(t *testing.T) {
 	store := new(mockStore)
 	engine := new(mockEngine)
-	svc := NewSchedulingService(store, store, engine)
+	svc := NewSchedulingService(store, store, engine, zeroBranchCapacity{})
 
 	s := slot(0, "09:00", "10:00")
 	req := bookingReq(1, 1, s, 60)
@@ -126,7 +131,7 @@ func TestSchedulingService_Evaluate_Alternatives(t *testing.T) {
 func TestSchedulingService_Evaluate_MissingSubject(t *testing.T) {
 	store := new(mockStore)
 	engine := new(mockEngine)
-	svc := NewSchedulingService(store, store, engine)
+	svc := NewSchedulingService(store, store, engine, zeroBranchCapacity{})
 
 	req := bookingReq(0, 1, slot(0, "09:00", "10:00"), 60)
 
@@ -139,7 +144,7 @@ func TestSchedulingService_Evaluate_MissingSubject(t *testing.T) {
 func TestSchedulingService_Evaluate_InvalidRequiredGender(t *testing.T) {
 	store := new(mockStore)
 	engine := new(mockEngine)
-	svc := NewSchedulingService(store, store, engine)
+	svc := NewSchedulingService(store, store, engine, zeroBranchCapacity{})
 
 	req := bookingReq(1, 1, slot(0, "09:00", "10:00"), 60)
 	req.RequiredGender = "robot"
@@ -155,7 +160,7 @@ func TestSchedulingService_Evaluate_InvalidRequiredGender(t *testing.T) {
 func TestSchedulingService_Evaluate_MissingBranch(t *testing.T) {
 	store := new(mockStore)
 	engine := new(mockEngine)
-	svc := NewSchedulingService(store, store, engine)
+	svc := NewSchedulingService(store, store, engine, zeroBranchCapacity{})
 
 	req := bookingReq(1, 0, slot(0, "09:00", "10:00"), 60)
 
@@ -168,7 +173,7 @@ func TestSchedulingService_Evaluate_MissingBranch(t *testing.T) {
 func TestSchedulingService_Evaluate_EmptySlots(t *testing.T) {
 	store := new(mockStore)
 	engine := new(mockEngine)
-	svc := NewSchedulingService(store, store, engine)
+	svc := NewSchedulingService(store, store, engine, zeroBranchCapacity{})
 
 	req := BookingRequest{
 		SubjectID:       1,
@@ -186,7 +191,7 @@ func TestSchedulingService_Evaluate_EmptySlots(t *testing.T) {
 func TestSchedulingService_Evaluate_InvalidDay(t *testing.T) {
 	store := new(mockStore)
 	engine := new(mockEngine)
-	svc := NewSchedulingService(store, store, engine)
+	svc := NewSchedulingService(store, store, engine, zeroBranchCapacity{})
 
 	req := bookingReq(1, 1, slot(7, "09:00", "10:00"), 60)
 
@@ -199,7 +204,7 @@ func TestSchedulingService_Evaluate_InvalidDay(t *testing.T) {
 func TestSchedulingService_Evaluate_TwoSlots(t *testing.T) {
 	store := new(mockStore)
 	engine := new(mockEngine)
-	svc := NewSchedulingService(store, store, engine)
+	svc := NewSchedulingService(store, store, engine, zeroBranchCapacity{})
 
 	monSlot := slot(0, "09:00", "10:00")
 	friSlot := slot(4, "12:00", "14:00")
@@ -239,7 +244,7 @@ func TestSchedulingService_Evaluate_TwoSlots(t *testing.T) {
 
 func TestSchedulingService_Confirm_Success(t *testing.T) {
 	store := new(mockStore)
-	svc := NewSchedulingService(store, store, new(mockEngine))
+	svc := NewSchedulingService(store, store, new(mockEngine), zeroBranchCapacity{})
 
 	req := ConfirmBookingRequest{
 		TeacherID:  1,
@@ -269,8 +274,84 @@ func TestSchedulingService_Confirm_Success(t *testing.T) {
 	store.AssertExpectations(t)
 }
 
+func TestSchedulingService_Confirm_BranchAtCapacity_Rejected(t *testing.T) {
+	store := new(mockStore)
+	branchCap := new(mockCLPBranchCapacity)
+	svc := NewSchedulingService(store, store, new(mockEngine), branchCap)
+
+	req := ConfirmBookingRequest{
+		TeacherID:  1,
+		BranchID:   1,
+		SubjectID:  1,
+		StartTime:  time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		EndTime:    time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+		ClientName: "John Doe",
+	}
+
+	branchCap.On("GetCapacity", mock.Anything, 1).Return(1, nil)
+	store.On("FindBookingsByBranch", mock.Anything, 1, req.StartTime, req.EndTime).
+		Return([]Booking{{ID: 99, BranchID: 1}}, nil)
+
+	_, err := svc.Confirm(context.Background(), req)
+
+	var confErr *ConflictError
+	assert.ErrorAs(t, err, &confErr)
+	store.AssertNotCalled(t, "CreateBooking", mock.Anything, mock.Anything)
+}
+
+func TestSchedulingService_Confirm_BranchUnderCapacity_Success(t *testing.T) {
+	store := new(mockStore)
+	branchCap := new(mockCLPBranchCapacity)
+	svc := NewSchedulingService(store, store, new(mockEngine), branchCap)
+
+	req := ConfirmBookingRequest{
+		TeacherID:  1,
+		BranchID:   1,
+		SubjectID:  1,
+		StartTime:  time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		EndTime:    time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+		ClientName: "John Doe",
+	}
+	expected := &Booking{ID: 10, TeacherID: 1, BranchID: 1, SubjectID: 1, ClientName: "John Doe"}
+
+	branchCap.On("GetCapacity", mock.Anything, 1).Return(2, nil)
+	store.On("FindBookingsByBranch", mock.Anything, 1, req.StartTime, req.EndTime).
+		Return([]Booking{{ID: 99, BranchID: 1}}, nil)
+	store.On("CreateBooking", mock.Anything, req).Return(expected, nil)
+
+	result, err := svc.Confirm(context.Background(), req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 10, result.ID)
+}
+
+func TestSchedulingService_Confirm_BranchCapacityUnconfigured_Allowed(t *testing.T) {
+	store := new(mockStore)
+	branchCap := new(mockCLPBranchCapacity)
+	svc := NewSchedulingService(store, store, new(mockEngine), branchCap)
+
+	req := ConfirmBookingRequest{
+		TeacherID:  1,
+		BranchID:   1,
+		SubjectID:  1,
+		StartTime:  time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		EndTime:    time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+		ClientName: "John Doe",
+	}
+	expected := &Booking{ID: 10, TeacherID: 1, BranchID: 1, SubjectID: 1, ClientName: "John Doe"}
+
+	branchCap.On("GetCapacity", mock.Anything, 1).Return(0, nil)
+	store.On("CreateBooking", mock.Anything, req).Return(expected, nil)
+
+	result, err := svc.Confirm(context.Background(), req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 10, result.ID)
+	store.AssertNotCalled(t, "FindBookingsByBranch", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+}
+
 func TestSchedulingService_Confirm_MissingFields(t *testing.T) {
-	svc := NewSchedulingService(new(mockStore), new(mockStore), new(mockEngine))
+	svc := NewSchedulingService(new(mockStore), new(mockStore), new(mockEngine), zeroBranchCapacity{})
 
 	tests := []struct {
 		name string
@@ -297,7 +378,7 @@ func TestSchedulingService_Confirm_MissingFields(t *testing.T) {
 
 func TestSchedulingService_Cancel_Success(t *testing.T) {
 	store := new(mockStore)
-	svc := NewSchedulingService(store, store, new(mockEngine))
+	svc := NewSchedulingService(store, store, new(mockEngine), zeroBranchCapacity{})
 
 	store.On("DeleteBooking", mock.Anything, 10).Return(nil)
 
@@ -309,7 +390,7 @@ func TestSchedulingService_Cancel_Success(t *testing.T) {
 
 func TestSchedulingService_Cancel_NotFound(t *testing.T) {
 	store := new(mockStore)
-	svc := NewSchedulingService(store, store, new(mockEngine))
+	svc := NewSchedulingService(store, store, new(mockEngine), zeroBranchCapacity{})
 
 	store.On("DeleteBooking", mock.Anything, 999).Return(&shared.NotFoundError{Msg: "booking 999 not found"})
 
@@ -320,7 +401,7 @@ func TestSchedulingService_Cancel_NotFound(t *testing.T) {
 }
 
 func TestSchedulingService_Cancel_InvalidID(t *testing.T) {
-	svc := NewSchedulingService(new(mockStore), new(mockStore), new(mockEngine))
+	svc := NewSchedulingService(new(mockStore), new(mockStore), new(mockEngine), zeroBranchCapacity{})
 
 	err := svc.Cancel(context.Background(), 0)
 
@@ -330,7 +411,7 @@ func TestSchedulingService_Cancel_InvalidID(t *testing.T) {
 
 func TestSchedulingService_ListAll_Success(t *testing.T) {
 	store := new(mockStore)
-	svc := NewSchedulingService(store, store, new(mockEngine))
+	svc := NewSchedulingService(store, store, new(mockEngine), zeroBranchCapacity{})
 
 	expected := []Booking{{ID: 1}, {ID: 2}}
 	store.On("FindAllBookings", mock.Anything).Return(expected, nil)
@@ -342,7 +423,7 @@ func TestSchedulingService_ListAll_Success(t *testing.T) {
 
 func TestSchedulingService_ListAll_Error(t *testing.T) {
 	store := new(mockStore)
-	svc := NewSchedulingService(store, store, new(mockEngine))
+	svc := NewSchedulingService(store, store, new(mockEngine), zeroBranchCapacity{})
 
 	store.On("FindAllBookings", mock.Anything).Return([]Booking{}, assert.AnError)
 
@@ -352,7 +433,7 @@ func TestSchedulingService_ListAll_Error(t *testing.T) {
 
 func TestSchedulingService_GetSubjects_Success(t *testing.T) {
 	store := new(mockStore)
-	svc := NewSchedulingService(store, store, new(mockEngine))
+	svc := NewSchedulingService(store, store, new(mockEngine), zeroBranchCapacity{})
 
 	expected := []Subject{{ID: 1, Name: "Math"}}
 	store.On("GetSubjects", mock.Anything).Return(expected, nil)
