@@ -3,7 +3,11 @@ package branch
 import (
 	"context"
 	"log/slog"
+
+	"github.com/RinZ5/converge/backend/internal/shared"
 )
+
+type ValidationError = shared.ValidationError
 
 type Service struct {
 	store  BranchStore
@@ -19,6 +23,11 @@ func (s *Service) GetBranches(ctx context.Context) ([]Branch, error) {
 }
 
 func (s *Service) GetCapacity(ctx context.Context, branchID int) (int, error) {
+	if err := shared.ValidateAll(branchID,
+		shared.PositiveInt("branch_id", func(id int) int { return id }),
+	); err != nil {
+		return 0, err
+	}
 	b, err := s.store.GetBranchByID(ctx, branchID)
 	if err != nil {
 		return 0, err
@@ -27,5 +36,16 @@ func (s *Service) GetCapacity(ctx context.Context, branchID int) (int, error) {
 }
 
 func (s *Service) SetCapacity(ctx context.Context, branchID, capacity int) error {
+	if err := shared.ValidateAll(branchID,
+		shared.PositiveInt("branch_id", func(id int) int { return id }),
+	); err != nil {
+		return err
+	}
+	// capacity 0 means unlimited/unenforced, so only negatives are rejected.
+	if err := shared.ValidateAll(capacity,
+		shared.NonNegativeInt("capacity", func(c int) int { return c }),
+	); err != nil {
+		return err
+	}
 	return s.store.SetCapacity(ctx, branchID, capacity)
 }

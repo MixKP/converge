@@ -97,3 +97,46 @@ func TestBranchService_SetCapacity_StoreError_Propagates(t *testing.T) {
 	var notFoundErr *shared.NotFoundError
 	assert.ErrorAs(t, err, &notFoundErr)
 }
+
+func TestBranchService_SetCapacity_NegativeCapacity_Rejected(t *testing.T) {
+	store := new(mockStore)
+	svc := NewService(store, slog.Default())
+
+	err := svc.SetCapacity(context.Background(), 1, -1)
+
+	var valErr *shared.ValidationError
+	assert.ErrorAs(t, err, &valErr)
+	store.AssertNotCalled(t, "SetCapacity", mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestBranchService_SetCapacity_ZeroCapacity_Allowed(t *testing.T) {
+	store := new(mockStore)
+	svc := NewService(store, slog.Default())
+
+	store.On("SetCapacity", mock.Anything, 1, 0).Return(nil)
+
+	err := svc.SetCapacity(context.Background(), 1, 0)
+	assert.NoError(t, err)
+}
+
+func TestBranchService_SetCapacity_InvalidBranchID_Rejected(t *testing.T) {
+	store := new(mockStore)
+	svc := NewService(store, slog.Default())
+
+	err := svc.SetCapacity(context.Background(), 0, 30)
+
+	var valErr *shared.ValidationError
+	assert.ErrorAs(t, err, &valErr)
+	store.AssertNotCalled(t, "SetCapacity", mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestBranchService_GetCapacity_InvalidBranchID_Rejected(t *testing.T) {
+	store := new(mockStore)
+	svc := NewService(store, slog.Default())
+
+	_, err := svc.GetCapacity(context.Background(), -5)
+
+	var valErr *shared.ValidationError
+	assert.ErrorAs(t, err, &valErr)
+	store.AssertNotCalled(t, "GetBranchByID", mock.Anything, mock.Anything)
+}

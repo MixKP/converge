@@ -22,6 +22,15 @@ func PositiveInt[T any](field string, get func(T) int) Validator[T] {
 	}
 }
 
+func NonNegativeInt[T any](field string, get func(T) int) Validator[T] {
+	return func(subject T) error {
+		if get(subject) < 0 {
+			return &ValidationError{Msg: field + " must not be negative"}
+		}
+		return nil
+	}
+}
+
 func NonEmpty[T any](field string, get func(T) string) Validator[T] {
 	return func(subject T) error {
 		if get(subject) == "" {
