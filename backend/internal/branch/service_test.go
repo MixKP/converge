@@ -84,6 +84,7 @@ func TestBranchService_SetCapacity_Success(t *testing.T) {
 
 	err := svc.SetCapacity(context.Background(), 1, 30)
 	assert.NoError(t, err)
+	store.AssertExpectations(t)
 }
 
 func TestBranchService_SetCapacity_StoreError_Propagates(t *testing.T) {
@@ -117,6 +118,7 @@ func TestBranchService_SetCapacity_ZeroCapacity_Allowed(t *testing.T) {
 
 	err := svc.SetCapacity(context.Background(), 1, 0)
 	assert.NoError(t, err)
+	store.AssertExpectations(t)
 }
 
 func TestBranchService_SetCapacity_InvalidBranchID_Rejected(t *testing.T) {
