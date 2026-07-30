@@ -3,6 +3,7 @@ import GuestView from '../views/GuestView.vue'
 import SubmitAvailability from '../views/SubmitAvailability.vue'
 import BookingView from '../views/BookingView.vue'
 import BookingConfirm from '../views/BookingCart.vue'
+import TeacherManagement from '../views/TeacherManagement.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -26,6 +27,11 @@ const router = createRouter({
       path: '/booking/confirm',
       name: 'booking-confirm',
       component: BookingConfirm,
+    },
+    {
+      path: '/manage',
+      name: 'teacher-management',
+      component: TeacherManagement,
     },
     {
       path: '/:pathMatch(.*)*',
