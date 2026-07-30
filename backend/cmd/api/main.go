@@ -102,8 +102,8 @@ func main() {
 	teacherSvc := teacher.NewService(availRepo, availRepo, availRepo, logger)
 	branchSvc := branch.NewService(branchRepo, logger)
 	teacherRoster := adapter.NewTeacherRosterAdapter(teacherSvc)
-	commuteSvc := commute.NewService(logger)
-	commuteAdapter := adapter.NewCommuteAdapter(commuteSvc)
+	commuteAdapter := adapter.NewCommuteAdapter()
+	commuteSvc := commute.NewService(commuteAdapter, logger)
 	branchCapacityAdapter := adapter.NewBranchCapacityAdapter(branchSvc)
 
 	scorer := scheduling.NewWeightedScorer()
@@ -114,6 +114,7 @@ func main() {
 	availHandler := web.NewAvailabilityHandler(teacherSvc, logger)
 	bookingHandler := web.NewBookingHandler(schedulingSvc, logger)
 	branchHandler := web.NewBranchHandler(branchSvc, logger)
+	commuteHandler := web.NewCommuteHandler(commuteSvc, logger)
 
 	r := gin.Default()
 	r.Use(requestIDMiddleware())
@@ -128,6 +129,7 @@ func main() {
 	api.POST("/availability", availHandler.SubmitWeeklyAvailability)
 	api.GET("/branches", branchHandler.GetBranches)
 	api.PATCH("/branches/:id/capacity", branchHandler.UpdateBranchCapacity)
+	api.GET("/commute", commuteHandler.GetCommute)
 	api.GET("/subjects", availHandler.GetSubjects)
 	api.POST("/bookings", bookingHandler.CreateBooking)
 	api.GET("/bookings", bookingHandler.ListBookings)

@@ -20,6 +20,18 @@ definitions:
     required:
     - capacity
     type: object
+  commute.CommuteResponse:
+    properties:
+      commute_time:
+        example: 30
+        type: integer
+      destination_branch:
+        example: 2
+        type: integer
+      source_branch:
+        example: 1
+        type: integer
+    type: object
   scheduling.Booking:
     properties:
       branch_id:
@@ -462,6 +474,38 @@ paths:
       summary: Update a branch's capacity
       tags:
       - branches
+  /commute:
+    get:
+      description: Returns the commute time in minutes. Without query params, returns
+        the default commute time. With both source_branch and destination_branch,
+        returns 0 when they are equal, otherwise the default.
+      parameters:
+      - description: Source branch ID
+        in: query
+        name: source_branch
+        type: integer
+      - description: Destination branch ID
+        in: query
+        name: destination_branch
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/commute.CommuteResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+      summary: Get commute time between two branches
+      tags:
+      - commute
   /subjects:
     get:
       description: Returns all subjects ordered by id

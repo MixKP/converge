@@ -3,17 +3,27 @@ package commute
 import (
 	"context"
 	"log/slog"
-	"time"
+
+	"github.com/RinZ5/converge/backend/internal/shared"
 )
 
 type Service struct {
+	source CommuteSource
 	logger *slog.Logger
 }
 
-func NewService(logger *slog.Logger) *Service {
-	return &Service{logger: logger}
+func NewService(source CommuteSource, logger *slog.Logger) *Service {
+	return &Service{source: source, logger: logger}
 }
 
-func (s *Service) Estimate(ctx context.Context, fromBranchID, toBranchID int, arrivalTime time.Time) (time.Duration, error) {
-	return 0, nil
+// CommuteTime returns the commute time in minutes between two branches,
+// delegating the actual estimate to the CommuteSource port.
+func (s *Service) CommuteTime(ctx context.Context, sourceBranchID, destBranchID int) (int, error) {
+	if err := shared.ValidateAll(sourceBranchID, shared.PositiveInt("source_branch", func(id int) int { return id })); err != nil {
+		return 0, err
+	}
+	if err := shared.ValidateAll(destBranchID, shared.PositiveInt("destination_branch", func(id int) int { return id })); err != nil {
+		return 0, err
+	}
+	return s.source.CommuteMinutes(ctx, sourceBranchID, destBranchID)
 }

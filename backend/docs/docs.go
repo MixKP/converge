@@ -346,6 +346,52 @@ const docTemplate = `{
                 }
             }
         },
+        "/commute": {
+            "get": {
+                "description": "Returns the commute time in minutes. Without query params, returns the default commute time. With both source_branch and destination_branch, returns 0 when they are equal, otherwise the default.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "commute"
+                ],
+                "summary": "Get commute time between two branches",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Source branch ID",
+                        "name": "source_branch",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Destination branch ID",
+                        "name": "destination_branch",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/commute.CommuteResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/subjects": {
             "get": {
                 "description": "Returns all subjects ordered by id",
@@ -619,6 +665,23 @@ const docTemplate = `{
                 "capacity": {
                     "type": "integer",
                     "example": 30
+                }
+            }
+        },
+        "commute.CommuteResponse": {
+            "type": "object",
+            "properties": {
+                "commute_time": {
+                    "type": "integer",
+                    "example": 30
+                },
+                "destination_branch": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "source_branch": {
+                    "type": "integer",
+                    "example": 1
                 }
             }
         },
