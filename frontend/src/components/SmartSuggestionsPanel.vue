@@ -14,7 +14,7 @@
     selectedSubjectId: number | null
     selectedBranchId: number | null
     selectedTeacherId: number | null
-    selectedGender: 'male' | 'female' | 'lgbtq+' | null
+    selectedGender: 'male' | 'female' | 'lgbtq+'
     subjects: Array<{ id: number; name: string }>
     branches: Array<{ id: number; name: string }>
     filteredTeachers: Array<{ id: number; name: string }>
@@ -38,7 +38,7 @@
     'update:selectedSubjectId': [value: number | null]
     'update:selectedBranchId': [value: number | null]
     'update:selectedTeacherId': [value: number | null]
-    'update:selectedGender': [value: 'male' | 'female' | 'lgbtq+' | null]
+    'update:selectedGender': [value: 'male' | 'female' | 'lgbtq+']
     submit: []
     close: []
     reset: []
@@ -50,6 +50,7 @@
     initialValues: {
       subject_id: props.selectedSubjectId,
       branch_id: props.selectedBranchId,
+      required_gender: props.selectedGender,
       teacher_id: props.selectedTeacherId,
       slots: props.modelValue,
     },
@@ -84,6 +85,11 @@
     () => props.modelValue,
     (slots) => setFieldValue('slots', slots),
     { deep: true }
+  )
+
+  watch(
+    () => props.selectedGender,
+    (gender) => setFieldValue('required_gender', gender)
   )
 
   const slotsError = computed(() => errors.value.slots)
@@ -334,13 +340,19 @@
 
       <!-- Gender Preference -->
       <div :class="getCls('field')">
-        <label :class="getCls('label')"> Gender Preference </label>
-        <select v-model="localGender" :class="getCls('select')">
-          <option :value="null">Select gender</option>
+        <label :class="getCls('label')">
+          Gender Preference <span :class="getCls('required')">*</span>
+        </label>
+        <FormSelect
+          v-model="localGender"
+          name="required_gender"
+          :select-class="getCls('select')"
+          :show-error="showErrors"
+        >
           <option value="male">Male</option>
           <option value="female">Female</option>
           <option value="lgbtq+">LGBTQ+</option>
-        </select>
+        </FormSelect>
       </div>
 
       <!-- Teacher (Optional) -->

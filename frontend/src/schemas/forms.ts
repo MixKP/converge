@@ -12,6 +12,7 @@ const selectGender = () =>
 export const aiSuggestionsFormSchema = z.object({
   subject_id: selectId('a subject'),
   branch_id: selectId('a branch'),
+  required_gender: selectGender(),
   teacher_id: z.number().int().positive().nullable(),
   slots: z
     .array(weeklySlotSchema)

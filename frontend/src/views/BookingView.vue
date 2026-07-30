@@ -46,6 +46,7 @@
   const allCalendarEvents = computed(() => allEvents.value)
 
   const aiMode = ref<'idle' | 'expanding' | 'expanded'>('idle')
+  const smartSuggestionGender = computed(() => requiredGender.value ?? 'male')
 
   const isAddingToCart = ref(false)
 
@@ -342,7 +343,7 @@
           :selected-subject-id="selectedSubjectId"
           :selected-branch-id="selectedBranchId"
           :selected-teacher-id="selectedTeacherId"
-          :selected-gender="requiredGender"
+          :selected-gender="smartSuggestionGender"
           :subjects="subjects"
           :branches="branches"
           :filtered-teachers="genderFilteredTeachers"
@@ -568,7 +569,7 @@
           :selected-subject-id="selectedSubjectId"
           :selected-branch-id="selectedBranchId"
           :selected-teacher-id="selectedTeacherId"
-          :selected-gender="requiredGender"
+          :selected-gender="smartSuggestionGender"
           :subjects="subjects"
           :branches="branches"
           :filtered-teachers="genderFilteredTeachers"
@@ -815,7 +816,7 @@
             :selected-subject-id="selectedSubjectId"
             :selected-branch-id="selectedBranchId"
             :selected-teacher-id="selectedTeacherId"
-            :selected-gender="requiredGender"
+            :selected-gender="smartSuggestionGender"
             :subjects="subjects"
             :branches="branches"
             :filtered-teachers="genderFilteredTeachers"
