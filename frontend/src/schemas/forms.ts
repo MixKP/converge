@@ -29,7 +29,7 @@ export const manualBookingFormSchema = z.object({
   subject_id: selectId('a subject'),
   branch_id: selectId('a branch'),
   teacher_id: selectId('a teacher'),
-  required_gender: selectGender(),
+  required_gender: z.enum(['male', 'female', 'lgbtq+']).nullable(),
 })
 
 export const availabilityFormSchema = z.object({
