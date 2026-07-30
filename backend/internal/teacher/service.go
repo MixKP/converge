@@ -43,6 +43,14 @@ func (s *Service) GetActiveTeachers(ctx context.Context) ([]Teacher, error) {
 	return s.teacherStore.GetActiveTeachers(ctx)
 }
 
+func (s *Service) GetAllTeachers(ctx context.Context) ([]Teacher, error) {
+	return s.teacherStore.GetAllTeachers(ctx)
+}
+
+func (s *Service) GetInactiveTeachers(ctx context.Context) ([]Teacher, error) {
+	return s.teacherStore.GetInactiveTeachers(ctx)
+}
+
 func (s *Service) GetTeachersBySubject(ctx context.Context, subjectID int) ([]Teacher, error) {
 	return s.teacherStore.GetTeachersBySubject(ctx, subjectID)
 }

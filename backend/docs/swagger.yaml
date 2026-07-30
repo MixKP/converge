@@ -483,13 +483,22 @@ paths:
       - subjects
   /teachers:
     get:
-      description: Returns all teachers with active status, ordered by name. Optionally
-        filter by subject_id.
+      description: Returns teachers ordered by name. Filter by status (active|deactivated|all,
+        default all). Optionally filter by subject_id, which returns active teachers
+        only and ignores status.
       parameters:
-      - description: Filter by subject ID
+      - description: Filter by subject ID (active teachers only)
         in: query
         name: subject_id
         type: integer
+      - description: Filter by status
+        enum:
+        - active
+        - deactivated
+        - all
+        in: query
+        name: status
+        type: string
       produces:
       - application/json
       responses:
@@ -507,7 +516,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
-      summary: List active teachers
+      summary: List teachers
       tags:
       - teachers
     post:

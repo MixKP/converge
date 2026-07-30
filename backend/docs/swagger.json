@@ -370,19 +370,30 @@
         },
         "/teachers": {
             "get": {
-                "description": "Returns all teachers with active status, ordered by name. Optionally filter by subject_id.",
+                "description": "Returns teachers ordered by name. Filter by status (active|deactivated|all, default all). Optionally filter by subject_id, which returns active teachers only and ignores status.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "teachers"
                 ],
-                "summary": "List active teachers",
+                "summary": "List teachers",
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "Filter by subject ID",
+                        "description": "Filter by subject ID (active teachers only)",
                         "name": "subject_id",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "active",
+                            "deactivated",
+                            "all"
+                        ],
+                        "type": "string",
+                        "description": "Filter by status",
+                        "name": "status",
                         "in": "query"
                     }
                 ],

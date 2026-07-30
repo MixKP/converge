@@ -19,6 +19,10 @@ import (
 type mockService struct {
 	teachers         []teacher.Teacher
 	getErr           error
+	activeTeachers   []teacher.Teacher
+	activeErr        error
+	inactiveTeachers []teacher.Teacher
+	inactiveErr      error
 	teachersBySub    []teacher.Teacher
 	teachersBySubErr error
 	subjects         []shared.Subject
@@ -36,8 +40,16 @@ type mockService struct {
 	setGenderCalled  bool
 }
 
-func (m *mockService) GetActiveTeachers(ctx context.Context) ([]teacher.Teacher, error) {
+func (m *mockService) GetAllTeachers(ctx context.Context) ([]teacher.Teacher, error) {
 	return m.teachers, m.getErr
+}
+
+func (m *mockService) GetActiveTeachers(ctx context.Context) ([]teacher.Teacher, error) {
+	return m.activeTeachers, m.activeErr
+}
+
+func (m *mockService) GetInactiveTeachers(ctx context.Context) ([]teacher.Teacher, error) {
+	return m.inactiveTeachers, m.inactiveErr
 }
 
 func (m *mockService) GetTeachersBySubject(ctx context.Context, subjectID int) ([]teacher.Teacher, error) {
@@ -316,6 +328,79 @@ func TestAvailabilityHandler_GetAllAvailability_Empty(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &availability)
 	require.NoError(t, err)
 	assert.Len(t, availability, 0)
+}
+
+func TestAvailabilityHandler_GetTeachers_StatusActive(t *testing.T) {
+	mock := &mockService{
+		activeTeachers: []teacher.Teacher{{ID: 1, Name: "Alice", Status: "active"}},
+	}
+	handler := NewAvailabilityHandler(mock, slog.Default())
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.GET("/api/teachers", handler.GetTeachers)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/teachers?status=active", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var teachers []teacher.Teacher
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &teachers))
+	assert.Len(t, teachers, 1)
+	assert.Equal(t, "active", teachers[0].Status)
+}
+
+func TestAvailabilityHandler_GetTeachers_StatusDeactivated(t *testing.T) {
+	mock := &mockService{
+		inactiveTeachers: []teacher.Teacher{{ID: 2, Name: "Bob", Status: "deactivated"}},
+	}
+	handler := NewAvailabilityHandler(mock, slog.Default())
+	r := gin.Default()
+	r.GET("/api/teachers", handler.GetTeachers)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/teachers?status=deactivated", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var teachers []teacher.Teacher
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &teachers))
+	assert.Len(t, teachers, 1)
+	assert.Equal(t, "deactivated", teachers[0].Status)
+}
+
+func TestAvailabilityHandler_GetTeachers_StatusAll(t *testing.T) {
+	mock := &mockService{
+		teachers: []teacher.Teacher{
+			{ID: 1, Name: "Alice", Status: "active"},
+			{ID: 2, Name: "Bob", Status: "deactivated"},
+		},
+	}
+	handler := NewAvailabilityHandler(mock, slog.Default())
+	r := gin.Default()
+	r.GET("/api/teachers", handler.GetTeachers)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/teachers?status=all", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var teachers []teacher.Teacher
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &teachers))
+	assert.Len(t, teachers, 2)
+}
+
+func TestAvailabilityHandler_GetTeachers_StatusInvalid(t *testing.T) {
+	mock := &mockService{}
+	handler := NewAvailabilityHandler(mock, slog.Default())
+	r := gin.Default()
+	r.GET("/api/teachers", handler.GetTeachers)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/teachers?status=bogus", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestAvailabilityHandler_GetTeachersBySubject_Success(t *testing.T) {

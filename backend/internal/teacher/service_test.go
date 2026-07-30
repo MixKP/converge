@@ -36,6 +36,16 @@ func (m *mockStore) GetActiveTeachers(ctx context.Context) ([]Teacher, error) {
 	return args.Get(0).([]Teacher), args.Error(1)
 }
 
+func (m *mockStore) GetAllTeachers(ctx context.Context) ([]Teacher, error) {
+	args := m.Called(ctx)
+	return args.Get(0).([]Teacher), args.Error(1)
+}
+
+func (m *mockStore) GetInactiveTeachers(ctx context.Context) ([]Teacher, error) {
+	args := m.Called(ctx)
+	return args.Get(0).([]Teacher), args.Error(1)
+}
+
 func (m *mockStore) GetTeachersBySubject(ctx context.Context, subjectID int) ([]Teacher, error) {
 	args := m.Called(ctx, subjectID)
 	return args.Get(0).([]Teacher), args.Error(1)
@@ -225,6 +235,55 @@ func TestTeacherService_GetActiveTeachers_Error(t *testing.T) {
 	store.On("GetActiveTeachers", mock.Anything).Return(([]Teacher)(nil), errors.New("db error"))
 
 	_, err := svc.GetActiveTeachers(context.Background())
+	assert.Error(t, err)
+}
+
+func TestTeacherService_GetAllTeachers_Success(t *testing.T) {
+	store := new(mockStore)
+	svc := NewService(store, store, store, slog.Default())
+
+	expected := []Teacher{
+		{ID: 1, Name: "Alice", Gender: "female", Status: "active"},
+		{ID: 2, Name: "Bob", Gender: "male", Status: "deactivated"},
+	}
+	store.On("GetAllTeachers", mock.Anything).Return(expected, nil)
+
+	teachers, err := svc.GetAllTeachers(context.Background())
+	assert.NoError(t, err)
+	assert.Len(t, teachers, 2)
+	assert.Equal(t, "deactivated", teachers[1].Status)
+}
+
+func TestTeacherService_GetAllTeachers_Error(t *testing.T) {
+	store := new(mockStore)
+	svc := NewService(store, store, store, slog.Default())
+
+	store.On("GetAllTeachers", mock.Anything).Return(([]Teacher)(nil), errors.New("db error"))
+
+	_, err := svc.GetAllTeachers(context.Background())
+	assert.Error(t, err)
+}
+
+func TestTeacherService_GetInactiveTeachers_Success(t *testing.T) {
+	store := new(mockStore)
+	svc := NewService(store, store, store, slog.Default())
+
+	expected := []Teacher{{ID: 3, Name: "Carol", Gender: "female", Status: "deactivated"}}
+	store.On("GetInactiveTeachers", mock.Anything).Return(expected, nil)
+
+	teachers, err := svc.GetInactiveTeachers(context.Background())
+	assert.NoError(t, err)
+	assert.Len(t, teachers, 1)
+	assert.Equal(t, "deactivated", teachers[0].Status)
+}
+
+func TestTeacherService_GetInactiveTeachers_Error(t *testing.T) {
+	store := new(mockStore)
+	svc := NewService(store, store, store, slog.Default())
+
+	store.On("GetInactiveTeachers", mock.Anything).Return(([]Teacher)(nil), errors.New("db error"))
+
+	_, err := svc.GetInactiveTeachers(context.Background())
 	assert.Error(t, err)
 }
 

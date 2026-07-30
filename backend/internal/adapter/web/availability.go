@@ -15,6 +15,8 @@ import (
 
 type teacherService interface {
 	GetActiveTeachers(ctx context.Context) ([]teacher.Teacher, error)
+	GetAllTeachers(ctx context.Context) ([]teacher.Teacher, error)
+	GetInactiveTeachers(ctx context.Context) ([]teacher.Teacher, error)
 	GetTeachersBySubject(ctx context.Context, subjectID int) ([]teacher.Teacher, error)
 	GetAllAvailability(ctx context.Context) ([]teacher.TeacherAvailability, error)
 	GetSubjects(ctx context.Context) ([]shared.Subject, error)
@@ -34,11 +36,13 @@ func NewAvailabilityHandler(svc teacherService, logger *slog.Logger) *Availabili
 }
 
 // GetTeachers godoc
-// @Summary      List active teachers
-// @Description  Returns all teachers with active status, ordered by name. Optionally filter by subject_id.
+// GetTeachers godoc
+// @Summary      List teachers
+// @Description  Returns teachers ordered by name. Filter by status (active|deactivated|all, default all). Optionally filter by subject_id, which returns active teachers only and ignores status.
 // @Tags         teachers
 // @Produce      json
-// @Param        subject_id  query  int  false  "Filter by subject ID"
+// @Param        subject_id  query  int     false  "Filter by subject ID (active teachers only)"
+// @Param        status      query  string  false  "Filter by status"  Enums(active, deactivated, all)
 // @Success      200  {array}  teacher.Teacher
 // @Failure      400  {object}  scheduling.ErrorResponse
 // @Failure      500  {object}  scheduling.ErrorResponse
@@ -66,11 +70,27 @@ func (h *AvailabilityHandler) GetTeachers(c *gin.Context) {
 		return
 	}
 
-	teachers, err := h.svc.GetActiveTeachers(c.Request.Context())
+	status := c.Query("status")
+	var (
+		teachers []teacher.Teacher
+		err      error
+	)
+	switch status {
+	case "", "all":
+		teachers, err = h.svc.GetAllTeachers(c.Request.Context())
+	case "active":
+		teachers, err = h.svc.GetActiveTeachers(c.Request.Context())
+	case "deactivated":
+		teachers, err = h.svc.GetInactiveTeachers(c.Request.Context())
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid status: must be active, deactivated, or all"})
+		return
+	}
 	if err != nil {
 		h.logger.Error("request failed",
 			"request_id", requestID(c),
-			"op", "GetTeachers/GetActiveTeachers",
+			"op", "GetTeachers",
+			"status", status,
 			"error", err,
 		)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve teachers"})

@@ -29,6 +29,43 @@ func TestPostgresRepoGetActiveTeachers(t *testing.T) {
 	assert.Equal(t, "Test Teacher", teachers[0].Name)
 }
 
+func TestPostgresRepoGetAllTeachers(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewPostgresRepo(db)
+
+	_, err := db.Exec(`INSERT INTO teachers (id, name, email, gender, status) VALUES (1, 'Active Teacher', 'active@teacher.com', 'male', 'active')`)
+	require.NoError(t, err)
+	_, err = db.Exec(`INSERT INTO teachers (id, name, gender, status) VALUES (2, 'Inactive Teacher', 'female', 'deactivated')`)
+	require.NoError(t, err)
+
+	teachers, err := repo.GetAllTeachers(context.Background())
+	require.NoError(t, err)
+	assert.Len(t, teachers, 2)
+
+	byName := map[string]string{}
+	for _, tt := range teachers {
+		byName[tt.Name] = tt.Status
+	}
+	assert.Equal(t, "active", byName["Active Teacher"])
+	assert.Equal(t, "deactivated", byName["Inactive Teacher"])
+}
+
+func TestPostgresRepoGetInactiveTeachers(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewPostgresRepo(db)
+
+	_, err := db.Exec(`INSERT INTO teachers (id, name, email, gender, status) VALUES (1, 'Active Teacher', 'active@teacher.com', 'male', 'active')`)
+	require.NoError(t, err)
+	_, err = db.Exec(`INSERT INTO teachers (id, name, gender, status) VALUES (2, 'Inactive Teacher', 'female', 'deactivated')`)
+	require.NoError(t, err)
+
+	teachers, err := repo.GetInactiveTeachers(context.Background())
+	require.NoError(t, err)
+	assert.Len(t, teachers, 1)
+	assert.Equal(t, "Inactive Teacher", teachers[0].Name)
+	assert.Equal(t, "deactivated", teachers[0].Status)
+}
+
 func TestPostgresRepoReplaceWeeklyAvailability(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewPostgresRepo(db)

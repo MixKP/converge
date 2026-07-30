@@ -11,6 +11,8 @@ type TeacherStore interface {
 	SetStatus(ctx context.Context, teacherID int, status string) error
 	SetGender(ctx context.Context, teacherID int, gender string) error
 	GetActiveTeachers(ctx context.Context) ([]Teacher, error)
+	GetAllTeachers(ctx context.Context) ([]Teacher, error)
+	GetInactiveTeachers(ctx context.Context) ([]Teacher, error)
 	GetTeachersBySubject(ctx context.Context, subjectID int) ([]Teacher, error)
 }
 

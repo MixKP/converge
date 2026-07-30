@@ -24,7 +24,43 @@ func NewPostgresRepo(database *sql.DB) *PostgresRepo {
 }
 
 func (p *PostgresRepo) GetActiveTeachers(ctx context.Context) ([]teacher.Teacher, error) {
-	rows, err := p.DB.QueryContext(ctx, `SELECT id, name, email, gender, status FROM teachers WHERE status = 'active' ORDER BY name`)
+	rows, err := p.DB.QueryContext(ctx, `SELECT id, name, COALESCE(email, '') AS email, gender, status FROM teachers WHERE status = 'active' ORDER BY name`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var teachers []teacher.Teacher
+	for rows.Next() {
+		var t teacher.Teacher
+		if err := rows.Scan(&t.ID, &t.Name, &t.Email, &t.Gender, &t.Status); err != nil {
+			return nil, err
+		}
+		teachers = append(teachers, t)
+	}
+	return teachers, rows.Err()
+}
+
+func (p *PostgresRepo) GetAllTeachers(ctx context.Context) ([]teacher.Teacher, error) {
+	rows, err := p.DB.QueryContext(ctx, `SELECT id, name, COALESCE(email, '') AS email, gender, status FROM teachers ORDER BY name`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var teachers []teacher.Teacher
+	for rows.Next() {
+		var t teacher.Teacher
+		if err := rows.Scan(&t.ID, &t.Name, &t.Email, &t.Gender, &t.Status); err != nil {
+			return nil, err
+		}
+		teachers = append(teachers, t)
+	}
+	return teachers, rows.Err()
+}
+
+func (p *PostgresRepo) GetInactiveTeachers(ctx context.Context) ([]teacher.Teacher, error) {
+	rows, err := p.DB.QueryContext(ctx, `SELECT id, name, COALESCE(email, '') AS email, gender, status FROM teachers WHERE status = 'deactivated' ORDER BY name`)
 	if err != nil {
 		return nil, err
 	}
