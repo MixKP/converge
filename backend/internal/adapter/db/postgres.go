@@ -129,6 +129,13 @@ func AutoMigrate(database *sql.DB) error {
 		`UPDATE teachers SET gender = 'male' WHERE gender IS NULL`,
 		`ALTER TABLE teachers ALTER COLUMN gender SET NOT NULL`,
 
+		`CREATE TABLE IF NOT EXISTS users (
+			id SERIAL PRIMARY KEY,
+			name VARCHAR(100) NOT NULL UNIQUE,
+			password_hash VARCHAR(255) NOT NULL,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
 		`CREATE TABLE IF NOT EXISTS commute_config (
 			id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
 			commute_minutes INTEGER NOT NULL DEFAULT 30 CHECK (commute_minutes >= 0)

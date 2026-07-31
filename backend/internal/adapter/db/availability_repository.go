@@ -13,7 +13,10 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-const pgCheckViolation = "23514"
+const (
+	pgCheckViolation  = "23514"
+	pgUniqueViolation = "23505"
+)
 
 type PostgresRepo struct {
 	DB *sql.DB
@@ -214,6 +217,16 @@ func checkViolationError(err error, msg string) error {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == pgCheckViolation {
 		return &shared.ValidationError{Msg: msg}
+	}
+	return nil
+}
+
+// uniqueViolationError returns a *shared.ConflictError with msg if err is a Postgres
+// UNIQUE constraint violation, or nil otherwise.
+func uniqueViolationError(err error, msg string) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == pgUniqueViolation {
+		return &shared.ConflictError{Msg: msg}
 	}
 	return nil
 }

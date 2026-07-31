@@ -252,6 +252,39 @@ definitions:
     required:
     - status
     type: object
+  user.LoginRequest:
+    properties:
+      name:
+        example: alice
+        type: string
+      password:
+        example: s3cret
+        type: string
+    required:
+    - name
+    - password
+    type: object
+  user.RegisterRequest:
+    properties:
+      name:
+        example: alice
+        type: string
+      password:
+        example: s3cret
+        type: string
+    required:
+    - name
+    - password
+    type: object
+  user.User:
+    properties:
+      id:
+        example: 1
+        type: integer
+      name:
+        example: alice
+        type: string
+    type: object
 info:
   contact: {}
   description: API for teacher availability management and bookings
@@ -544,6 +577,71 @@ paths:
       summary: Update the global commute time
       tags:
       - commute
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: Verifies a user's name and password. Returns the user on success.
+        No token is issued yet.
+      parameters:
+      - description: User credentials
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/user.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.User'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+      summary: Log in
+      tags:
+      - users
+  /register:
+    post:
+      consumes:
+      - application/json
+      description: Creates a user with a unique name and a bcrypt-hashed password
+      parameters:
+      - description: New user credentials
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/user.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/user.User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+      summary: Register a new user
+      tags:
+      - users
   /subjects:
     get:
       description: Returns all subjects ordered by id

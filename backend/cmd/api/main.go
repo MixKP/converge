@@ -23,6 +23,7 @@ import (
 	"github.com/RinZ5/converge/backend/internal/scheduling"
 	"github.com/RinZ5/converge/backend/internal/shared"
 	"github.com/RinZ5/converge/backend/internal/teacher"
+	"github.com/RinZ5/converge/backend/internal/user"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -99,8 +100,10 @@ func main() {
 	availRepo := db.NewPostgresRepo(database)
 	bookingRepo := db.NewBookingRepository(database)
 	branchRepo := db.NewBranchRepository(database)
+	userRepo := db.NewUserRepository(database)
 	teacherSvc := teacher.NewService(availRepo, availRepo, availRepo, logger)
 	branchSvc := branch.NewService(branchRepo, logger)
+	userSvc := user.NewService(userRepo, logger)
 	teacherRoster := adapter.NewTeacherRosterAdapter(teacherSvc)
 	commuteConfigRepo := db.NewCommuteConfigRepository(database)
 	commuteSvc := commute.NewService(commuteConfigRepo, logger)
@@ -116,12 +119,15 @@ func main() {
 	bookingHandler := web.NewBookingHandler(schedulingSvc, logger)
 	branchHandler := web.NewBranchHandler(branchSvc, logger)
 	commuteHandler := web.NewCommuteHandler(commuteSvc, logger)
+	userHandler := web.NewUserHandler(userSvc, logger)
 
 	r := gin.Default()
 	r.Use(requestIDMiddleware())
 	r.Use(timeoutMiddleware(requestTimeout))
 	r.Use(cors.New(corsConfig()))
 	api := r.Group("/api")
+	api.POST("/register", userHandler.Register)
+	api.POST("/login", userHandler.Login)
 	api.GET("/teachers", availHandler.GetTeachers)
 	api.POST("/teachers", availHandler.CreateTeacher)
 	api.PATCH("/teachers/:id/status", availHandler.UpdateTeacherStatus)
