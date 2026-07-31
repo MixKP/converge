@@ -13,12 +13,12 @@ type CLPEngine struct {
 	bookingStore   BookingStore
 	teacherRoster  TeacherRoster
 	scorer         Scorer
-	commute        CommuteEstimate
+	commute        CommuteProvider
 	branchCapacity BranchCapacityCheck
 	logger         *slog.Logger
 }
 
-func NewCLPEngine(bookingStore BookingStore, teacherRoster TeacherRoster, scorer Scorer, commute CommuteEstimate, branchCapacity BranchCapacityCheck, logger *slog.Logger) *CLPEngine {
+func NewCLPEngine(bookingStore BookingStore, teacherRoster TeacherRoster, scorer Scorer, commute CommuteProvider, branchCapacity BranchCapacityCheck, logger *slog.Logger) *CLPEngine {
 	if branchCapacity == nil {
 		panic("scheduling: NewCLPEngine requires a non-nil BranchCapacityCheck; pass a no-op implementation if capacity should not be enforced")
 	}
@@ -93,6 +93,25 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req BookingRequ
 		prefetched[t.ID] = prefetchedTeacherData{slots: slots, conflicts: conflicts}
 	}
 
+	// The commute pad is a single global value: a booking at a different
+	// branch than the request needs this much travel time, one at the same
+	// branch needs none. Fetch it once (I/O hoisted out of the constraint,
+	// which must stay pure). When no commute source is wired the pad is 0 and
+	// behavior is unchanged.
+	var commutePad time.Duration
+	if e.commute != nil {
+		d, err := e.commute.DefaultCommute(ctx)
+		if err != nil {
+			e.logger.Warn("commute lookup failed, treating as no travel time",
+				"request_id", shared.RequestIDFromContext(ctx),
+				"op", "CLPEngine.FindAlternativesForSlot",
+				"error", err,
+			)
+		} else {
+			commutePad = d
+		}
+	}
+
 	branchCapacity := 0
 	branchOverlapByOffset := make(map[timeWindow]int, len(offsets))
 	capacity, capErr := e.branchCapacity.GetCapacity(ctx, req.BranchID)
@@ -154,7 +173,11 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req BookingRequ
 		}
 
 		for _, c := range data.conflicts {
-			if overlaps(o.start, o.end, c.StartTime, c.EndTime) {
+			buf := time.Duration(0)
+			if c.BranchID != req.BranchID {
+				buf = commutePad
+			}
+			if overlaps(o.start, o.end, c.StartTime.Add(-buf), c.EndTime.Add(buf)) {
 				return false, nil
 			}
 		}
@@ -176,7 +199,16 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req BookingRequ
 			Request:           req,
 			AvailabilitySlots: slots,
 		})
-		return result.Score, result.Reasons, nil
+		// Rank primarily by how little the slot shifts from the requested
+		// time; the 0-100 quality only breaks ties between equally-close
+		// slots. Keep the raw quality in metadata for display.
+		shift := o.start.Sub(prefStart)
+		if shift < 0 {
+			shift = -shift
+		}
+		steps := int(shift / CandidateStepDuration)
+		a.Metadata["quality"] = result.Score
+		return result.Score - steps*ProximityWeight, result.Reasons, nil
 	})
 
 	model.SetDedupKey(func(a Assignment) string {
@@ -201,34 +233,79 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req BookingRequ
 			SubjectID:   req.SubjectID,
 			StartTime:   o.start,
 			EndTime:     o.end,
-			Score:       a.Score,
+			Score:       a.Metadata["quality"].(int),
 			Reasons:     a.Reasons,
 		}
-		alt = e.enrichWithCommute(ctx, alt, req.BranchID, o.start)
+		alt = enrichWithCommute(alt, o, req.BranchID, prefetched[t.ID].conflicts, commutePad)
 		alts = append(alts, alt)
 	}
 	return alts, nil
 }
 
-func (e *CLPEngine) enrichWithCommute(ctx context.Context, alt BookingAlternative, branchID int, t time.Time) BookingAlternative {
-	if e.commute == nil {
+// enrichWithCommute reports the travel time a chosen slot depends on: when the
+// teacher has a different-branch booking whose gap to the slot is no larger
+// than the commute pad (i.e. the travel time is the binding constraint), that
+// pad is reported. Pure — commutePad is the single global travel time.
+func enrichWithCommute(alt BookingAlternative, o timeWindow, reqBranchID int, conflicts []Booking, commutePad time.Duration) BookingAlternative {
+	if commutePad <= 0 {
 		return alt
 	}
-	commuteDur, err := e.commute.Estimate(ctx, branchID, branchID, t)
-	if err != nil {
-		e.logger.Warn("commute estimate failed",
-			"request_id", shared.RequestIDFromContext(ctx),
-			"op", "CLPEngine.enrichWithCommute",
-			"branch_id", branchID,
-			"error", err,
-		)
-		return alt
+	var maxPad time.Duration
+	for _, c := range conflicts {
+		if c.BranchID == reqBranchID {
+			continue
+		}
+		buf := commutePad
+		var gap time.Duration
+		switch {
+		case !c.EndTime.After(o.start): // booking is before the slot
+			gap = o.start.Sub(c.EndTime)
+		case !o.end.After(c.StartTime): // booking is after the slot
+			gap = c.StartTime.Sub(o.end)
+		default:
+			continue // overlapping — not a valid slot
+		}
+		// Candidates land on a CandidateStepDuration grid, so a commute that
+		// isn't a multiple of the step rounds the binding slot's gap up into
+		// [buf, buf+step). Report the pad on that binding slot.
+		if gap >= 0 && gap < buf+CandidateStepDuration && buf > maxPad {
+			maxPad = buf
+		}
 	}
-	if commuteDur > 0 {
-		mins := int(commuteDur.Minutes())
-		alt.CommuteMinutes = shared.Some(mins)
+	if maxPad > 0 {
+		alt.CommuteMinutes = shared.Some(int(maxPad.Minutes()))
 	}
 	return alt
+}
+
+// CommuteConflict reports whether placing a booking for teacherID at
+// [start,end] in branchID leaves too little travel time given the teacher's
+// existing different-branch bookings. Same-branch overlaps are assumed already
+// handled by the caller (the exact-match query rejects time overlaps), so only
+// different-branch bookings padded by their commute are considered. Returns
+// false when no commute source is wired.
+func (e *CLPEngine) CommuteConflict(ctx context.Context, teacherID, branchID int, start, end time.Time) (bool, error) {
+	if e.commute == nil {
+		return false, nil
+	}
+	buf, err := e.commute.DefaultCommute(ctx)
+	if err != nil {
+		return false, err
+	}
+	bookings, err := e.bookingStore.FindConflictingBookings(ctx, teacherID,
+		start.Add(-buf), end.Add(buf))
+	if err != nil {
+		return false, err
+	}
+	for _, b := range bookings {
+		if b.BranchID == branchID {
+			continue
+		}
+		if overlaps(start, end, b.StartTime.Add(-buf), b.EndTime.Add(buf)) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func overlaps(aStart, aEnd, bStart, bEnd time.Time) bool {

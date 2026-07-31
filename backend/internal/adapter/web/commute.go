@@ -15,6 +15,8 @@ import (
 
 type commuteService interface {
 	CommuteTime(ctx context.Context, sourceBranchID, destBranchID int) (int, error)
+	Minutes(ctx context.Context) (int, error)
+	SetCommuteTime(ctx context.Context, minutes int) error
 }
 
 type CommuteHandler struct {
@@ -42,7 +44,17 @@ func (h *CommuteHandler) GetCommute(c *gin.Context) {
 	destStr := c.Query("destination_branch")
 
 	if sourceStr == "" && destStr == "" {
-		c.JSON(http.StatusOK, commute.DefaultCommuteResponse{CommuteTime: commute.DefaultCommuteMinutes})
+		minutes, err := h.svc.Minutes(c.Request.Context())
+		if err != nil {
+			h.logger.Error("request failed",
+				"request_id", requestID(c),
+				"op", "GetCommute",
+				"error", err,
+			)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to compute commute time"})
+			return
+		}
+		c.JSON(http.StatusOK, commute.DefaultCommuteResponse{CommuteTime: minutes})
 		return
 	}
 
@@ -84,4 +96,36 @@ func (h *CommuteHandler) GetCommute(c *gin.Context) {
 		DestinationBranch: dest,
 		CommuteTime:       minutes,
 	})
+}
+
+// UpdateCommute godoc
+// @Summary      Update the global commute time
+// @Description  Sets the commute time in minutes applied between different branches. Must be non-negative.
+// @Tags         commute
+// @Accept       json
+// @Produce      json
+// @Param        body  body  commute.UpdateCommuteRequest  true  "New commute time"
+// @Success      200  {object}  commute.DefaultCommuteResponse
+// @Failure      400  {object}  scheduling.ErrorResponse
+// @Failure      500  {object}  scheduling.ErrorResponse
+// @Router       /commute [patch]
+func (h *CommuteHandler) UpdateCommute(c *gin.Context) {
+	var req commute.UpdateCommuteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	minutes, ok := req.CommuteTime.Value()
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "commute_time is required"})
+		return
+	}
+
+	if err := h.svc.SetCommuteTime(c.Request.Context(), minutes); err != nil {
+		respondFieldUpdateErr(c, h.logger, err, "UpdateCommute/SetCommuteTime", "commute", 1, "failed to update commute time")
+		return
+	}
+
+	c.JSON(http.StatusOK, commute.DefaultCommuteResponse{CommuteTime: minutes})
 }

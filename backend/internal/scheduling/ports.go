@@ -27,8 +27,8 @@ type ReferenceStore interface {
 	GetSubjects(ctx context.Context) ([]Subject, error)
 }
 
-type CommuteEstimate interface {
-	Estimate(ctx context.Context, fromBranchID, toBranchID int, arrivalTime time.Time) (time.Duration, error)
+type CommuteProvider interface {
+	DefaultCommute(ctx context.Context) (time.Duration, error)
 }
 
 type BranchCapacityCheck interface {

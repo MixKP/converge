@@ -64,6 +64,11 @@ func (m *mockEngine) FindAlternativesForSlot(ctx context.Context, req BookingReq
 	return args.Get(0).([]BookingAlternative), args.Error(1)
 }
 
+func (m *mockEngine) CommuteConflict(ctx context.Context, teacherID, branchID int, start, end time.Time) (bool, error) {
+	args := m.Called(ctx, teacherID, branchID, start, end)
+	return args.Bool(0), args.Error(1)
+}
+
 func slot(day int, start, end string) shared.WeeklySlot {
 	return shared.WeeklySlot{DayOfWeek: day, Start: shared.TimeHHMM(start), End: shared.TimeHHMM(end)}
 }
@@ -98,6 +103,7 @@ func TestSchedulingService_Evaluate_ExactMatch(t *testing.T) {
 		TeacherName: "Alice",
 	}
 	store.On("FindExactMatch", mock.Anything, 1, 1, s, 60, shared.None[int](), "female").Return(exactMatch, nil)
+	engine.On("CommuteConflict", mock.Anything, 1, 1, exactMatch.Booking.StartTime, exactMatch.Booking.EndTime).Return(false, nil)
 
 	result, err := svc.Evaluate(context.Background(), req)
 
@@ -108,6 +114,37 @@ func TestSchedulingService_Evaluate_ExactMatch(t *testing.T) {
 	assert.Equal(t, "Alice", result.Results[0].ExactMatch.TeacherName)
 	assert.Empty(t, result.Results[0].Alternatives)
 	store.AssertExpectations(t)
+}
+
+func TestSchedulingService_Evaluate_ExactMatchCommuteBlocked_DemotesToAlternatives(t *testing.T) {
+	store := new(mockStore)
+	engine := new(mockEngine)
+	svc := NewSchedulingService(store, store, engine)
+
+	s := slot(0, "13:00", "14:00")
+	req := bookingReq(1, 1, s, 60)
+
+	exactMatch := &BookingMatch{
+		Booking: Booking{
+			ID: 42, TeacherID: 1, BranchID: 1, SubjectID: 1,
+			StartTime: time.Date(2026, 6, 1, 13, 0, 0, 0, time.UTC),
+			EndTime:   time.Date(2026, 6, 1, 14, 0, 0, 0, time.UTC),
+		},
+		TeacherName: "Alice",
+	}
+	store.On("FindExactMatch", mock.Anything, 1, 1, s, 60, shared.None[int](), "female").Return(exactMatch, nil)
+	engine.On("CommuteConflict", mock.Anything, 1, 1, exactMatch.Booking.StartTime, exactMatch.Booking.EndTime).Return(true, nil)
+	alts := []BookingAlternative{{TeacherID: 1, TeacherName: "Alice", Score: 90}}
+	engine.On("FindAlternativesForSlot", mock.Anything, req, s).Return(alts, nil)
+
+	result, err := svc.Evaluate(context.Background(), req)
+
+	assert.NoError(t, err)
+	assert.Len(t, result.Results, 1)
+	assert.Nil(t, result.Results[0].ExactMatch)
+	assert.Len(t, result.Results[0].Alternatives, 1)
+	store.AssertExpectations(t)
+	engine.AssertExpectations(t)
 }
 
 func TestSchedulingService_Evaluate_Alternatives(t *testing.T) {
@@ -224,6 +261,7 @@ func TestSchedulingService_Evaluate_TwoSlots(t *testing.T) {
 		TeacherName: "Alice",
 	}
 	store.On("FindExactMatch", mock.Anything, 1, 1, monSlot, 60, shared.None[int](), "female").Return(exactMatch, nil)
+	engine.On("CommuteConflict", mock.Anything, 1, 1, exactMatch.Booking.StartTime, exactMatch.Booking.EndTime).Return(false, nil)
 	store.On("FindExactMatch", mock.Anything, 1, 1, friSlot, 60, shared.None[int](), "female").Return(nil, nil)
 
 	alts := []BookingAlternative{

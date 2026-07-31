@@ -2,9 +2,9 @@ package commute
 
 import "context"
 
-// CommuteSource is the driven port for obtaining commute time in minutes
-// between two branches. Implemented by an adapter (currently a static stub
-// standing in for a real distance/maps source).
-type CommuteSource interface {
-	CommuteMinutes(ctx context.Context, sourceBranchID, destBranchID int) (int, error)
+// ConfigStore is the driven port for the persisted, globally-configured commute
+// time (minutes). Implemented by a DB adapter.
+type ConfigStore interface {
+	GetCommuteMinutes(ctx context.Context) (int, error)
+	SetCommuteMinutes(ctx context.Context, minutes int) error
 }

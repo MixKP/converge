@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/RinZ5/converge/backend/internal/shared"
 )
@@ -16,6 +17,7 @@ type SchedulingService struct {
 
 type bookingEngine interface {
 	FindAlternativesForSlot(ctx context.Context, req BookingRequest, window shared.WeeklySlot) ([]BookingAlternative, error)
+	CommuteConflict(ctx context.Context, teacherID, branchID int, start, end time.Time) (bool, error)
 }
 
 func NewSchedulingService(bookingStore BookingStore, refStore ReferenceStore, engine bookingEngine) *SchedulingService {
@@ -60,21 +62,30 @@ func (s *SchedulingService) Evaluate(ctx context.Context, req BookingRequest) (*
 		}
 
 		if match != nil {
-			results = append(results, SlotResult{
-				Slot: slot,
-				ExactMatch: &BookingAlternative{
-					TeacherID:   match.Booking.TeacherID,
-					TeacherName: match.TeacherName,
-					BranchID:    match.Booking.BranchID,
-					SubjectID:   match.Booking.SubjectID,
-					StartTime:   match.Booking.StartTime,
-					EndTime:     match.Booking.EndTime,
-					Score:       100,
-					Reasons:     []string{"Exact match"},
-				},
-				Message: "Exact match found",
-			})
-			continue
+			blocked, err := s.engine.CommuteConflict(ctx, match.Booking.TeacherID, req.BranchID,
+				match.Booking.StartTime, match.Booking.EndTime)
+			if err != nil {
+				return nil, fmt.Errorf("commute conflict check: %w", err)
+			}
+			if !blocked {
+				results = append(results, SlotResult{
+					Slot: slot,
+					ExactMatch: &BookingAlternative{
+						TeacherID:   match.Booking.TeacherID,
+						TeacherName: match.TeacherName,
+						BranchID:    match.Booking.BranchID,
+						SubjectID:   match.Booking.SubjectID,
+						StartTime:   match.Booking.StartTime,
+						EndTime:     match.Booking.EndTime,
+						Score:       100,
+						Reasons:     []string{"Exact match"},
+					},
+					Message: "Exact match found",
+				})
+				continue
+			}
+			// Commute-blocked: the matched teacher needs travel time, so this
+			// slot is not truly exact — fall through to alternatives (shifted).
 		}
 
 		alternatives, err := s.engine.FindAlternativesForSlot(ctx, req, slot)

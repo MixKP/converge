@@ -428,3 +428,178 @@ func TestCLPEngine_Alternatives_BranchBookingsLookupError_DegradesGracefully(t *
 	assert.NoError(t, err)
 	assert.NotEmpty(t, result)
 }
+
+// stubCommute returns a flat pad for different branches, 0 for the same.
+type stubCommute struct{ minutes int }
+
+func (s stubCommute) DefaultCommute(ctx context.Context) (time.Duration, error) {
+	return time.Duration(s.minutes) * time.Minute, nil
+}
+
+// Example A: a prior different-branch booking pads forward, so the requested
+// 13:00 is blocked and the nearest valid slot 13:30 is offered with the
+// commute reported.
+func TestCLPEngine_Alternatives_PriorDifferentBranch_ShiftsLater(t *testing.T) {
+	bStore := new(mockCLPBookingStore)
+	tRoster := new(mockCLPTeacherRoster)
+	scorer := new(mockCLPScorer)
+	engine := NewCLPEngine(bStore, tRoster, scorer, stubCommute{minutes: 30}, zeroBranchCapacity{}, slog.Default())
+
+	teacher := TeacherInfo{ID: 1, Name: "Alice", Gender: "female"}
+	tRoster.On("TeachersBySubject", mock.Anything, 1).Return([]TeacherInfo{teacher}, nil)
+	tRoster.On("TeacherAvailability", mock.Anything, 1).Return([]shared.WeeklySlot{clpSlot(0, "09:00", "17:00")}, nil)
+
+	loc := shared.LoadLocation()
+	anchor := shared.AnchorDateForDay(0, loc)
+	conflicts := []Booking{{ID: 7, BranchID: 2, StartTime: anchor.Add(12 * time.Hour), EndTime: anchor.Add(13 * time.Hour)}}
+	bStore.On("FindConflictingBookings", mock.Anything, 1,
+		mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).Return(conflicts, nil)
+	scorer.On("Score", mock.Anything, mock.AnythingOfType("ScorableCandidate")).
+		Return(ScoreResult{Score: 80, Reasons: []string{"ok"}})
+
+	req := bookingReq(1, 1, clpSlot(0, "13:00", "14:00"), 60) // request branch 1, conflict branch 2
+	result, err := engine.FindAlternativesForSlot(context.Background(), req, req.PreferredSlots[0])
+
+	assert.NoError(t, err)
+	require.NotEmpty(t, result)
+	want := anchor.Add(13*time.Hour + 30*time.Minute)
+	assert.True(t, result[0].StartTime.Equal(want), "want 13:30 got %s", result[0].StartTime)
+	mins, ok := result[0].CommuteMinutes.Value()
+	assert.True(t, ok)
+	assert.Equal(t, 30, mins)
+	assert.Equal(t, 80, result[0].Score) // display score is the raw quality
+}
+
+// Example B: a following different-branch booking pads backward, so the
+// requested 12:00 is blocked and the nearest earlier slot 11:30 is offered.
+func TestCLPEngine_Alternatives_FollowingDifferentBranch_ShiftsEarlier(t *testing.T) {
+	bStore := new(mockCLPBookingStore)
+	tRoster := new(mockCLPTeacherRoster)
+	scorer := new(mockCLPScorer)
+	engine := NewCLPEngine(bStore, tRoster, scorer, stubCommute{minutes: 30}, zeroBranchCapacity{}, slog.Default())
+
+	teacher := TeacherInfo{ID: 1, Name: "Alice", Gender: "female"}
+	tRoster.On("TeachersBySubject", mock.Anything, 1).Return([]TeacherInfo{teacher}, nil)
+	tRoster.On("TeacherAvailability", mock.Anything, 1).Return([]shared.WeeklySlot{clpSlot(0, "09:00", "17:00")}, nil)
+
+	loc := shared.LoadLocation()
+	anchor := shared.AnchorDateForDay(0, loc)
+	conflicts := []Booking{{ID: 8, BranchID: 2, StartTime: anchor.Add(13 * time.Hour), EndTime: anchor.Add(14 * time.Hour)}}
+	bStore.On("FindConflictingBookings", mock.Anything, 1,
+		mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).Return(conflicts, nil)
+	scorer.On("Score", mock.Anything, mock.AnythingOfType("ScorableCandidate")).
+		Return(ScoreResult{Score: 80, Reasons: []string{"ok"}})
+
+	req := bookingReq(1, 1, clpSlot(0, "12:00", "13:00"), 60)
+	result, err := engine.FindAlternativesForSlot(context.Background(), req, req.PreferredSlots[0])
+
+	assert.NoError(t, err)
+	require.NotEmpty(t, result)
+	want := anchor.Add(11*time.Hour + 30*time.Minute)
+	assert.True(t, result[0].StartTime.Equal(want), "want 11:30 got %s", result[0].StartTime)
+}
+
+// Proximity dominates the quality score: even when a far slot scores much
+// higher on quality, the nearest valid slot is still offered.
+func TestCLPEngine_Alternatives_ProximityBeatsQuality(t *testing.T) {
+	bStore := new(mockCLPBookingStore)
+	tRoster := new(mockCLPTeacherRoster)
+	scorer := new(mockCLPScorer)
+	engine := NewCLPEngine(bStore, tRoster, scorer, stubCommute{minutes: 30}, zeroBranchCapacity{}, slog.Default())
+
+	teacher := TeacherInfo{ID: 1, Name: "Alice", Gender: "female"}
+	tRoster.On("TeachersBySubject", mock.Anything, 1).Return([]TeacherInfo{teacher}, nil)
+	tRoster.On("TeacherAvailability", mock.Anything, 1).Return([]shared.WeeklySlot{clpSlot(0, "09:00", "17:00")}, nil)
+
+	loc := shared.LoadLocation()
+	anchor := shared.AnchorDateForDay(0, loc)
+	conflicts := []Booking{{ID: 9, BranchID: 2, StartTime: anchor.Add(12 * time.Hour), EndTime: anchor.Add(13 * time.Hour)}}
+	bStore.On("FindConflictingBookings", mock.Anything, 1,
+		mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).Return(conflicts, nil)
+
+	far := anchor.Add(15 * time.Hour)
+	scorer.On("Score", mock.Anything, mock.MatchedBy(func(c ScorableCandidate) bool { return c.StartTime.Equal(far) })).
+		Return(ScoreResult{Score: 100, Reasons: []string{"far but high"}})
+	scorer.On("Score", mock.Anything, mock.AnythingOfType("ScorableCandidate")).
+		Return(ScoreResult{Score: 10, Reasons: []string{"near but low"}})
+
+	req := bookingReq(1, 1, clpSlot(0, "13:00", "14:00"), 60)
+	result, err := engine.FindAlternativesForSlot(context.Background(), req, req.PreferredSlots[0])
+
+	assert.NoError(t, err)
+	require.NotEmpty(t, result)
+	want := anchor.Add(13*time.Hour + 30*time.Minute)
+	assert.True(t, result[0].StartTime.Equal(want), "nearest slot must win despite lower quality; got %s", result[0].StartTime)
+}
+
+// A same-branch neighbor needs no travel time: the requested slot stays put
+// and no commute is reported.
+func TestCLPEngine_Alternatives_SameBranchNeighbor_NoShift(t *testing.T) {
+	bStore := new(mockCLPBookingStore)
+	tRoster := new(mockCLPTeacherRoster)
+	scorer := new(mockCLPScorer)
+	engine := NewCLPEngine(bStore, tRoster, scorer, stubCommute{minutes: 30}, zeroBranchCapacity{}, slog.Default())
+
+	teacher := TeacherInfo{ID: 1, Name: "Alice", Gender: "female"}
+	tRoster.On("TeachersBySubject", mock.Anything, 1).Return([]TeacherInfo{teacher}, nil)
+	tRoster.On("TeacherAvailability", mock.Anything, 1).Return([]shared.WeeklySlot{clpSlot(0, "09:00", "17:00")}, nil)
+
+	loc := shared.LoadLocation()
+	anchor := shared.AnchorDateForDay(0, loc)
+	conflicts := []Booking{{ID: 10, BranchID: 1, StartTime: anchor.Add(12 * time.Hour), EndTime: anchor.Add(13 * time.Hour)}}
+	bStore.On("FindConflictingBookings", mock.Anything, 1,
+		mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).Return(conflicts, nil)
+	scorer.On("Score", mock.Anything, mock.AnythingOfType("ScorableCandidate")).
+		Return(ScoreResult{Score: 80, Reasons: []string{"ok"}})
+
+	req := bookingReq(1, 1, clpSlot(0, "13:00", "14:00"), 60)
+	result, err := engine.FindAlternativesForSlot(context.Background(), req, req.PreferredSlots[0])
+
+	assert.NoError(t, err)
+	require.NotEmpty(t, result)
+	want := anchor.Add(13 * time.Hour)
+	assert.True(t, result[0].StartTime.Equal(want), "want 13:00 (no shift) got %s", result[0].StartTime)
+	_, ok := result[0].CommuteMinutes.Value()
+	assert.False(t, ok, "no commute should be reported for a same-branch neighbor")
+}
+
+func TestCLPEngine_CommuteConflict(t *testing.T) {
+	loc := shared.LoadLocation()
+	anchor := shared.AnchorDateForDay(0, loc)
+	start := anchor.Add(13 * time.Hour)
+	end := anchor.Add(14 * time.Hour)
+	priorDiffBranch := []Booking{{ID: 1, BranchID: 2, StartTime: anchor.Add(12 * time.Hour), EndTime: anchor.Add(13 * time.Hour)}}
+
+	t.Run("different-branch adjacent booking blocks", func(t *testing.T) {
+		bStore := new(mockCLPBookingStore)
+		engine := NewCLPEngine(bStore, nil, nil, stubCommute{minutes: 30}, zeroBranchCapacity{}, slog.Default())
+		bStore.On("FindConflictingBookings", mock.Anything, 1,
+			mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).Return(priorDiffBranch, nil)
+
+		blocked, err := engine.CommuteConflict(context.Background(), 1, 1, start, end)
+		assert.NoError(t, err)
+		assert.True(t, blocked)
+	})
+
+	t.Run("same-branch adjacent booking does not block", func(t *testing.T) {
+		bStore := new(mockCLPBookingStore)
+		engine := NewCLPEngine(bStore, nil, nil, stubCommute{minutes: 30}, zeroBranchCapacity{}, slog.Default())
+		sameBranch := []Booking{{ID: 1, BranchID: 1, StartTime: anchor.Add(12 * time.Hour), EndTime: anchor.Add(13 * time.Hour)}}
+		bStore.On("FindConflictingBookings", mock.Anything, 1,
+			mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).Return(sameBranch, nil)
+
+		blocked, err := engine.CommuteConflict(context.Background(), 1, 1, start, end)
+		assert.NoError(t, err)
+		assert.False(t, blocked)
+	})
+
+	t.Run("nil commute never blocks", func(t *testing.T) {
+		bStore := new(mockCLPBookingStore)
+		engine := NewCLPEngine(bStore, nil, nil, nil, zeroBranchCapacity{}, slog.Default())
+
+		blocked, err := engine.CommuteConflict(context.Background(), 1, 1, start, end)
+		assert.NoError(t, err)
+		assert.False(t, blocked)
+		bStore.AssertNotCalled(t, "FindConflictingBookings", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	})
+}

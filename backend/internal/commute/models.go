@@ -1,8 +1,11 @@
 package commute
 
-// DefaultCommuteMinutes is the commute time returned when the source and
-// destination branches differ (or when no branches are supplied).
-const DefaultCommuteMinutes = 30
+import "github.com/RinZ5/converge/backend/internal/shared"
+
+// UpdateCommuteRequest is the body of PATCH /commute.
+type UpdateCommuteRequest struct {
+	CommuteTime shared.Option[int] `json:"commute_time" binding:"required" swaggertype:"integer" example:"30"`
+}
 
 // CommuteResponse is returned when both branches are supplied.
 type CommuteResponse struct {

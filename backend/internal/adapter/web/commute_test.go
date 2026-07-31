@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/RinZ5/converge/backend/internal/commute"
@@ -22,6 +23,10 @@ type mockCommuteService struct {
 		source, dest int
 	}
 	called bool
+
+	setErr    error
+	setCalled bool
+	setArg    int
 }
 
 func (m *mockCommuteService) CommuteTime(ctx context.Context, sourceBranchID, destBranchID int) (int, error) {
@@ -29,6 +34,16 @@ func (m *mockCommuteService) CommuteTime(ctx context.Context, sourceBranchID, de
 	m.args.source = sourceBranchID
 	m.args.dest = destBranchID
 	return m.minutes, m.err
+}
+
+func (m *mockCommuteService) Minutes(ctx context.Context) (int, error) {
+	return m.minutes, m.err
+}
+
+func (m *mockCommuteService) SetCommuteTime(ctx context.Context, minutes int) error {
+	m.setCalled = true
+	m.setArg = minutes
+	return m.setErr
 }
 
 func TestCommuteHandler_GetCommute(t *testing.T) {
@@ -41,12 +56,12 @@ func TestCommuteHandler_GetCommute(t *testing.T) {
 		wantTime   int
 	}{
 		{
-			name:       "no params returns default",
+			name:       "no params returns configured value",
 			path:       "/api/commute",
-			mock:       &mockCommuteService{},
+			mock:       &mockCommuteService{minutes: 30},
 			wantStatus: http.StatusOK,
 			wantCalled: false,
-			wantTime:   commute.DefaultCommuteMinutes,
+			wantTime:   30,
 		},
 		{
 			name:       "same branch returns zero",
@@ -59,10 +74,10 @@ func TestCommuteHandler_GetCommute(t *testing.T) {
 		{
 			name:       "different branches returns default",
 			path:       "/api/commute?source_branch=1&destination_branch=2",
-			mock:       &mockCommuteService{minutes: commute.DefaultCommuteMinutes},
+			mock:       &mockCommuteService{minutes: 30},
 			wantStatus: http.StatusOK,
 			wantCalled: true,
-			wantTime:   commute.DefaultCommuteMinutes,
+			wantTime:   30,
 		},
 		{
 			name:       "only source provided",
@@ -127,6 +142,90 @@ func TestCommuteHandler_GetCommute(t *testing.T) {
 				var resp commute.CommuteResponse
 				require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 				assert.Equal(t, tt.wantTime, resp.CommuteTime)
+			}
+		})
+	}
+}
+
+func TestCommuteHandler_UpdateCommute(t *testing.T) {
+	tests := []struct {
+		name       string
+		body       string
+		mock       *mockCommuteService
+		wantStatus int
+		wantCalled bool
+		wantArg    int
+	}{
+		{
+			name:       "valid update echoes value",
+			body:       `{"commute_time": 45}`,
+			mock:       &mockCommuteService{},
+			wantStatus: http.StatusOK,
+			wantCalled: true,
+			wantArg:    45,
+		},
+		{
+			name:       "zero allowed",
+			body:       `{"commute_time": 0}`,
+			mock:       &mockCommuteService{},
+			wantStatus: http.StatusOK,
+			wantCalled: true,
+			wantArg:    0,
+		},
+		{
+			name:       "missing commute_time",
+			body:       `{}`,
+			mock:       &mockCommuteService{},
+			wantStatus: http.StatusBadRequest,
+			wantCalled: false,
+		},
+		{
+			name:       "null commute_time",
+			body:       `{"commute_time": null}`,
+			mock:       &mockCommuteService{},
+			wantStatus: http.StatusBadRequest,
+			wantCalled: false,
+		},
+		{
+			name:       "negative rejected by service",
+			body:       `{"commute_time": -1}`,
+			mock:       &mockCommuteService{setErr: &shared.ValidationError{Msg: "commute_time must not be negative"}},
+			wantStatus: http.StatusBadRequest,
+			wantCalled: true,
+			wantArg:    -1,
+		},
+		{
+			name:       "service error",
+			body:       `{"commute_time": 45}`,
+			mock:       &mockCommuteService{setErr: assert.AnError},
+			wantStatus: http.StatusInternalServerError,
+			wantCalled: true,
+			wantArg:    45,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler := NewCommuteHandler(tt.mock, slog.Default())
+
+			gin.SetMode(gin.TestMode)
+			r := gin.Default()
+			r.PATCH("/api/commute", handler.UpdateCommute)
+
+			req := httptest.NewRequest(http.MethodPatch, "/api/commute", strings.NewReader(tt.body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.wantStatus, w.Code)
+			assert.Equal(t, tt.wantCalled, tt.mock.setCalled)
+			if tt.wantCalled {
+				assert.Equal(t, tt.wantArg, tt.mock.setArg)
+			}
+			if tt.wantStatus == http.StatusOK {
+				var resp commute.DefaultCommuteResponse
+				require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+				assert.Equal(t, tt.wantArg, resp.CommuteTime)
 			}
 		})
 	}

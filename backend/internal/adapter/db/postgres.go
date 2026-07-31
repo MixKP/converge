@@ -128,6 +128,12 @@ func AutoMigrate(database *sql.DB) error {
 		`ALTER TABLE teachers ADD COLUMN IF NOT EXISTS gender VARCHAR(20) CHECK (gender IN ('male','female','lgbtq+'))`,
 		`UPDATE teachers SET gender = 'male' WHERE gender IS NULL`,
 		`ALTER TABLE teachers ALTER COLUMN gender SET NOT NULL`,
+
+		`CREATE TABLE IF NOT EXISTS commute_config (
+			id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+			commute_minutes INTEGER NOT NULL DEFAULT 30 CHECK (commute_minutes >= 0)
+		)`,
+		`INSERT INTO commute_config (id, commute_minutes) VALUES (1, 30) ON CONFLICT (id) DO NOTHING`,
 	}
 	for _, q := range queries {
 		if _, err := database.Exec(q); err != nil {
