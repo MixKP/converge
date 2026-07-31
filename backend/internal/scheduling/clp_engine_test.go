@@ -429,7 +429,8 @@ func TestCLPEngine_Alternatives_BranchBookingsLookupError_DegradesGracefully(t *
 	assert.NotEmpty(t, result)
 }
 
-// stubCommute returns a flat pad for different branches, 0 for the same.
+// stubCommute is a CommuteProvider returning a fixed commute duration; the
+// engine applies the same-branch-means-zero rule itself.
 type stubCommute struct{ minutes int }
 
 func (s stubCommute) DefaultCommute(ctx context.Context) (time.Duration, error) {
@@ -602,4 +603,35 @@ func TestCLPEngine_CommuteConflict(t *testing.T) {
 		assert.False(t, blocked)
 		bStore.AssertNotCalled(t, "FindConflictingBookings", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 	})
+}
+
+// Regression for the commute-aware fetch window: the conflict lookup must be
+// widened by the commute pad so a different-branch booking just outside the
+// candidate range can still block an edge candidate. The mock only matches the
+// widened bounds, so a non-widened window fails the test.
+func TestCLPEngine_Alternatives_ConflictWindowWidenedByCommutePad(t *testing.T) {
+	bStore := new(mockCLPBookingStore)
+	tRoster := new(mockCLPTeacherRoster)
+	scorer := new(mockCLPScorer)
+	engine := NewCLPEngine(bStore, tRoster, scorer, stubCommute{minutes: 30}, zeroBranchCapacity{}, slog.Default())
+
+	teacher := TeacherInfo{ID: 1, Name: "Alice", Gender: "female"}
+	tRoster.On("TeachersBySubject", mock.Anything, 1).Return([]TeacherInfo{teacher}, nil)
+	tRoster.On("TeacherAvailability", mock.Anything, 1).Return([]shared.WeeklySlot{clpSlot(0, "09:00", "17:00")}, nil)
+
+	loc := shared.LoadLocation()
+	anchor := shared.AnchorDateForDay(0, loc)
+	prefStart := anchor.Add(13 * time.Hour) // request slot 13:00-14:00, duration 60m
+	wantStart := prefStart.Add(-CandidateLookbehind).Add(-30 * time.Minute)
+	wantEnd := prefStart.Add(CandidateLookahead).Add(60 * time.Minute).Add(30 * time.Minute)
+
+	bStore.On("FindConflictingBookings", mock.Anything, 1,
+		mock.MatchedBy(func(ts time.Time) bool { return ts.Equal(wantStart) }),
+		mock.MatchedBy(func(ts time.Time) bool { return ts.Equal(wantEnd) })).Return([]Booking{}, nil)
+	scorer.On("Score", mock.Anything, mock.Anything).Return(ScoreResult{Score: 80, Reasons: []string{"ok"}})
+
+	req := bookingReq(1, 1, clpSlot(0, "13:00", "14:00"), 60)
+	_, err := engine.FindAlternativesForSlot(context.Background(), req, req.PreferredSlots[0])
+	assert.NoError(t, err)
+	bStore.AssertExpectations(t)
 }

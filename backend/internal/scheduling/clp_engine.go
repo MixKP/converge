@@ -78,9 +78,28 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req BookingRequ
 	)
 	offsets := generateOffsets(prefStart, duration)
 
+	// The commute pad is a single global value: a booking at a different
+	// branch than the request needs this much travel time, one at the same
+	// branch needs none. Fetch it once (I/O hoisted out of the constraint,
+	// which must stay pure). A lookup error fails the request rather than
+	// silently emitting suggestions with no travel time — the exact case this
+	// feature must reject (matches CommuteConflict). No commute source wired
+	// ⇒ pad 0, behavior unchanged.
+	var commutePad time.Duration
+	if e.commute != nil {
+		d, err := e.commute.DefaultCommute(ctx)
+		if err != nil {
+			return nil, err
+		}
+		commutePad = d
+	}
+
+	// Widen the conflict-fetch window by the commute pad so a different-branch
+	// booking just outside the candidate range still surfaces and can block an
+	// edge candidate once padded (mirrors CommuteConflict's widened lookup).
 	prefetched := make(map[int]prefetchedTeacherData, len(teachers))
-	conflictStart := prefStart.Add(-CandidateLookbehind)
-	conflictEnd := prefStart.Add(CandidateLookahead).Add(duration)
+	conflictStart := prefStart.Add(-CandidateLookbehind).Add(-commutePad)
+	conflictEnd := prefStart.Add(CandidateLookahead).Add(duration).Add(commutePad)
 	for _, t := range teachers {
 		slots, err := e.teacherRoster.TeacherAvailability(ctx, t.ID)
 		if err != nil {
@@ -91,25 +110,6 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req BookingRequ
 			return nil, err
 		}
 		prefetched[t.ID] = prefetchedTeacherData{slots: slots, conflicts: conflicts}
-	}
-
-	// The commute pad is a single global value: a booking at a different
-	// branch than the request needs this much travel time, one at the same
-	// branch needs none. Fetch it once (I/O hoisted out of the constraint,
-	// which must stay pure). When no commute source is wired the pad is 0 and
-	// behavior is unchanged.
-	var commutePad time.Duration
-	if e.commute != nil {
-		d, err := e.commute.DefaultCommute(ctx)
-		if err != nil {
-			e.logger.Warn("commute lookup failed, treating as no travel time",
-				"request_id", shared.RequestIDFromContext(ctx),
-				"op", "CLPEngine.FindAlternativesForSlot",
-				"error", err,
-			)
-		} else {
-			commutePad = d
-		}
 	}
 
 	branchCapacity := 0
@@ -173,10 +173,7 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req BookingRequ
 		}
 
 		for _, c := range data.conflicts {
-			buf := time.Duration(0)
-			if c.BranchID != req.BranchID {
-				buf = commutePad
-			}
+			buf := padFor(c.BranchID, req.BranchID, commutePad)
 			if overlaps(o.start, o.end, c.StartTime.Add(-buf), c.EndTime.Add(buf)) {
 				return false, nil
 			}
@@ -226,6 +223,7 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req BookingRequ
 	for _, a := range assignments {
 		t := a.Value("teacher").(TeacherInfo)
 		o := a.Value("offset").(timeWindow)
+		quality, _ := a.Metadata["quality"].(int)
 		alt := BookingAlternative{
 			TeacherID:   t.ID,
 			TeacherName: t.Name,
@@ -233,7 +231,7 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req BookingRequ
 			SubjectID:   req.SubjectID,
 			StartTime:   o.start,
 			EndTime:     o.end,
-			Score:       a.Metadata["quality"].(int),
+			Score:       quality,
 			Reasons:     a.Reasons,
 		}
 		alt = enrichWithCommute(alt, o, req.BranchID, prefetched[t.ID].conflicts, commutePad)
@@ -252,10 +250,10 @@ func enrichWithCommute(alt BookingAlternative, o timeWindow, reqBranchID int, co
 	}
 	var maxPad time.Duration
 	for _, c := range conflicts {
-		if c.BranchID == reqBranchID {
+		buf := padFor(c.BranchID, reqBranchID, commutePad)
+		if buf <= 0 {
 			continue
 		}
-		buf := commutePad
 		var gap time.Duration
 		switch {
 		case !c.EndTime.After(o.start): // booking is before the slot
@@ -298,14 +296,24 @@ func (e *CLPEngine) CommuteConflict(ctx context.Context, teacherID, branchID int
 		return false, err
 	}
 	for _, b := range bookings {
-		if b.BranchID == branchID {
+		pad := padFor(b.BranchID, branchID, buf)
+		if pad <= 0 {
 			continue
 		}
-		if overlaps(start, end, b.StartTime.Add(-buf), b.EndTime.Add(buf)) {
+		if overlaps(start, end, b.StartTime.Add(-pad), b.EndTime.Add(pad)) {
 			return true, nil
 		}
 	}
 	return false, nil
+}
+
+// padFor is the travel time a candidate must leave against an existing booking:
+// zero when the booking is at the requested branch, otherwise the global pad.
+func padFor(bookingBranchID, reqBranchID int, pad time.Duration) time.Duration {
+	if bookingBranchID == reqBranchID {
+		return 0
+	}
+	return pad
 }
 
 func overlaps(aStart, aEnd, bStart, bEnd time.Time) bool {
