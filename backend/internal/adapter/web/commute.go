@@ -54,7 +54,7 @@ func (h *CommuteHandler) GetCommute(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to compute commute time"})
 			return
 		}
-		c.JSON(http.StatusOK, commute.DefaultCommuteResponse{CommuteTime: minutes})
+		c.JSON(http.StatusOK, commute.CommuteResponse{CommuteTime: minutes})
 		return
 	}
 
@@ -105,7 +105,7 @@ func (h *CommuteHandler) GetCommute(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Param        body  body  commute.UpdateCommuteRequest  true  "New commute time"
-// @Success      200  {object}  commute.DefaultCommuteResponse
+// @Success      200  {object}  commute.CommuteResponse
 // @Failure      400  {object}  scheduling.ErrorResponse
 // @Failure      500  {object}  scheduling.ErrorResponse
 // @Router       /commute [patch]
@@ -127,5 +127,5 @@ func (h *CommuteHandler) UpdateCommute(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, commute.DefaultCommuteResponse{CommuteTime: minutes})
+	c.JSON(http.StatusOK, commute.CommuteResponse{CommuteTime: minutes})
 }

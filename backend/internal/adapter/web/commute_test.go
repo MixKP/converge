@@ -223,7 +223,7 @@ func TestCommuteHandler_UpdateCommute(t *testing.T) {
 				assert.Equal(t, tt.wantArg, tt.mock.setArg)
 			}
 			if tt.wantStatus == http.StatusOK {
-				var resp commute.DefaultCommuteResponse
+				var resp commute.CommuteResponse
 				require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 				assert.Equal(t, tt.wantArg, resp.CommuteTime)
 			}

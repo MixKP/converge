@@ -7,14 +7,11 @@ type UpdateCommuteRequest struct {
 	CommuteTime shared.Option[int] `json:"commute_time" binding:"required" swaggertype:"integer" example:"30"`
 }
 
-// CommuteResponse is returned when both branches are supplied.
+// CommuteResponse is the commute endpoint's single response shape. The branch
+// fields are omitted when absent (no-params GET and PATCH), so the JSON is
+// {"commute_time":N}; with both branches supplied they are always present.
 type CommuteResponse struct {
-	SourceBranch      int `json:"source_branch"      example:"1"`
-	DestinationBranch int `json:"destination_branch" example:"2"`
-	CommuteTime       int `json:"commute_time"       example:"30"`
-}
-
-// DefaultCommuteResponse is returned when no branches are supplied.
-type DefaultCommuteResponse struct {
-	CommuteTime int `json:"commute_time" example:"30"`
+	SourceBranch      int `json:"source_branch,omitempty"      example:"1"`
+	DestinationBranch int `json:"destination_branch,omitempty" example:"2"`
+	CommuteTime       int `json:"commute_time"                 example:"30"`
 }

@@ -32,6 +32,14 @@ definitions:
         example: 1
         type: integer
     type: object
+  commute.UpdateCommuteRequest:
+    properties:
+      commute_time:
+        example: 30
+        type: integer
+    required:
+    - commute_time
+    type: object
   scheduling.Booking:
     properties:
       branch_id:
@@ -504,6 +512,36 @@ paths:
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
       summary: Get commute time between two branches
+      tags:
+      - commute
+    patch:
+      consumes:
+      - application/json
+      description: Sets the commute time in minutes applied between different branches.
+        Must be non-negative.
+      parameters:
+      - description: New commute time
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/commute.UpdateCommuteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/commute.CommuteResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+      summary: Update the global commute time
       tags:
       - commute
   /subjects:

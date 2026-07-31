@@ -390,6 +390,50 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "patch": {
+                "description": "Sets the commute time in minutes applied between different branches. Must be non-negative.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "commute"
+                ],
+                "summary": "Update the global commute time",
+                "parameters": [
+                    {
+                        "description": "New commute time",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/commute.UpdateCommuteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/commute.CommuteResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    }
+                }
             }
         },
         "/subjects": {
@@ -682,6 +726,18 @@ const docTemplate = `{
                 "source_branch": {
                     "type": "integer",
                     "example": 1
+                }
+            }
+        },
+        "commute.UpdateCommuteRequest": {
+            "type": "object",
+            "required": [
+                "commute_time"
+            ],
+            "properties": {
+                "commute_time": {
+                    "type": "integer",
+                    "example": 30
                 }
             }
         },
