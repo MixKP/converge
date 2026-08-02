@@ -26,7 +26,7 @@ export function useAISuggestions() {
       branch_id: bookingStore.selectedBranchId,
       preferred_slots: slots,
       duration_minutes: aiDuration,
-      required_gender: bookingStore.requiredGender!,
+      required_gender: bookingStore.requiredGender ?? 'male',
       preferred_teacher_id: bookingStore.selectedTeacherId ?? undefined,
     })
     if (!request.success) {

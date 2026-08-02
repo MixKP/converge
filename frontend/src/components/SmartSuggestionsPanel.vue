@@ -14,7 +14,7 @@
     selectedSubjectId: number | null
     selectedBranchId: number | null
     selectedTeacherId: number | null
-    selectedGender: 'male' | 'female' | 'lgbtq+'
+    selectedGender: 'male' | 'female' | 'lgbtq+' | null
     subjects: Array<{ id: number; name: string }>
     branches: Array<{ id: number; name: string }>
     filteredTeachers: Array<{ id: number; name: string }>
@@ -38,7 +38,7 @@
     'update:selectedSubjectId': [value: number | null]
     'update:selectedBranchId': [value: number | null]
     'update:selectedTeacherId': [value: number | null]
-    'update:selectedGender': [value: 'male' | 'female' | 'lgbtq+']
+    'update:selectedGender': [value: 'male' | 'female' | 'lgbtq+' | null]
     submit: []
     close: []
     reset: []
@@ -370,6 +370,7 @@
             :select-class="getCls('select')"
             :show-error="showErrors"
           >
+            <option :value="null">Select gender preference</option>
             <option value="male">Male</option>
             <option value="female">Female</option>
             <option value="lgbtq+">LGBTQ+</option>

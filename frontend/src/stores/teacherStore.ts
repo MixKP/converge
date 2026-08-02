@@ -18,7 +18,8 @@ export const useTeacherStore = defineStore('teacher', {
     async toggleTeacherStatus(id: number, currentStatus: string) {
       const newStatus = currentStatus === 'active' ? 'deactivated' : 'active'
       await teacherApi.setStatus(id, newStatus)
-      this.teachers = this.teachers.filter((t) => t.id !== id)
+      const teacher = this.teachers.find((t) => t.id === id)
+      if (teacher) teacher.status = newStatus as 'active' | 'deactivated'
     },
     async updateTeacherGender(id: number, gender: string) {
       await teacherApi.setGender(id, gender)

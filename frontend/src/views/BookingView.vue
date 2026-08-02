@@ -46,7 +46,7 @@
   const allCalendarEvents = computed(() => allEvents.value)
 
   const aiMode = ref<'idle' | 'expanding' | 'expanded'>('idle')
-  const smartSuggestionGender = computed(() => requiredGender.value ?? 'male')
+  const smartSuggestionGender = computed(() => requiredGender.value)
 
   const isAddingToCart = ref(false)
 
