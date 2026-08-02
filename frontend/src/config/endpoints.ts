@@ -4,4 +4,5 @@ export const API_ENDPOINTS = {
   AVAILABILITY: 'availability',
   BOOKINGS: 'bookings',
   BRANCHES: 'branches',
+  COMMUTE: 'commute',
 } as const

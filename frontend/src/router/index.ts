@@ -5,6 +5,7 @@ import BookingView from '../views/BookingView.vue'
 import BookingConfirm from '../views/BookingCart.vue'
 import TeacherManagement from '../views/TeacherManagement.vue'
 import BranchManagement from '../views/BranchManagement.vue'
+import CommuteManagement from '../views/CommuteManagement.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -38,6 +39,11 @@ const router = createRouter({
       path: '/manage/branches',
       name: 'branch-management',
       component: BranchManagement,
+    },
+    {
+      path: '/manage/commute',
+      name: 'commute-management',
+      component: CommuteManagement,
     },
     {
       path: '/:pathMatch(.*)*',
