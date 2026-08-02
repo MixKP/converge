@@ -7,6 +7,7 @@ const genderSchema = z.enum(['male', 'female', 'lgbtq+'])
 export const branchSchema = z.object({
   id: z.number(),
   name: z.string(),
+  capacity: z.number().int().min(0),
 })
 
 export const bookingRequestSchema = z.object({

@@ -15,6 +15,13 @@ export async function postApi<T>(endpoint: string, payload: unknown): Promise<T>
     body: JSON.stringify(payload),
   })
 }
+export async function patchApi<T>(endpoint: string, payload: unknown): Promise<T> {
+  return fetchApi<T>(endpoint, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
 // Fetch a list endpoint, coalescing a null/absent body (e.g. a backend nil
 // slice serialized as JSON null) to an empty array so callers can safely map/filter.
 export async function fetchList<T>(endpoint: string, options?: RequestInit): Promise<T[]> {

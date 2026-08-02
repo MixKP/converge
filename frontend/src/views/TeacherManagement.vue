@@ -4,6 +4,7 @@
   import { useScreenSize } from '../composables/useScreenSize'
   import { useNotification } from '../composables/useNotification'
   import PageLayout from '../components/PageLayout.vue'
+  import ManagementNav from '../components/ManagementNav.vue'
   import FormSelect from '../components/form/FormSelect.vue'
 
   const store = useTeacherStore()
@@ -59,6 +60,7 @@
 <template>
   <PageLayout title="Manage Teachers" :show-cart="false">
     <div class="manage-root">
+      <ManagementNav />
       <!-- Add Teacher Form -->
       <div class="manage-section">
         <h2 class="manage-section-title">Add Teacher</h2>
