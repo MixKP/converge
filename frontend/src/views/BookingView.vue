@@ -245,7 +245,11 @@
               :show-error="showErrors"
             >
               <option :value="null">All teachers</option>
-              <option v-for="teacher in genderFilteredTeachers" :key="teacher.id" :value="teacher.id">
+              <option
+                v-for="teacher in genderFilteredTeachers"
+                :key="teacher.id"
+                :value="teacher.id"
+              >
                 {{ teacher.name }}
               </option>
             </FormSelect>
@@ -441,7 +445,11 @@
               :show-error="showErrors"
             >
               <option :value="null">All teachers</option>
-              <option v-for="teacher in genderFilteredTeachers" :key="teacher.id" :value="teacher.id">
+              <option
+                v-for="teacher in genderFilteredTeachers"
+                :key="teacher.id"
+                :value="teacher.id"
+              >
                 {{ teacher.name }}
               </option>
             </FormSelect>
@@ -591,8 +599,9 @@
 
       <!-- Desktop Layout (≥1024px) -->
       <div v-else class="relative z-1 flex flex-row gap-6 p-2">
-        <!-- Calendar Section -->
+        <!-- Calendar Section (hidden while Smart Suggestions is open) -->
         <div
+          v-if="aiMode === 'idle'"
           class="relative z-1 flex max-w-full flex-1 flex-col gap-4 transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)]"
         >
           <div class="flex items-center justify-between py-2">
@@ -806,10 +815,10 @@
           </div>
         </div>
 
-        <!-- AI Panel (Split View) -->
+        <!-- AI Panel (now takes the full width since the calendar is hidden) -->
         <div
           v-if="aiMode !== 'idle'"
-          class="anim-panel-fade flex max-h-[calc(100vh-150px)] w-85 shrink-0 flex-col overflow-hidden rounded-2xl border border-(--primary-indigo) bg-(--bg-card) shadow-(--shadow-card) transition-all duration-300"
+          class="anim-panel-fade flex h-[calc(100vh-150px)] w-full flex-col overflow-hidden rounded-2xl border border-(--primary-indigo) bg-(--bg-card) shadow-(--shadow-card) transition-all duration-300"
         >
           <SmartSuggestionsPanel
             v-model="aiTimeSlots"

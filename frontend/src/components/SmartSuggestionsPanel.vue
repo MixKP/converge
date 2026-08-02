@@ -45,7 +45,12 @@
     'confirm-booking': [teacherId: number, teacherName: string, startTime: string, endTime: string]
   }>()
 
-  const { errors, submitCount, setFieldValue, handleSubmit: veeHandleSubmit } = useForm({
+  const {
+    errors,
+    submitCount,
+    setFieldValue,
+    handleSubmit: veeHandleSubmit,
+  } = useForm({
     validationSchema: toTypedSchema(aiSuggestionsFormSchema),
     initialValues: {
       subject_id: props.selectedSubjectId,
@@ -96,6 +101,16 @@
   const draftError = ref('')
 
   const showErrors = computed(() => submitCount.value > 0)
+
+  // On tablet/desktop the form and results sit side-by-side, so the form stays
+  // visible while results load. Mobile keeps its narrower single-column flow,
+  // swapping the form out once results are shown.
+  const showForm = computed(() => {
+    if (props.layout === 'mobile') {
+      return !props.showDetailedResults && !props.isEvaluating
+    }
+    return true
+  })
 
   const DAY_NAMES = [
     'Sunday',
@@ -203,214 +218,221 @@
       </button>
     </div>
 
-    <!-- Form -->
-    <div v-if="!showDetailedResults && !isEvaluating" :class="getCls('form')">
-      <!-- Subject -->
-      <div :class="getCls('field')">
-        <label :class="getCls('label')">
-          Subject <span :class="getCls('required')">*</span>
-        </label>
-        <FormSelect
-          v-model="localSubjectId"
-          name="subject_id"
-          :select-class="getCls('select')"
-          :show-error="showErrors"
-        >
-          <option :value="null">Select subject</option>
-          <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
-            {{ subject.name }}
-          </option>
-        </FormSelect>
-      </div>
-
-      <!-- Time Slots -->
-      <div :class="getCls('field')">
-        <label :class="getCls('label')">
-          Preferred Time Slots <span :class="getCls('required')">*</span>
-        </label>
-
-        <div :class="getCls('slot-controls')">
-          <select
-            v-model.number="newSlotDay"
-            :class="getCls('time-select')"
-            :disabled="!canAddTimeSlots"
-            aria-label="Day of week"
+    <!-- Body: form + results side-by-side on tablet/desktop, stacked on mobile -->
+    <div :class="getCls('body')">
+      <!-- Form -->
+      <div v-if="showForm" :class="getCls('form')">
+        <!-- Subject -->
+        <div :class="getCls('field')">
+          <label :class="getCls('label')">
+            Subject <span :class="getCls('required')">*</span>
+          </label>
+          <FormSelect
+            v-model="localSubjectId"
+            name="subject_id"
+            :select-class="getCls('select')"
+            :show-error="showErrors"
           >
-            <option value="0">{{ layout === 'mobile' ? 'Sun' : 'Sunday' }}</option>
-            <option value="1">{{ layout === 'mobile' ? 'Mon' : 'Monday' }}</option>
-            <option value="2">{{ layout === 'mobile' ? 'Tue' : 'Tuesday' }}</option>
-            <option value="3">{{ layout === 'mobile' ? 'Wed' : 'Wednesday' }}</option>
-            <option value="4">{{ layout === 'mobile' ? 'Thu' : 'Thursday' }}</option>
-            <option value="5">{{ layout === 'mobile' ? 'Fri' : 'Friday' }}</option>
-            <option value="6">{{ layout === 'mobile' ? 'Sat' : 'Saturday' }}</option>
-          </select>
-          <select
-            v-model="newSlotStart"
-            :class="getCls('time-select')"
-            :disabled="!canAddTimeSlots"
-            aria-label="Start time"
-          >
-            <option v-for="time in TIME_OPTIONS" :key="time" :value="time">
-              {{ time }}
+            <option :value="null">Select subject</option>
+            <option v-for="subject in subjects" :key="subject.id" :value="subject.id">
+              {{ subject.name }}
             </option>
-          </select>
-          <span :class="getCls('separator')">to</span>
-          <select
-            v-model="newSlotEnd"
-            :class="getCls('time-select')"
-            :disabled="!canAddTimeSlots"
-            aria-label="End time"
-          >
-            <option v-for="time in TIME_OPTIONS" :key="time" :value="time">
-              {{ time }}
-            </option>
-          </select>
-          <button
-            type="button"
-            :class="getCls('add-slot')"
-            :disabled="!canAddTimeSlots"
-            aria-label="Add time slot"
-            @click="addTimeSlot"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M12 4.5v15m7.5-7.5h-15"
-              />
-            </svg>
-          </button>
+          </FormSelect>
         </div>
 
-        <p v-if="draftError" class="mt-1.5 text-xs font-medium text-(--accent-coral)" role="alert">
-          {{ draftError }}
-        </p>
-        <p
-          v-if="slotsError && showErrors"
-          class="mt-1.5 text-xs font-medium text-(--accent-coral)"
-          role="alert"
-        >
-          {{ slotsError }}
-        </p>
+        <!-- Time Slots -->
+        <div :class="getCls('field')">
+          <label :class="getCls('label')">
+            Preferred Time Slots <span :class="getCls('required')">*</span>
+          </label>
 
-        <!-- Added Slots -->
-        <div v-if="timeSlots.length > 0" :class="getCls('slot-list')">
-          <div v-for="(slot, index) in timeSlots" :key="index" :class="getCls('slot-item')">
-            <span :class="getCls('slot-text')">
-              {{ getDayName(slot.day_of_week) }} {{ slot.start }} - {{ slot.end }}
-            </span>
+          <div :class="getCls('slot-controls')">
+            <select
+              v-model.number="newSlotDay"
+              :class="getCls('time-select')"
+              :disabled="!canAddTimeSlots"
+              aria-label="Day of week"
+            >
+              <option value="0">{{ layout === 'mobile' ? 'Sun' : 'Sunday' }}</option>
+              <option value="1">{{ layout === 'mobile' ? 'Mon' : 'Monday' }}</option>
+              <option value="2">{{ layout === 'mobile' ? 'Tue' : 'Tuesday' }}</option>
+              <option value="3">{{ layout === 'mobile' ? 'Wed' : 'Wednesday' }}</option>
+              <option value="4">{{ layout === 'mobile' ? 'Thu' : 'Thursday' }}</option>
+              <option value="5">{{ layout === 'mobile' ? 'Fri' : 'Friday' }}</option>
+              <option value="6">{{ layout === 'mobile' ? 'Sat' : 'Saturday' }}</option>
+            </select>
+            <select
+              v-model="newSlotStart"
+              :class="getCls('time-select')"
+              :disabled="!canAddTimeSlots"
+              aria-label="Start time"
+            >
+              <option v-for="time in TIME_OPTIONS" :key="time" :value="time">
+                {{ time }}
+              </option>
+            </select>
+            <span :class="getCls('separator')">to</span>
+            <select
+              v-model="newSlotEnd"
+              :class="getCls('time-select')"
+              :disabled="!canAddTimeSlots"
+              aria-label="End time"
+            >
+              <option v-for="time in TIME_OPTIONS" :key="time" :value="time">
+                {{ time }}
+              </option>
+            </select>
             <button
               type="button"
-              :class="getCls('slot-remove')"
-              :aria-label="`Remove ${getDayName(slot.day_of_week)} ${slot.start} - ${slot.end}`"
-              @click="removeTimeSlot(index)"
+              :class="getCls('add-slot')"
+              :disabled="!canAddTimeSlots"
+              aria-label="Add time slot"
+              @click="addTimeSlot"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
                 <path
                   stroke-linecap="round"
                   stroke-linejoin="round"
                   stroke-width="2"
-                  d="M6 18L18 6M6 6l12 12"
+                  d="M12 4.5v15m7.5-7.5h-15"
                 />
               </svg>
             </button>
           </div>
+
+          <p
+            v-if="draftError"
+            class="mt-1.5 text-xs font-medium text-(--accent-coral)"
+            role="alert"
+          >
+            {{ draftError }}
+          </p>
+          <p
+            v-if="slotsError && showErrors"
+            class="mt-1.5 text-xs font-medium text-(--accent-coral)"
+            role="alert"
+          >
+            {{ slotsError }}
+          </p>
+
+          <!-- Added Slots -->
+          <div v-if="timeSlots.length > 0" :class="getCls('slot-list')">
+            <div v-for="(slot, index) in timeSlots" :key="index" :class="getCls('slot-item')">
+              <span :class="getCls('slot-text')">
+                {{ getDayName(slot.day_of_week) }} {{ slot.start }} - {{ slot.end }}
+              </span>
+              <button
+                type="button"
+                :class="getCls('slot-remove')"
+                :aria-label="`Remove ${getDayName(slot.day_of_week)} ${slot.start} - ${slot.end}`"
+                @click="removeTimeSlot(index)"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
+
+        <!-- Branch -->
+        <div :class="getCls('field')">
+          <label :class="getCls('label')">
+            Branch <span :class="getCls('required')">*</span>
+          </label>
+          <FormSelect
+            v-model="localBranchId"
+            name="branch_id"
+            :select-class="getCls('select')"
+            :disabled="!selectedSubjectId"
+            :show-error="showErrors"
+          >
+            <option :value="null">Select branch</option>
+            <option v-for="branch in branches" :key="branch.id" :value="branch.id">
+              {{ branch.name }}
+            </option>
+          </FormSelect>
+        </div>
+
+        <!-- Gender Preference -->
+        <div :class="getCls('field')">
+          <label :class="getCls('label')">
+            Gender Preference <span :class="getCls('required')">*</span>
+          </label>
+          <FormSelect
+            v-model="localGender"
+            name="required_gender"
+            :select-class="getCls('select')"
+            :show-error="showErrors"
+          >
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="lgbtq+">LGBTQ+</option>
+          </FormSelect>
+        </div>
+
+        <!-- Teacher (Optional) -->
+        <div v-if="layout !== 'mobile'" :class="getCls('field')">
+          <label :class="getCls('label')"> Teacher (Optional) </label>
+          <FormSelect
+            v-model="localTeacherId"
+            name="teacher_id"
+            :select-class="getCls('select')"
+            :disabled="!selectedSubjectId"
+          >
+            <option :value="null">
+              {{ layout === 'desktop' ? 'Show all available teachers' : 'All teachers' }}
+            </option>
+            <option v-for="teacher in filteredTeachers" :key="teacher.id" :value="teacher.id">
+              {{ teacher.name }}
+            </option>
+          </FormSelect>
+        </div>
+
+        <!-- Submit Button -->
+        <button
+          type="button"
+          :class="getCls('submit')"
+          :disabled="isSubmitDisabled"
+          :aria-busy="isEvaluating"
+          @click="handleSubmit"
+        >
+          <span v-if="isEvaluating">Finding teachers...</span>
+          <span v-else>Find Available Teachers</span>
+          <svg
+            v-if="!isEvaluating"
+            :class="getCls('submit-icon')"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            aria-hidden="true"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.5"
+              d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"
+            />
+          </svg>
+        </button>
       </div>
 
-      <!-- Branch -->
-      <div :class="getCls('field')">
-        <label :class="getCls('label')">
-          Branch <span :class="getCls('required')">*</span>
-        </label>
-        <FormSelect
-          v-model="localBranchId"
-          name="branch_id"
-          :select-class="getCls('select')"
-          :disabled="!selectedSubjectId"
-          :show-error="showErrors"
-        >
-          <option :value="null">Select branch</option>
-          <option v-for="branch in branches" :key="branch.id" :value="branch.id">
-            {{ branch.name }}
-          </option>
-        </FormSelect>
+      <!-- Results -->
+      <div :class="getCls('results')">
+        <BookingResults
+          :suggestions="suggestions"
+          :show-detailed-results="showDetailedResults"
+          :is-evaluating="isEvaluating"
+          :cart-items="cartItems"
+          @confirm-booking="handleConfirmBooking"
+          @reset="handleReset"
+        />
       </div>
-
-      <!-- Gender Preference -->
-      <div :class="getCls('field')">
-        <label :class="getCls('label')">
-          Gender Preference <span :class="getCls('required')">*</span>
-        </label>
-        <FormSelect
-          v-model="localGender"
-          name="required_gender"
-          :select-class="getCls('select')"
-          :show-error="showErrors"
-        >
-          <option value="male">Male</option>
-          <option value="female">Female</option>
-          <option value="lgbtq+">LGBTQ+</option>
-        </FormSelect>
-      </div>
-
-      <!-- Teacher (Optional) -->
-      <div v-if="layout !== 'mobile'" :class="getCls('field')">
-        <label :class="getCls('label')"> Teacher (Optional) </label>
-        <FormSelect
-          v-model="localTeacherId"
-          name="teacher_id"
-          :select-class="getCls('select')"
-          :disabled="!selectedSubjectId"
-        >
-          <option :value="null">
-            {{ layout === 'desktop' ? 'Show all available teachers' : 'All teachers' }}
-          </option>
-          <option v-for="teacher in filteredTeachers" :key="teacher.id" :value="teacher.id">
-            {{ teacher.name }}
-          </option>
-        </FormSelect>
-      </div>
-
-      <!-- Submit Button -->
-      <button
-        type="button"
-        :class="getCls('submit')"
-        :disabled="isSubmitDisabled"
-        :aria-busy="isEvaluating"
-        @click="handleSubmit"
-      >
-        <span v-if="isEvaluating">Finding teachers...</span>
-        <span v-else>Find Available Teachers</span>
-        <svg
-          v-if="!isEvaluating"
-          :class="getCls('submit-icon')"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          aria-hidden="true"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="1.5"
-            d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"
-          />
-        </svg>
-      </button>
-    </div>
-
-    <!-- Results -->
-    <div :class="getCls('results')">
-      <BookingResults
-        :suggestions="suggestions"
-        :show-detailed-results="showDetailedResults"
-        :is-evaluating="isEvaluating"
-        :cart-items="cartItems"
-        @confirm-booking="handleConfirmBooking"
-        @reset="handleReset"
-      />
     </div>
   </div>
 </template>
@@ -483,6 +505,11 @@
     width: 1rem;
     height: 1rem;
     color: var(--text-primary);
+  }
+
+  .smart-suggestions-panel--mobile__body {
+    display: flex;
+    flex-direction: column;
   }
 
   .smart-suggestions-panel--mobile__form {
@@ -741,6 +768,12 @@
     color: var(--text-primary);
   }
 
+  .smart-suggestions-panel--tablet__body {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
   .smart-suggestions-panel--tablet__form {
     display: flex;
     flex-direction: column;
@@ -932,17 +965,45 @@
     overflow-x: hidden;
   }
 
+  /* Wider tablets get the same two-column form + results layout as desktop */
+  @media (min-width: 700px) {
+    .smart-suggestions-panel--tablet__body {
+      flex-direction: row;
+      align-items: flex-start;
+      gap: 2rem;
+    }
+
+    .smart-suggestions-panel--tablet__form {
+      flex: 0 0 320px;
+    }
+
+    .smart-suggestions-panel--tablet__results {
+      flex: 1;
+      min-width: 0;
+      padding-top: 0;
+    }
+  }
+
   /* Desktop */
   .smart-suggestions-panel--desktop {
     display: flex;
     flex-direction: column;
     height: 100%;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
     background: transparent;
     border: none;
     border-radius: 0;
     box-shadow: none;
+  }
+
+  .smart-suggestions-panel--desktop__body {
+    display: flex;
+    flex: 1;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 0;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .smart-suggestions-panel--desktop__header {
@@ -994,9 +1055,12 @@
 
   .smart-suggestions-panel--desktop__form {
     display: flex;
+    flex: 0 0 320px;
     flex-direction: column;
     padding: 1rem;
     gap: 1rem;
+    overflow-y: auto;
+    border-right: 1px solid var(--border-subtle);
   }
 
   .smart-suggestions-panel--desktop__field {
@@ -1175,7 +1239,30 @@
   }
 
   .smart-suggestions-panel--desktop__results {
-    padding: 0 1rem 1rem;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    padding: 1rem;
+    overflow-y: auto;
     overflow-x: hidden;
+  }
+
+  @media (max-width: 1200px) {
+    .smart-suggestions-panel--desktop__body {
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .smart-suggestions-panel--desktop__form {
+      flex: none;
+      border-right: none;
+      border-bottom: 1px solid var(--border-subtle);
+      overflow-y: visible;
+    }
+
+    .smart-suggestions-panel--desktop__results {
+      overflow-y: visible;
+    }
   }
 </style>

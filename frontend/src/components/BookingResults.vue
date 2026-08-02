@@ -134,11 +134,10 @@
         <h3 class="summary-title">Booking Options Summary</h3>
         <p class="summary-text">
           <template v-if="matchedCount > 0">
-            Found {{ matchedCount }} time slot{{ matchedCount !== 1 ? 's' : '' }} with available teachers.
+            Found {{ matchedCount }} time slot{{ matchedCount !== 1 ? 's' : '' }} with available
+            teachers.
           </template>
-          <template v-else>
-            No teachers available for the selected time slots.
-          </template>
+          <template v-else> No teachers available for the selected time slots. </template>
         </p>
       </div>
 
@@ -295,6 +294,19 @@
       <button type="button" class="action-button action-button--secondary" @click="emit('reset')">
         Search Again
       </button>
+    </div>
+
+    <div v-if="!isEvaluating && !showDetailedResults" class="results-idle">
+      <svg class="idle-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="1.5"
+          d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"
+        />
+      </svg>
+      <p class="idle-title">No results yet</p>
+      <p class="idle-text">Fill out the form and search to see matching teachers here.</p>
     </div>
   </div>
 </template>
@@ -729,6 +741,39 @@
     font-size: 0.8125rem;
     color: var(--text-secondary);
     margin: 0;
+  }
+
+  .results-idle {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 3rem 1rem;
+    min-height: 200px;
+    animation: fade-in 0.4s ease-out;
+  }
+
+  .idle-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    color: var(--border-strong);
+    margin: 0 0 1rem 0;
+  }
+
+  .idle-title {
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin: 0 0 0.5rem 0;
+  }
+
+  .idle-text {
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    margin: 0;
+    max-width: 22rem;
   }
 
   .results-actions {
