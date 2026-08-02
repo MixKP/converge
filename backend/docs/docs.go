@@ -438,7 +438,7 @@ const docTemplate = `{
         },
         "/login": {
             "post": {
-                "description": "Verifies a user's name and password. Returns the user on success. No token is issued yet.",
+                "description": "Verifies a user's name and password and returns a JWT access token plus the user.",
                 "consumes": [
                     "application/json"
                 ],
@@ -464,7 +464,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/user.User"
+                            "$ref": "#/definitions/user.AuthResponse"
                         }
                     },
                     "401": {
@@ -484,7 +484,12 @@ const docTemplate = `{
         },
         "/register": {
             "post": {
-                "description": "Creates a user with a unique name and a bcrypt-hashed password",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Admin-only. Creates a user with a unique name, a bcrypt-hashed password, and the given role.",
                 "consumes": [
                     "application/json"
                 ],
@@ -494,10 +499,10 @@ const docTemplate = `{
                 "tags": [
                     "users"
                 ],
-                "summary": "Register a new user",
+                "summary": "Register a new user (admin only)",
                 "parameters": [
                     {
-                        "description": "New user credentials",
+                        "description": "New user credentials and role",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -515,6 +520,18 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/scheduling.ErrorResponse"
                         }
@@ -1145,6 +1162,18 @@ const docTemplate = `{
                 }
             }
         },
+        "user.AuthResponse": {
+            "type": "object",
+            "properties": {
+                "token": {
+                    "type": "string",
+                    "example": "eyJhbGciOiJIUzI1NiIs..."
+                },
+                "user": {
+                    "$ref": "#/definitions/user.User"
+                }
+            }
+        },
         "user.LoginRequest": {
             "type": "object",
             "required": [
@@ -1166,7 +1195,8 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "name",
-                "password"
+                "password",
+                "role"
             ],
             "properties": {
                 "name": {
@@ -1176,6 +1206,16 @@ const docTemplate = `{
                 "password": {
                     "type": "string",
                     "example": "s3cret"
+                },
+                "role": {
+                    "type": "string",
+                    "enum": [
+                        "admin",
+                        "teacher",
+                        "student",
+                        "parent"
+                    ],
+                    "example": "teacher"
                 }
             }
         },
@@ -1189,8 +1229,20 @@ const docTemplate = `{
                 "name": {
                     "type": "string",
                     "example": "alice"
+                },
+                "role": {
+                    "type": "string",
+                    "example": "teacher"
                 }
             }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "Type \"Bearer\" followed by a space and the JWT from /login.",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
         }
     }
 }`

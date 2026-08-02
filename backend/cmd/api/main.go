@@ -3,6 +3,11 @@
 // @description     API for teacher availability management and bookings
 // @BasePath        /api
 
+// @securityDefinitions.apikey  BearerAuth
+// @in                          header
+// @name                        Authorization
+// @description                 Type "Bearer" followed by a space and the JWT from /login.
+
 package main
 
 import (
@@ -17,6 +22,7 @@ import (
 	_ "github.com/RinZ5/converge/backend/docs"
 	"github.com/RinZ5/converge/backend/internal/adapter"
 	"github.com/RinZ5/converge/backend/internal/adapter/db"
+	"github.com/RinZ5/converge/backend/internal/adapter/token"
 	"github.com/RinZ5/converge/backend/internal/adapter/web"
 	"github.com/RinZ5/converge/backend/internal/branch"
 	"github.com/RinZ5/converge/backend/internal/commute"
@@ -40,6 +46,7 @@ const (
 	readTimeout       = 10 * time.Second
 	writeTimeout      = 15 * time.Second
 	idleTimeout       = 60 * time.Second
+	defaultJWTTTL     = 24 * time.Hour
 )
 
 func corsConfig() cors.Config {
@@ -56,9 +63,21 @@ func corsConfig() cors.Config {
 	return cors.Config{
 		AllowOrigins:     allowedOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		AllowCredentials: false,
 	}
+}
+
+func jwtTTL() time.Duration {
+	raw := os.Getenv("JWT_TTL")
+	if raw == "" {
+		return defaultJWTTTL
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil || d <= 0 {
+		return defaultJWTTTL
+	}
+	return d
 }
 
 func requestIDMiddleware() gin.HandlerFunc {
@@ -80,6 +99,13 @@ func timeoutMiddleware(timeout time.Duration) gin.HandlerFunc {
 
 func main() {
 	logger := shared.NewLogger()
+
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		logger.Error("JWT_SECRET is required")
+		os.Exit(1)
+	}
+	jwtAdapter := token.NewJWT([]byte(jwtSecret), jwtTTL())
 
 	database, err := db.InitDB()
 	if err != nil {
@@ -103,7 +129,7 @@ func main() {
 	userRepo := db.NewUserRepository(database)
 	teacherSvc := teacher.NewService(availRepo, availRepo, availRepo, logger)
 	branchSvc := branch.NewService(branchRepo, logger)
-	userSvc := user.NewService(userRepo, logger)
+	userSvc := user.NewService(userRepo, jwtAdapter, logger)
 	teacherRoster := adapter.NewTeacherRosterAdapter(teacherSvc)
 	commuteConfigRepo := db.NewCommuteConfigRepository(database)
 	commuteSvc := commute.NewService(commuteConfigRepo, logger)
@@ -125,24 +151,32 @@ func main() {
 	r.Use(requestIDMiddleware())
 	r.Use(timeoutMiddleware(requestTimeout))
 	r.Use(cors.New(corsConfig()))
+	authRequired := web.AuthMiddleware(jwtAdapter)
+
 	api := r.Group("/api")
-	api.POST("/register", userHandler.Register)
+
+	// Public (guest): login + viewing teacher availability.
 	api.POST("/login", userHandler.Login)
 	api.GET("/teachers", availHandler.GetTeachers)
-	api.POST("/teachers", availHandler.CreateTeacher)
-	api.PATCH("/teachers/:id/status", availHandler.UpdateTeacherStatus)
-	api.PATCH("/teachers/:id/gender", availHandler.UpdateTeacherGender)
 	api.GET("/availability", availHandler.GetAllAvailability)
-	api.POST("/availability", availHandler.SubmitWeeklyAvailability)
-	api.GET("/branches", branchHandler.GetBranches)
-	api.PATCH("/branches/:id/capacity", branchHandler.UpdateBranchCapacity)
-	api.GET("/commute", commuteHandler.GetCommute)
-	api.PATCH("/commute", commuteHandler.UpdateCommute)
-	api.GET("/subjects", availHandler.GetSubjects)
-	api.POST("/bookings", bookingHandler.CreateBooking)
-	api.GET("/bookings", bookingHandler.ListBookings)
-	api.POST("/bookings/confirm", bookingHandler.ConfirmBooking)
-	api.DELETE("/bookings/:id", bookingHandler.CancelBooking)
+
+	api.POST("/register", authRequired, web.RequireRole(shared.RoleAdmin), userHandler.Register)
+	api.POST("/availability", authRequired, web.RequireRole(shared.RoleTeacher, shared.RoleAdmin), availHandler.SubmitWeeklyAvailability)
+
+	// Everything else is admin-only. Scoped student/parent views are a follow-up.
+	admin := api.Group("", authRequired, web.RequireRole(shared.RoleAdmin))
+	admin.POST("/teachers", availHandler.CreateTeacher)
+	admin.PATCH("/teachers/:id/status", availHandler.UpdateTeacherStatus)
+	admin.PATCH("/teachers/:id/gender", availHandler.UpdateTeacherGender)
+	admin.GET("/branches", branchHandler.GetBranches)
+	admin.PATCH("/branches/:id/capacity", branchHandler.UpdateBranchCapacity)
+	admin.GET("/commute", commuteHandler.GetCommute)
+	admin.PATCH("/commute", commuteHandler.UpdateCommute)
+	admin.GET("/subjects", availHandler.GetSubjects)
+	admin.POST("/bookings", bookingHandler.CreateBooking)
+	admin.GET("/bookings", bookingHandler.ListBookings)
+	admin.POST("/bookings/confirm", bookingHandler.ConfirmBooking)
+	admin.DELETE("/bookings/:id", bookingHandler.CancelBooking)
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 

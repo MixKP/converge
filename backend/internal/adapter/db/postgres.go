@@ -133,8 +133,10 @@ func AutoMigrate(database *sql.DB) error {
 			id SERIAL PRIMARY KEY,
 			name VARCHAR(100) NOT NULL UNIQUE,
 			password_hash VARCHAR(255) NOT NULL,
+			role VARCHAR(20) NOT NULL DEFAULT 'student' CHECK (role IN ('admin','teacher','student','parent')),
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'student' CHECK (role IN ('admin','teacher','student','parent'))`,
 
 		`CREATE TABLE IF NOT EXISTS commute_config (
 			id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),

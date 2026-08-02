@@ -3,10 +3,9 @@ package user
 import (
 	"context"
 	"errors"
-	"log/slog"
-
 	"github.com/RinZ5/converge/backend/internal/shared"
 	"golang.org/x/crypto/bcrypt"
+	"log/slog"
 )
 
 type ValidationError = shared.ValidationError
@@ -19,18 +18,24 @@ var ErrInvalidCredentials = &shared.ValidationError{Msg: "invalid username or pa
 
 type Service struct {
 	store  UserStore
+	issuer TokenIssuer
 	logger *slog.Logger
 }
 
-func NewService(store UserStore, logger *slog.Logger) *Service {
-	return &Service{store: store, logger: logger}
+func NewService(store UserStore, issuer TokenIssuer, logger *slog.Logger) *Service {
+	return &Service{store: store, issuer: issuer, logger: logger}
 }
 
-func (s *Service) Register(ctx context.Context, name, password string) (*User, error) {
+func (s *Service) Register(ctx context.Context, name, password, role string) (*User, error) {
 	if err := shared.ValidateAll(RegisterRequest{Name: name, Password: password},
 		shared.NonEmpty("name", func(r RegisterRequest) string { return r.Name }),
 		shared.NonEmpty("password", func(r RegisterRequest) string { return r.Password }),
 	); err != nil {
+		return nil, err
+	}
+
+	validRole, err := shared.ParseRole(role)
+	if err != nil {
 		return nil, err
 	}
 
@@ -39,29 +44,39 @@ func (s *Service) Register(ctx context.Context, name, password string) (*User, e
 		return nil, err
 	}
 
-	return s.store.CreateUser(ctx, name, string(hash))
+	return s.store.CreateUser(ctx, name, string(hash), string(validRole))
 }
 
-func (s *Service) Login(ctx context.Context, name, password string) (*User, error) {
+func (s *Service) Login(ctx context.Context, name, password string) (*User, string, error) {
 	if err := shared.ValidateAll(LoginRequest{Name: name, Password: password},
 		shared.NonEmpty("name", func(r LoginRequest) string { return r.Name }),
 		shared.NonEmpty("password", func(r LoginRequest) string { return r.Password }),
 	); err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
-	id, hash, err := s.store.GetCredentialByName(ctx, name)
+	id, hash, role, err := s.store.GetCredentialByName(ctx, name)
 	if err != nil {
 		var notFound *shared.NotFoundError
 		if errors.As(err, &notFound) {
-			return nil, ErrInvalidCredentials
+			return nil, "", ErrInvalidCredentials
 		}
-		return nil, err
+		return nil, "", err
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)); err != nil {
-		return nil, ErrInvalidCredentials
+		return nil, "", ErrInvalidCredentials
 	}
 
-	return &User{ID: id, Name: name}, nil
+	validRole, err := shared.ParseRole(role)
+	if err != nil {
+		return nil, "", err
+	}
+
+	u := &User{ID: id, Name: name, Role: role}
+	token, err := s.issuer.Issue(shared.Principal{UserID: u.ID, Name: u.Name, Role: validRole})
+	if err != nil {
+		return nil, "", err
+	}
+	return u, token, nil
 }

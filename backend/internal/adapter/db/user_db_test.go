@@ -16,10 +16,11 @@ func TestUserRepoCreateUser_Success(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewUserRepository(db)
 
-	u, err := repo.CreateUser(context.Background(), "alice", "hashed-secret")
+	u, err := repo.CreateUser(context.Background(), "alice", "hashed-secret", "teacher")
 	require.NoError(t, err)
 	assert.NotZero(t, u.ID)
 	assert.Equal(t, "alice", u.Name)
+	assert.Equal(t, "teacher", u.Role)
 
 	var storedHash string
 	require.NoError(t, db.QueryRow(`SELECT password_hash FROM users WHERE id = $1`, u.ID).Scan(&storedHash))
@@ -30,10 +31,10 @@ func TestUserRepoCreateUser_DuplicateName_ReturnsConflict(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewUserRepository(db)
 
-	_, err := repo.CreateUser(context.Background(), "alice", "hash-1")
+	_, err := repo.CreateUser(context.Background(), "alice", "hash-1", "student")
 	require.NoError(t, err)
 
-	_, err = repo.CreateUser(context.Background(), "alice", "hash-2")
+	_, err = repo.CreateUser(context.Background(), "alice", "hash-2", "student")
 	require.Error(t, err)
 	var confErr *shared.ConflictError
 	assert.True(t, errors.As(err, &confErr))
@@ -43,20 +44,21 @@ func TestUserRepoGetCredentialByName_Success(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewUserRepository(db)
 
-	created, err := repo.CreateUser(context.Background(), "alice", "hashed-secret")
+	created, err := repo.CreateUser(context.Background(), "alice", "hashed-secret", "parent")
 	require.NoError(t, err)
 
-	id, hash, err := repo.GetCredentialByName(context.Background(), "alice")
+	id, hash, role, err := repo.GetCredentialByName(context.Background(), "alice")
 	require.NoError(t, err)
 	assert.Equal(t, created.ID, id)
 	assert.Equal(t, "hashed-secret", hash)
+	assert.Equal(t, "parent", role)
 }
 
 func TestUserRepoGetCredentialByName_NotFound(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewUserRepository(db)
 
-	_, _, err := repo.GetCredentialByName(context.Background(), "ghost")
+	_, _, _, err := repo.GetCredentialByName(context.Background(), "ghost")
 	require.Error(t, err)
 	var notFoundErr *shared.NotFoundError
 	assert.True(t, errors.As(err, &notFoundErr))

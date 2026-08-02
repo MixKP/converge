@@ -6,12 +6,18 @@ import (
 	"fmt"
 	"log"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 func Seed(database *sql.DB) error {
 	log.Println("Seeding database...")
 
 	if err := truncateSeedTables(database); err != nil {
+		return err
+	}
+
+	if err := seedAdminUser(database); err != nil {
 		return err
 	}
 
@@ -51,6 +57,33 @@ func truncateSeedTables(database *sql.DB) error {
 	_, err := database.Exec(`TRUNCATE form_submission, teacher_availability, teacher_subjects, teachers, subjects, branches RESTART IDENTITY CASCADE`)
 	if err != nil {
 		return fmt.Errorf("truncate failed: %w", err)
+	}
+	return nil
+}
+
+// seedAdminUser bootstraps the first admin. Idempotent: users is not truncated
+// and ON CONFLICT keeps an existing admin unchanged across re-seeds.
+func seedAdminUser(database *sql.DB) error {
+	name := getEnv("ADMIN_USERNAME", "admin")
+	password := getEnv("ADMIN_PASSWORD", "admin123")
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("hash admin password: %w", err)
+	}
+
+	res, err := database.Exec(
+		`INSERT INTO users (name, password_hash, role) VALUES ($1, $2, 'admin')
+		 ON CONFLICT (name) DO NOTHING`,
+		name, string(hash),
+	)
+	if err != nil {
+		return fmt.Errorf("seed admin user: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n > 0 {
+		log.Printf("Seeded admin user %q", name)
+	} else {
+		log.Printf("Admin user %q already exists, left unchanged", name)
 	}
 	return nil
 }

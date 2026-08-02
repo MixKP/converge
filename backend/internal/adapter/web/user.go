@@ -12,8 +12,8 @@ import (
 )
 
 type userService interface {
-	Register(ctx context.Context, name, password string) (*user.User, error)
-	Login(ctx context.Context, name, password string) (*user.User, error)
+	Register(ctx context.Context, name, password, role string) (*user.User, error)
+	Login(ctx context.Context, name, password string) (*user.User, string, error)
 }
 
 type UserHandler struct {
@@ -26,14 +26,17 @@ func NewUserHandler(svc userService, logger *slog.Logger) *UserHandler {
 }
 
 // Register godoc
-// @Summary      Register a new user
-// @Description  Creates a user with a unique name and a bcrypt-hashed password
+// @Summary      Register a new user (admin only)
+// @Description  Admin-only. Creates a user with a unique name, a bcrypt-hashed password, and the given role.
 // @Tags         users
 // @Accept       json
 // @Produce      json
-// @Param        body  body  user.RegisterRequest  true  "New user credentials"
+// @Security     BearerAuth
+// @Param        body  body  user.RegisterRequest  true  "New user credentials and role"
 // @Success      201  {object}  user.User
 // @Failure      400  {object}  scheduling.ErrorResponse
+// @Failure      401  {object}  scheduling.ErrorResponse
+// @Failure      403  {object}  scheduling.ErrorResponse
 // @Failure      409  {object}  scheduling.ErrorResponse
 // @Failure      500  {object}  scheduling.ErrorResponse
 // @Router       /register [post]
@@ -44,7 +47,7 @@ func (h *UserHandler) Register(c *gin.Context) {
 		return
 	}
 
-	u, err := h.svc.Register(c.Request.Context(), req.Name, req.Password)
+	u, err := h.svc.Register(c.Request.Context(), req.Name, req.Password, req.Role)
 	if err != nil {
 		var confErr *user.ConflictError
 		var valErr *user.ValidationError
@@ -69,12 +72,12 @@ func (h *UserHandler) Register(c *gin.Context) {
 
 // Login godoc
 // @Summary      Log in
-// @Description  Verifies a user's name and password. Returns the user on success. No token is issued yet.
+// @Description  Verifies a user's name and password and returns a JWT access token plus the user.
 // @Tags         users
 // @Accept       json
 // @Produce      json
 // @Param        body  body  user.LoginRequest  true  "User credentials"
-// @Success      200  {object}  user.User
+// @Success      200  {object}  user.AuthResponse
 // @Failure      401  {object}  scheduling.ErrorResponse
 // @Failure      500  {object}  scheduling.ErrorResponse
 // @Router       /login [post]
@@ -85,10 +88,10 @@ func (h *UserHandler) Login(c *gin.Context) {
 		return
 	}
 
-	u, err := h.svc.Login(c.Request.Context(), req.Name, req.Password)
+	u, tok, err := h.svc.Login(c.Request.Context(), req.Name, req.Password)
 	if err != nil {
-		// Bad input and bad credentials are both ValidationError; while auth is
-		// stubbed, both map to 401 so login never distinguishes the two.
+		// Bad input and bad credentials are both ValidationError, and both map
+		// to 401 so login never distinguishes the two.
 		var valErr *user.ValidationError
 		if errors.As(err, &valErr) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
@@ -103,5 +106,5 @@ func (h *UserHandler) Login(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, u)
+	c.JSON(http.StatusOK, user.AuthResponse{Token: tok, User: *u})
 }

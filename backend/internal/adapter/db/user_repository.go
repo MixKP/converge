@@ -17,13 +17,13 @@ func NewUserRepository(database *sql.DB) *UserRepo {
 	return &UserRepo{DB: database}
 }
 
-func (r *UserRepo) CreateUser(ctx context.Context, name, passwordHash string) (*user.User, error) {
+func (r *UserRepo) CreateUser(ctx context.Context, name, passwordHash, role string) (*user.User, error) {
 	row := r.DB.QueryRowContext(ctx, `
-		INSERT INTO users (name, password_hash) VALUES ($1, $2)
-		RETURNING id, name`, name, passwordHash)
+		INSERT INTO users (name, password_hash, role) VALUES ($1, $2, $3)
+		RETURNING id, name, role`, name, passwordHash, role)
 
 	var u user.User
-	if err := row.Scan(&u.ID, &u.Name); err != nil {
+	if err := row.Scan(&u.ID, &u.Name, &u.Role); err != nil {
 		if confErr := uniqueViolationError(err, fmt.Sprintf("username %q already taken", name)); confErr != nil {
 			return nil, confErr
 		}
@@ -32,14 +32,14 @@ func (r *UserRepo) CreateUser(ctx context.Context, name, passwordHash string) (*
 	return &u, nil
 }
 
-func (r *UserRepo) GetCredentialByName(ctx context.Context, name string) (id int, passwordHash string, err error) {
-	row := r.DB.QueryRowContext(ctx, `SELECT id, password_hash FROM users WHERE name = $1`, name)
+func (r *UserRepo) GetCredentialByName(ctx context.Context, name string) (id int, passwordHash, role string, err error) {
+	row := r.DB.QueryRowContext(ctx, `SELECT id, password_hash, role FROM users WHERE name = $1`, name)
 
-	if err := row.Scan(&id, &passwordHash); err != nil {
+	if err := row.Scan(&id, &passwordHash, &role); err != nil {
 		if err == sql.ErrNoRows {
-			return 0, "", &shared.NotFoundError{Msg: fmt.Sprintf("user %q not found", name)}
+			return 0, "", "", &shared.NotFoundError{Msg: fmt.Sprintf("user %q not found", name)}
 		}
-		return 0, "", err
+		return 0, "", "", err
 	}
-	return id, passwordHash, nil
+	return id, passwordHash, role, nil
 }

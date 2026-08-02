@@ -20,24 +20,26 @@ type mockUserService struct {
 	registerUser *user.User
 	registerErr  error
 	loginUser    *user.User
+	loginToken   string
 	loginErr     error
 
 	registerCalled bool
 	loginCalled    bool
 	gotName        string
 	gotPassword    string
+	gotRole        string
 }
 
-func (m *mockUserService) Register(ctx context.Context, name, password string) (*user.User, error) {
+func (m *mockUserService) Register(ctx context.Context, name, password, role string) (*user.User, error) {
 	m.registerCalled = true
-	m.gotName, m.gotPassword = name, password
+	m.gotName, m.gotPassword, m.gotRole = name, password, role
 	return m.registerUser, m.registerErr
 }
 
-func (m *mockUserService) Login(ctx context.Context, name, password string) (*user.User, error) {
+func (m *mockUserService) Login(ctx context.Context, name, password string) (*user.User, string, error) {
 	m.loginCalled = true
 	m.gotName, m.gotPassword = name, password
-	return m.loginUser, m.loginErr
+	return m.loginUser, m.loginToken, m.loginErr
 }
 
 func TestUserHandler_Register(t *testing.T) {
@@ -50,28 +52,35 @@ func TestUserHandler_Register(t *testing.T) {
 	}{
 		{
 			name:       "success",
-			body:       `{"name":"alice","password":"s3cret"}`,
-			mock:       &mockUserService{registerUser: &user.User{ID: 1, Name: "alice"}},
+			body:       `{"name":"alice","password":"s3cret","role":"teacher"}`,
+			mock:       &mockUserService{registerUser: &user.User{ID: 1, Name: "alice", Role: "teacher"}},
 			wantStatus: http.StatusCreated,
 			wantCalled: true,
 		},
 		{
 			name:       "duplicate name conflict",
-			body:       `{"name":"alice","password":"s3cret"}`,
+			body:       `{"name":"alice","password":"s3cret","role":"teacher"}`,
 			mock:       &mockUserService{registerErr: &shared.ConflictError{Msg: `username "alice" already taken`}},
 			wantStatus: http.StatusConflict,
 			wantCalled: true,
 		},
 		{
 			name:       "service validation error",
-			body:       `{"name":"alice","password":"s3cret"}`,
+			body:       `{"name":"alice","password":"s3cret","role":"teacher"}`,
 			mock:       &mockUserService{registerErr: &shared.ValidationError{Msg: "name must not be empty"}},
 			wantStatus: http.StatusBadRequest,
 			wantCalled: true,
 		},
 		{
 			name:       "missing password fails binding",
-			body:       `{"name":"alice"}`,
+			body:       `{"name":"alice","role":"teacher"}`,
+			mock:       &mockUserService{},
+			wantStatus: http.StatusBadRequest,
+			wantCalled: false,
+		},
+		{
+			name:       "invalid role fails binding",
+			body:       `{"name":"alice","password":"s3cret","role":"superuser"}`,
 			mock:       &mockUserService{},
 			wantStatus: http.StatusBadRequest,
 			wantCalled: false,
@@ -85,7 +94,7 @@ func TestUserHandler_Register(t *testing.T) {
 		},
 		{
 			name:       "service error",
-			body:       `{"name":"alice","password":"s3cret"}`,
+			body:       `{"name":"alice","password":"s3cret","role":"teacher"}`,
 			mock:       &mockUserService{registerErr: assert.AnError},
 			wantStatus: http.StatusInternalServerError,
 			wantCalled: true,
@@ -111,7 +120,7 @@ func TestUserHandler_Register(t *testing.T) {
 			if tt.wantStatus == http.StatusCreated {
 				var got user.User
 				require.NoError(t, json.Unmarshal(w.Body.Bytes(), &got))
-				assert.Equal(t, user.User{ID: 1, Name: "alice"}, got)
+				assert.Equal(t, user.User{ID: 1, Name: "alice", Role: "teacher"}, got)
 				assert.NotContains(t, w.Body.String(), "password")
 			}
 		})
@@ -129,7 +138,7 @@ func TestUserHandler_Login(t *testing.T) {
 		{
 			name:       "success",
 			body:       `{"name":"alice","password":"s3cret"}`,
-			mock:       &mockUserService{loginUser: &user.User{ID: 1, Name: "alice"}},
+			mock:       &mockUserService{loginUser: &user.User{ID: 1, Name: "alice", Role: "student"}, loginToken: "tok-123"},
 			wantStatus: http.StatusOK,
 			wantCalled: true,
 		},
@@ -173,9 +182,10 @@ func TestUserHandler_Login(t *testing.T) {
 			assert.Equal(t, tt.wantCalled, tt.mock.loginCalled)
 
 			if tt.wantStatus == http.StatusOK {
-				var got user.User
+				var got user.AuthResponse
 				require.NoError(t, json.Unmarshal(w.Body.Bytes(), &got))
-				assert.Equal(t, user.User{ID: 1, Name: "alice"}, got)
+				assert.Equal(t, "tok-123", got.Token)
+				assert.Equal(t, user.User{ID: 1, Name: "alice", Role: "student"}, got.User)
 				assert.NotContains(t, w.Body.String(), "password")
 			}
 		})

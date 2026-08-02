@@ -252,6 +252,14 @@ definitions:
     required:
     - status
     type: object
+  user.AuthResponse:
+    properties:
+      token:
+        example: eyJhbGciOiJIUzI1NiIs...
+        type: string
+      user:
+        $ref: '#/definitions/user.User'
+    type: object
   user.LoginRequest:
     properties:
       name:
@@ -272,9 +280,18 @@ definitions:
       password:
         example: s3cret
         type: string
+      role:
+        enum:
+        - admin
+        - teacher
+        - student
+        - parent
+        example: teacher
+        type: string
     required:
     - name
     - password
+    - role
     type: object
   user.User:
     properties:
@@ -283,6 +300,9 @@ definitions:
         type: integer
       name:
         example: alice
+        type: string
+      role:
+        example: teacher
         type: string
     type: object
 info:
@@ -581,8 +601,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Verifies a user's name and password. Returns the user on success.
-        No token is issued yet.
+      description: Verifies a user's name and password and returns a JWT access token
+        plus the user.
       parameters:
       - description: User credentials
         in: body
@@ -596,7 +616,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/user.User'
+            $ref: '#/definitions/user.AuthResponse'
         "401":
           description: Unauthorized
           schema:
@@ -612,9 +632,10 @@ paths:
     post:
       consumes:
       - application/json
-      description: Creates a user with a unique name and a bcrypt-hashed password
+      description: Admin-only. Creates a user with a unique name, a bcrypt-hashed
+        password, and the given role.
       parameters:
-      - description: New user credentials
+      - description: New user credentials and role
         in: body
         name: body
         required: true
@@ -631,6 +652,14 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
         "409":
           description: Conflict
           schema:
@@ -639,7 +668,9 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
-      summary: Register a new user
+      security:
+      - BearerAuth: []
+      summary: Register a new user (admin only)
       tags:
       - users
   /subjects:
@@ -806,4 +837,10 @@ paths:
       summary: Toggle teacher active/deactivated status
       tags:
       - teachers
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and the JWT from /login.
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"
