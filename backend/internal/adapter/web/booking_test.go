@@ -584,6 +584,19 @@ func TestBookingHandler_ListBookings_ParentSeesChildren(t *testing.T) {
 	assert.Equal(t, []int{3, 4}, mock.gotStudentID) // scoped to the parent's students
 }
 
+func TestBookingHandler_ListBookings_EmptySerializesToArray(t *testing.T) {
+	mock := &mockBookingSvc{listAll: nil}
+	handler := NewBookingHandler(mock, &mockGuardian{}, slog.Default())
+	r := listRouter(handler, shared.Principal{UserID: 1, Role: shared.RoleAdmin})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/bookings", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.JSONEq(t, "[]", w.Body.String())
+}
+
 func TestBookingHandler_ListBookings_ServiceError(t *testing.T) {
 	mock := &mockBookingSvc{listErr: assert.AnError}
 	handler := NewBookingHandler(mock, &mockGuardian{}, slog.Default())

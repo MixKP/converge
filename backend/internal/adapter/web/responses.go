@@ -13,6 +13,13 @@ func requestID(c *gin.Context) string {
 	return shared.RequestIDFromContext(c.Request.Context())
 }
 
+func orEmpty[T any](s []T) []T {
+	if s == nil {
+		return []T{}
+	}
+	return s
+}
+
 // respondFieldUpdateErr writes the appropriate HTTP response for an error
 // returned by a single-field update service call (e.g. SetStatus, SetGender,
 // SetCapacity), dispatching on error type: NotFoundError -> 404,

@@ -207,7 +207,7 @@ func (h *BookingHandler) ListBookings(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list bookings"})
 		return
 	}
-	c.JSON(http.StatusOK, bookings)
+	c.JSON(http.StatusOK, orEmpty(bookings))
 }
 
 func (h *BookingHandler) bookingsForPrincipal(ctx context.Context, p shared.Principal) ([]scheduling.Booking, error) {

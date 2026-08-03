@@ -11,8 +11,6 @@ import (
 type ValidationError = shared.ValidationError
 type ConflictError = shared.ConflictError
 
-// maxPasswordBytes is bcrypt's hard input limit; longer inputs make
-// GenerateFromPassword fail, so reject them as invalid input, not a 500.
 const maxPasswordBytes = 72
 
 // ErrInvalidCredentials is returned for any failed login. The message is
@@ -20,8 +18,6 @@ const maxPasswordBytes = 72
 // password was wrong.
 var ErrInvalidCredentials = &shared.ValidationError{Msg: "invalid username or password"}
 
-// dummyPasswordHash lets the unknown-user login path pay the same bcrypt cost as
-// a real comparison, so response time never reveals whether a username exists.
 var dummyPasswordHash, _ = bcrypt.GenerateFromPassword([]byte("dummy-password"), bcrypt.DefaultCost)
 
 type Service struct {

@@ -132,7 +132,7 @@ func (h *UserHandler) ListStudents(c *gin.Context) {
 		h.respondUserErr(c, err, "ListStudents")
 		return
 	}
-	c.JSON(http.StatusOK, students)
+	c.JSON(http.StatusOK, orEmpty(students))
 }
 
 // ListParents godoc
@@ -151,7 +151,7 @@ func (h *UserHandler) ListParents(c *gin.Context) {
 		h.respondUserErr(c, err, "ListParents")
 		return
 	}
-	c.JSON(http.StatusOK, parents)
+	c.JSON(http.StatusOK, orEmpty(parents))
 }
 
 // GetParentStudents godoc
@@ -176,7 +176,7 @@ func (h *UserHandler) GetParentStudents(c *gin.Context) {
 		h.respondUserErr(c, err, "GetParentStudents")
 		return
 	}
-	c.JSON(http.StatusOK, students)
+	c.JSON(http.StatusOK, orEmpty(students))
 }
 
 // AddParentStudent godoc
