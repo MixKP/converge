@@ -285,13 +285,13 @@ definitions:
   user.ParentWithStudents:
     properties:
       id:
-        example: 1
+        example: 5
         type: integer
       name:
-        example: alice
+        example: mom
         type: string
       role:
-        example: student
+        example: parent
         type: string
       students:
         items:

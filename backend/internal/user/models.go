@@ -30,6 +30,8 @@ type LinkStudentRequest struct {
 
 // ParentWithStudents is a parent user together with the students they guard.
 type ParentWithStudents struct {
-	User
+	ID       int    `json:"id"   example:"5"`
+	Name     string `json:"name" example:"mom"`
+	Role     string `json:"role" example:"parent"`
 	Students []User `json:"students"`
 }

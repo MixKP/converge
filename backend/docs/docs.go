@@ -1725,15 +1725,15 @@ const docTemplate = `{
             "properties": {
                 "id": {
                     "type": "integer",
-                    "example": 1
+                    "example": 5
                 },
                 "name": {
                     "type": "string",
-                    "example": "alice"
+                    "example": "mom"
                 },
                 "role": {
                     "type": "string",
-                    "example": "student"
+                    "example": "parent"
                 },
                 "students": {
                     "type": "array",

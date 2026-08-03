@@ -130,7 +130,7 @@ func (r *UserRepo) ListParentsWithStudents(ctx context.Context) ([]user.ParentWi
 		idx, ok := indexByID[pID]
 		if !ok {
 			result = append(result, user.ParentWithStudents{
-				User:     user.User{ID: pID, Name: pName, Role: pRole},
+				ID: pID, Name: pName, Role: pRole,
 				Students: []user.User{},
 			})
 			idx = len(result) - 1
