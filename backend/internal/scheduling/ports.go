@@ -16,6 +16,7 @@ type BookingStore interface {
 	CreateBooking(ctx context.Context, req ConfirmBookingRequest) (*Booking, error)
 	DeleteBooking(ctx context.Context, bookingID int) error
 	FindAllBookings(ctx context.Context) ([]Booking, error)
+	FindBookingsByStudentIDs(ctx context.Context, studentIDs []int) ([]Booking, error)
 }
 
 type TeacherRoster interface {

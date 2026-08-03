@@ -116,7 +116,7 @@ func (s *SchedulingService) Confirm(ctx context.Context, req ConfirmBookingReque
 		shared.PositiveInt("teacher_id", func(r ConfirmBookingRequest) int { return r.TeacherID }),
 		shared.PositiveInt("branch_id", func(r ConfirmBookingRequest) int { return r.BranchID }),
 		shared.PositiveInt("subject_id", func(r ConfirmBookingRequest) int { return r.SubjectID }),
-		shared.NonEmpty("client_name", func(r ConfirmBookingRequest) string { return r.ClientName }),
+		shared.PositiveInt("student_id", func(r ConfirmBookingRequest) int { return r.StudentID }),
 	); err != nil {
 		return nil, err
 	}
@@ -161,6 +161,17 @@ func (s *SchedulingService) ListAll(ctx context.Context) ([]Booking, error) {
 	bookings, err := s.bookingStore.FindAllBookings(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("find all bookings: %w", err)
+	}
+	return bookings, nil
+}
+
+func (s *SchedulingService) ListForStudentIDs(ctx context.Context, studentIDs []int) ([]Booking, error) {
+	if len(studentIDs) == 0 {
+		return []Booking{}, nil
+	}
+	bookings, err := s.bookingStore.FindBookingsByStudentIDs(ctx, studentIDs)
+	if err != nil {
+		return nil, fmt.Errorf("find bookings by students: %w", err)
 	}
 	return bookings, nil
 }

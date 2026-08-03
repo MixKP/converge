@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/RinZ5/converge/backend/internal/scheduling"
+	"github.com/RinZ5/converge/backend/internal/shared"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,15 +18,22 @@ type bookingService interface {
 	Confirm(ctx context.Context, req scheduling.ConfirmBookingRequest) (*scheduling.Booking, error)
 	Cancel(ctx context.Context, bookingID int) error
 	ListAll(ctx context.Context) ([]scheduling.Booking, error)
+	ListForStudentIDs(ctx context.Context, studentIDs []int) ([]scheduling.Booking, error)
+}
+
+// guardianResolver returns the students a parent may view. Satisfied by user.Service.
+type guardianResolver interface {
+	StudentIDsForParent(ctx context.Context, parentID int) ([]int, error)
 }
 
 type BookingHandler struct {
-	svc    bookingService
-	logger *slog.Logger
+	svc      bookingService
+	guardian guardianResolver
+	logger   *slog.Logger
 }
 
-func NewBookingHandler(svc bookingService, logger *slog.Logger) *BookingHandler {
-	return &BookingHandler{svc: svc, logger: logger}
+func NewBookingHandler(svc bookingService, guardian guardianResolver, logger *slog.Logger) *BookingHandler {
+	return &BookingHandler{svc: svc, guardian: guardian, logger: logger}
 }
 
 // CreateBooking godoc
@@ -162,23 +170,50 @@ func (h *BookingHandler) CancelBooking(c *gin.Context) {
 }
 
 // ListBookings godoc
-// @Summary      List all confirmed bookings
-// @Description  Returns all bookings sorted by creation date descending.
+// @Summary      List bookings (scoped by role)
+// @Description  Admin sees all bookings; a student sees only their own; a parent sees their students' bookings.
 // @Tags         bookings
 // @Produce      json
+// @Security     BearerAuth
 // @Success      200  {array}   scheduling.Booking
+// @Failure      401  {object}  scheduling.ErrorResponse
+// @Failure      403  {object}  scheduling.ErrorResponse
 // @Failure      500  {object}  scheduling.ErrorResponse
 // @Router       /bookings [get]
 func (h *BookingHandler) ListBookings(c *gin.Context) {
-	bookings, err := h.svc.ListAll(c.Request.Context())
+	ctx := c.Request.Context()
+	p, ok := PrincipalFrom(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+
+	bookings, err := h.bookingsForPrincipal(ctx, p)
 	if err != nil {
 		h.logger.Error("request failed",
 			"request_id", requestID(c),
-			"op", "ListBookings/ListAll",
+			"op", "ListBookings",
 			"error", err,
 		)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list bookings"})
 		return
 	}
 	c.JSON(http.StatusOK, bookings)
+}
+
+func (h *BookingHandler) bookingsForPrincipal(ctx context.Context, p shared.Principal) ([]scheduling.Booking, error) {
+	switch p.Role {
+	case shared.RoleAdmin:
+		return h.svc.ListAll(ctx)
+	case shared.RoleStudent:
+		return h.svc.ListForStudentIDs(ctx, []int{p.UserID})
+	case shared.RoleParent:
+		ids, err := h.guardian.StudentIDsForParent(ctx, p.UserID)
+		if err != nil {
+			return nil, err
+		}
+		return h.svc.ListForStudentIDs(ctx, ids)
+	default:
+		return []scheduling.Booking{}, nil
+	}
 }

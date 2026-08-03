@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/RinZ5/converge/backend/internal/scheduling"
@@ -143,6 +144,17 @@ func (r *BookingRepo) CreateBooking(ctx context.Context, req scheduling.ConfirmB
 	}
 	defer tx.Rollback()
 
+	var studentRole string
+	if err := tx.QueryRowContext(ctx, `SELECT role FROM users WHERE id = $1`, req.StudentID).Scan(&studentRole); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, &shared.ValidationError{Msg: fmt.Sprintf("student %d not found", req.StudentID)}
+		}
+		return nil, err
+	}
+	if studentRole != "student" {
+		return nil, &shared.ValidationError{Msg: fmt.Sprintf("user %d is not a student", req.StudentID)}
+	}
+
 	var capacity int
 	if err := tx.QueryRowContext(ctx, `SELECT capacity FROM branches WHERE id = $1`, req.BranchID).Scan(&capacity); err != nil {
 		if err == sql.ErrNoRows {
@@ -171,15 +183,20 @@ func (r *BookingRepo) CreateBooking(ctx context.Context, req scheduling.ConfirmB
 	}
 
 	row := tx.QueryRowContext(ctx, `
-		INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time, client_name)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, teacher_id, branch_id, subject_id, start_time, end_time, client_name, created_at`,
-		req.TeacherID, req.BranchID, req.SubjectID, req.StartTime, req.EndTime, req.ClientName,
+		WITH ins AS (
+			INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time, student_id)
+			VALUES ($1, $2, $3, $4, $5, $6)
+			RETURNING id, teacher_id, branch_id, subject_id, start_time, end_time, student_id, created_at
+		)
+		SELECT ins.id, ins.teacher_id, ins.branch_id, ins.subject_id, ins.start_time, ins.end_time,
+		       COALESCE(ins.student_id, 0), COALESCE(u.name, ''), ins.created_at
+		FROM ins LEFT JOIN users u ON u.id = ins.student_id`,
+		req.TeacherID, req.BranchID, req.SubjectID, req.StartTime, req.EndTime, req.StudentID,
 	)
 
 	var b scheduling.Booking
 	if err := row.Scan(&b.ID, &b.TeacherID, &b.BranchID, &b.SubjectID,
-		&b.StartTime, &b.EndTime, &b.ClientName, &b.CreatedAt); err != nil {
+		&b.StartTime, &b.EndTime, &b.StudentID, &b.StudentName, &b.CreatedAt); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgExclusionViolation {
 			return nil, scheduling.ErrBookingConflict
@@ -208,24 +225,51 @@ func (r *BookingRepo) DeleteBooking(ctx context.Context, bookingID int) error {
 	return nil
 }
 
-func (r *BookingRepo) FindAllBookings(ctx context.Context) ([]scheduling.Booking, error) {
-	rows, err := r.DB.QueryContext(ctx, `
-		SELECT id, teacher_id, branch_id, subject_id, start_time, end_time, client_name, created_at
-		FROM bookings
-		ORDER BY created_at DESC`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
+const bookingWithStudentSelect = `
+	SELECT b.id, b.teacher_id, b.branch_id, b.subject_id, b.start_time, b.end_time,
+	       COALESCE(b.student_id, 0), COALESCE(u.name, ''), b.created_at
+	FROM bookings b
+	LEFT JOIN users u ON u.id = b.student_id`
 
-	var bookings []scheduling.Booking
+func scanStudentBookings(rows *sql.Rows) ([]scheduling.Booking, error) {
+	bookings := []scheduling.Booking{}
 	for rows.Next() {
 		var b scheduling.Booking
 		if err := rows.Scan(&b.ID, &b.TeacherID, &b.BranchID, &b.SubjectID,
-			&b.StartTime, &b.EndTime, &b.ClientName, &b.CreatedAt); err != nil {
+			&b.StartTime, &b.EndTime, &b.StudentID, &b.StudentName, &b.CreatedAt); err != nil {
 			return nil, err
 		}
 		bookings = append(bookings, b)
 	}
 	return bookings, rows.Err()
+}
+
+func (r *BookingRepo) FindAllBookings(ctx context.Context) ([]scheduling.Booking, error) {
+	rows, err := r.DB.QueryContext(ctx, bookingWithStudentSelect+` ORDER BY b.created_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanStudentBookings(rows)
+}
+
+func (r *BookingRepo) FindBookingsByStudentIDs(ctx context.Context, studentIDs []int) ([]scheduling.Booking, error) {
+	if len(studentIDs) == 0 {
+		return []scheduling.Booking{}, nil
+	}
+	placeholders := make([]string, len(studentIDs))
+	args := make([]any, len(studentIDs))
+	for i, id := range studentIDs {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+		args[i] = id
+	}
+	query := bookingWithStudentSelect +
+		fmt.Sprintf(` WHERE b.student_id IN (%s) ORDER BY b.created_at DESC`, strings.Join(placeholders, ","))
+
+	rows, err := r.DB.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanStudentBookings(rows)
 }

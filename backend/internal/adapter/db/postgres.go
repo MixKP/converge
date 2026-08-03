@@ -108,12 +108,11 @@ func AutoMigrate(database *sql.DB) error {
 			subject_id INTEGER NOT NULL REFERENCES subjects(id),
 			start_time TIMESTAMPTZ NOT NULL,
 			end_time TIMESTAMPTZ NOT NULL,
-			client_name VARCHAR(255) NOT NULL DEFAULT '',
+			student_id INTEGER,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			CHECK (start_time < end_time),
 			EXCLUDE USING gist (teacher_id WITH =, tstzrange(start_time, end_time) WITH &&)
 		)`,
-		`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS client_name VARCHAR(255) NOT NULL DEFAULT ''`,
 		`ALTER TABLE branches ADD COLUMN IF NOT EXISTS capacity INTEGER NOT NULL DEFAULT 0`,
 		`DO $$
 		BEGIN
@@ -137,6 +136,25 @@ func AutoMigrate(database *sql.DB) error {
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'student' CHECK (role IN ('admin','teacher','student','parent'))`,
+
+		// bookings.student_id and its FK are added here (after users exists).
+		// client_name is superseded by student_id; the student's name is read via a join.
+		`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS student_id INTEGER`,
+		`ALTER TABLE bookings DROP COLUMN IF EXISTS client_name`,
+		`DO $$
+		BEGIN
+			IF NOT EXISTS (
+				SELECT 1 FROM pg_constraint WHERE conname = 'bookings_student_fk'
+			) THEN
+				ALTER TABLE bookings ADD CONSTRAINT bookings_student_fk
+					FOREIGN KEY (student_id) REFERENCES users(id);
+			END IF;
+		END $$;`,
+		`CREATE TABLE IF NOT EXISTS parent_students (
+			parent_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			PRIMARY KEY (parent_id, student_id)
+		)`,
 
 		`CREATE TABLE IF NOT EXISTS commute_config (
 			id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),

@@ -30,7 +30,7 @@ type mockUserService struct {
 	gotRole        string
 }
 
-func (m *mockUserService) Register(ctx context.Context, name, password, role string) (*user.User, error) {
+func (m *mockUserService) Register(ctx context.Context, name, password, role string, studentIDs []int) (*user.User, error) {
 	m.registerCalled = true
 	m.gotName, m.gotPassword, m.gotRole = name, password, role
 	return m.registerUser, m.registerErr
@@ -40,6 +40,24 @@ func (m *mockUserService) Login(ctx context.Context, name, password string) (*us
 	m.loginCalled = true
 	m.gotName, m.gotPassword = name, password
 	return m.loginUser, m.loginToken, m.loginErr
+}
+
+func (m *mockUserService) ListStudents(ctx context.Context) ([]user.User, error) { return nil, nil }
+
+func (m *mockUserService) ListParents(ctx context.Context) ([]user.ParentWithStudents, error) {
+	return nil, nil
+}
+
+func (m *mockUserService) StudentsForParent(ctx context.Context, parentID int) ([]user.User, error) {
+	return nil, nil
+}
+
+func (m *mockUserService) AddStudentToParent(ctx context.Context, parentID, studentID int) error {
+	return nil
+}
+
+func (m *mockUserService) RemoveStudentFromParent(ctx context.Context, parentID, studentID int) error {
+	return nil
 }
 
 func TestUserHandler_Register(t *testing.T) {

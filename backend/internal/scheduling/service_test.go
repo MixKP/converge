@@ -50,6 +50,11 @@ func (m *mockStore) FindAllBookings(ctx context.Context) ([]Booking, error) {
 	return args.Get(0).([]Booking), args.Error(1)
 }
 
+func (m *mockStore) FindBookingsByStudentIDs(ctx context.Context, studentIDs []int) ([]Booking, error) {
+	args := m.Called(ctx, studentIDs)
+	return args.Get(0).([]Booking), args.Error(1)
+}
+
 func (m *mockStore) GetSubjects(ctx context.Context) ([]Subject, error) {
 	args := m.Called(ctx)
 	return args.Get(0).([]Subject), args.Error(1)
@@ -285,22 +290,23 @@ func TestSchedulingService_Confirm_Success(t *testing.T) {
 	svc := NewSchedulingService(store, store, new(mockEngine))
 
 	req := ConfirmBookingRequest{
-		TeacherID:  1,
-		BranchID:   1,
-		SubjectID:  1,
-		StartTime:  time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
-		EndTime:    time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
-		ClientName: "John Doe",
+		TeacherID: 1,
+		BranchID:  1,
+		SubjectID: 1,
+		StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+		StudentID: 3,
 	}
 
 	expected := &Booking{
-		ID:         10,
-		TeacherID:  1,
-		BranchID:   1,
-		SubjectID:  1,
-		StartTime:  time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
-		EndTime:    time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
-		ClientName: "John Doe",
+		ID:          10,
+		TeacherID:   1,
+		BranchID:    1,
+		SubjectID:   1,
+		StartTime:   time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		EndTime:     time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+		StudentID:   3,
+		StudentName: "John Doe",
 	}
 	store.On("CreateBooking", mock.Anything, req).Return(expected, nil)
 
@@ -308,7 +314,7 @@ func TestSchedulingService_Confirm_Success(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, 10, result.ID)
-	assert.Equal(t, "John Doe", result.ClientName)
+	assert.Equal(t, "John Doe", result.StudentName)
 	store.AssertExpectations(t)
 }
 
@@ -317,12 +323,12 @@ func TestSchedulingService_Confirm_BranchCapacityExceeded_ReturnsConflict(t *tes
 	svc := NewSchedulingService(store, store, new(mockEngine))
 
 	req := ConfirmBookingRequest{
-		TeacherID:  1,
-		BranchID:   1,
-		SubjectID:  1,
-		StartTime:  time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
-		EndTime:    time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
-		ClientName: "John Doe",
+		TeacherID: 1,
+		BranchID:  1,
+		SubjectID: 1,
+		StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+		StudentID: 3,
 	}
 	store.On("CreateBooking", mock.Anything, req).Return(nil, ErrBranchCapacityExceeded)
 
@@ -340,13 +346,13 @@ func TestSchedulingService_Confirm_MissingFields(t *testing.T) {
 		req  ConfirmBookingRequest
 		err  string
 	}{
-		{"teacher", ConfirmBookingRequest{BranchID: 1, SubjectID: 1, StartTime: time.Now(), EndTime: time.Now().Add(time.Hour), ClientName: "X"}, "teacher_id"},
-		{"branch", ConfirmBookingRequest{TeacherID: 1, SubjectID: 1, StartTime: time.Now(), EndTime: time.Now().Add(time.Hour), ClientName: "X"}, "branch_id"},
-		{"subject", ConfirmBookingRequest{TeacherID: 1, BranchID: 1, StartTime: time.Now(), EndTime: time.Now().Add(time.Hour), ClientName: "X"}, "subject_id"},
-		{"start_time", ConfirmBookingRequest{TeacherID: 1, BranchID: 1, SubjectID: 1, EndTime: time.Now(), ClientName: "X"}, "start_time"},
-		{"end_time", ConfirmBookingRequest{TeacherID: 1, BranchID: 1, SubjectID: 1, StartTime: time.Now(), ClientName: "X"}, "end_time"},
-		{"time_reversed", ConfirmBookingRequest{TeacherID: 1, BranchID: 1, SubjectID: 1, StartTime: time.Now().Add(time.Hour), EndTime: time.Now(), ClientName: "X"}, "end_time must be after start_time"},
-		{"client_name", ConfirmBookingRequest{TeacherID: 1, BranchID: 1, SubjectID: 1, StartTime: time.Now(), EndTime: time.Now().Add(time.Hour)}, "client_name"},
+		{"teacher", ConfirmBookingRequest{BranchID: 1, SubjectID: 1, StartTime: time.Now(), EndTime: time.Now().Add(time.Hour), StudentID: 3}, "teacher_id"},
+		{"branch", ConfirmBookingRequest{TeacherID: 1, SubjectID: 1, StartTime: time.Now(), EndTime: time.Now().Add(time.Hour), StudentID: 3}, "branch_id"},
+		{"subject", ConfirmBookingRequest{TeacherID: 1, BranchID: 1, StartTime: time.Now(), EndTime: time.Now().Add(time.Hour), StudentID: 3}, "subject_id"},
+		{"start_time", ConfirmBookingRequest{TeacherID: 1, BranchID: 1, SubjectID: 1, EndTime: time.Now(), StudentID: 3}, "start_time"},
+		{"end_time", ConfirmBookingRequest{TeacherID: 1, BranchID: 1, SubjectID: 1, StartTime: time.Now(), StudentID: 3}, "end_time"},
+		{"time_reversed", ConfirmBookingRequest{TeacherID: 1, BranchID: 1, SubjectID: 1, StartTime: time.Now().Add(time.Hour), EndTime: time.Now(), StudentID: 3}, "end_time must be after start_time"},
+		{"student_id", ConfirmBookingRequest{TeacherID: 1, BranchID: 1, SubjectID: 1, StartTime: time.Now(), EndTime: time.Now().Add(time.Hour)}, "student_id"},
 	}
 
 	for _, tt := range tests {

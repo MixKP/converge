@@ -11,14 +11,15 @@ type WeeklySlot = shared.WeeklySlot
 type Subject = shared.Subject
 
 type Booking struct {
-	ID         int       `json:"id"`
-	TeacherID  int       `json:"teacher_id"`
-	BranchID   int       `json:"branch_id"`
-	SubjectID  int       `json:"subject_id"`
-	StartTime  time.Time `json:"start_time"`
-	EndTime    time.Time `json:"end_time"`
-	ClientName string    `json:"client_name"`
-	CreatedAt  time.Time `json:"created_at"`
+	ID          int       `json:"id"`
+	TeacherID   int       `json:"teacher_id"`
+	BranchID    int       `json:"branch_id"`
+	SubjectID   int       `json:"subject_id"`
+	StartTime   time.Time `json:"start_time"`
+	EndTime     time.Time `json:"end_time"`
+	StudentID   int       `json:"student_id"`
+	StudentName string    `json:"student_name"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 type BookingRequest struct {
@@ -31,12 +32,12 @@ type BookingRequest struct {
 }
 
 type ConfirmBookingRequest struct {
-	TeacherID  int       `json:"teacher_id"  binding:"required" example:"1"`
-	BranchID   int       `json:"branch_id"   binding:"required" example:"1"`
-	SubjectID  int       `json:"subject_id"  binding:"required" example:"1"`
-	StartTime  time.Time `json:"start_time"  binding:"required" example:"2026-06-01T09:00:00Z"`
-	EndTime    time.Time `json:"end_time"    binding:"required" example:"2026-06-01T10:00:00Z"`
-	ClientName string    `json:"client_name" binding:"required" example:"John Doe"`
+	TeacherID int       `json:"teacher_id"  binding:"required" example:"1"`
+	BranchID  int       `json:"branch_id"   binding:"required" example:"1"`
+	SubjectID int       `json:"subject_id"  binding:"required" example:"1"`
+	StartTime time.Time `json:"start_time"  binding:"required" example:"2026-06-01T09:00:00Z"`
+	EndTime   time.Time `json:"end_time"    binding:"required" example:"2026-06-01T10:00:00Z"`
+	StudentID int       `json:"student_id"  binding:"required" example:"3"`
 }
 
 type BookingAlternative struct {

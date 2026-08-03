@@ -91,14 +91,19 @@ const docTemplate = `{
         },
         "/bookings": {
             "get": {
-                "description": "Returns all bookings sorted by creation date descending.",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Admin sees all bookings; a student sees only their own; a parent sees their students' bookings.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "bookings"
                 ],
-                "summary": "List all confirmed bookings",
+                "summary": "List bookings (scoped by role)",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -107,6 +112,18 @@ const docTemplate = `{
                             "items": {
                                 "$ref": "#/definitions/scheduling.Booking"
                             }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
                         }
                     },
                     "500": {
@@ -482,6 +499,218 @@ const docTemplate = `{
                 }
             }
         },
+        "/parents": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "List all parents with their students (admin only)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/user.ParentWithStudents"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/parents/{id}/students": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "List a parent's linked students (admin only)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Parent user ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/user.User"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Link a student to a parent (admin only)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Parent user ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Student to link",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/user.LinkStudentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/parents/{id}/students/{studentId}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Unlink a student from a parent (admin only)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Parent user ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Student user ID",
+                        "name": "studentId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/register": {
             "post": {
                 "security": [
@@ -538,6 +767,51 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/students": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "List all students (admin only)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/user.User"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/scheduling.ErrorResponse"
                         }
@@ -862,9 +1136,6 @@ const docTemplate = `{
                 "branch_id": {
                     "type": "integer"
                 },
-                "client_name": {
-                    "type": "string"
-                },
                 "created_at": {
                     "type": "string"
                 },
@@ -875,6 +1146,12 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "start_time": {
+                    "type": "string"
+                },
+                "student_id": {
+                    "type": "integer"
+                },
+                "student_name": {
                     "type": "string"
                 },
                 "subject_id": {
@@ -977,9 +1254,9 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "branch_id",
-                "client_name",
                 "end_time",
                 "start_time",
+                "student_id",
                 "subject_id",
                 "teacher_id"
             ],
@@ -988,10 +1265,6 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 1
                 },
-                "client_name": {
-                    "type": "string",
-                    "example": "John Doe"
-                },
                 "end_time": {
                     "type": "string",
                     "example": "2026-06-01T10:00:00Z"
@@ -999,6 +1272,10 @@ const docTemplate = `{
                 "start_time": {
                     "type": "string",
                     "example": "2026-06-01T09:00:00Z"
+                },
+                "student_id": {
+                    "type": "integer",
+                    "example": 3
                 },
                 "subject_id": {
                     "type": "integer",
@@ -1174,6 +1451,18 @@ const docTemplate = `{
                 }
             }
         },
+        "user.LinkStudentRequest": {
+            "type": "object",
+            "required": [
+                "student_id"
+            ],
+            "properties": {
+                "student_id": {
+                    "type": "integer",
+                    "example": 3
+                }
+            }
+        },
         "user.LoginRequest": {
             "type": "object",
             "required": [
@@ -1188,6 +1477,29 @@ const docTemplate = `{
                 "password": {
                     "type": "string",
                     "example": "s3cret"
+                }
+            }
+        },
+        "user.ParentWithStudents": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "name": {
+                    "type": "string",
+                    "example": "alice"
+                },
+                "role": {
+                    "type": "string",
+                    "example": "teacher"
+                },
+                "students": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/user.User"
+                    }
                 }
             }
         },
@@ -1216,6 +1528,17 @@ const docTemplate = `{
                         "parent"
                     ],
                     "example": "teacher"
+                },
+                "student_ids": {
+                    "description": "StudentIDs links a parent to the students they guard. Required when role is parent, ignored otherwise.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        3,
+                        4
+                    ]
                 }
             }
         },

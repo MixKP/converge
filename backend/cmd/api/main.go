@@ -33,6 +33,7 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
@@ -100,9 +101,13 @@ func timeoutMiddleware(timeout time.Duration) gin.HandlerFunc {
 func main() {
 	logger := shared.NewLogger()
 
+	// Load .env before reading any configuration, so env values in the file are
+	// visible to the checks below (InitDB also loads it, but that runs later).
+	_ = godotenv.Load()
+
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
-		logger.Error("JWT_SECRET is required")
+		logger.Error("JWT_SECRET is required (set it in .env or the environment)")
 		os.Exit(1)
 	}
 	jwtAdapter := token.NewJWT([]byte(jwtSecret), jwtTTL())
@@ -142,7 +147,7 @@ func main() {
 	schedulingSvc := scheduling.NewSchedulingService(bookingRepo, availRepo, clpEngine)
 
 	availHandler := web.NewAvailabilityHandler(teacherSvc, logger)
-	bookingHandler := web.NewBookingHandler(schedulingSvc, logger)
+	bookingHandler := web.NewBookingHandler(schedulingSvc, userSvc, logger)
 	branchHandler := web.NewBranchHandler(branchSvc, logger)
 	commuteHandler := web.NewCommuteHandler(commuteSvc, logger)
 	userHandler := web.NewUserHandler(userSvc, logger)
@@ -163,8 +168,16 @@ func main() {
 	api.POST("/register", authRequired, web.RequireRole(shared.RoleAdmin), userHandler.Register)
 	api.POST("/availability", authRequired, web.RequireRole(shared.RoleTeacher, shared.RoleAdmin), availHandler.SubmitWeeklyAvailability)
 
-	// Everything else is admin-only. Scoped student/parent views are a follow-up.
+	// Bookings list is scoped by role inside the handler.
+	api.GET("/bookings", authRequired, web.RequireRole(shared.RoleAdmin, shared.RoleStudent, shared.RoleParent), bookingHandler.ListBookings)
+
+	// Everything else is admin-only.
 	admin := api.Group("", authRequired, web.RequireRole(shared.RoleAdmin))
+	admin.GET("/students", userHandler.ListStudents)
+	admin.GET("/parents", userHandler.ListParents)
+	admin.GET("/parents/:id/students", userHandler.GetParentStudents)
+	admin.POST("/parents/:id/students", userHandler.AddParentStudent)
+	admin.DELETE("/parents/:id/students/:studentId", userHandler.RemoveParentStudent)
 	admin.POST("/teachers", availHandler.CreateTeacher)
 	admin.PATCH("/teachers/:id/status", availHandler.UpdateTeacherStatus)
 	admin.PATCH("/teachers/:id/gender", availHandler.UpdateTeacherGender)
@@ -174,7 +187,6 @@ func main() {
 	admin.PATCH("/commute", commuteHandler.UpdateCommute)
 	admin.GET("/subjects", availHandler.GetSubjects)
 	admin.POST("/bookings", bookingHandler.CreateBooking)
-	admin.GET("/bookings", bookingHandler.ListBookings)
 	admin.POST("/bookings/confirm", bookingHandler.ConfirmBooking)
 	admin.DELETE("/bookings/:id", bookingHandler.CancelBooking)
 

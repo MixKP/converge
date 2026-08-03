@@ -5,15 +5,22 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 
+	"github.com/RinZ5/converge/backend/internal/shared"
 	"github.com/RinZ5/converge/backend/internal/user"
 
 	"github.com/gin-gonic/gin"
 )
 
 type userService interface {
-	Register(ctx context.Context, name, password, role string) (*user.User, error)
+	Register(ctx context.Context, name, password, role string, studentIDs []int) (*user.User, error)
 	Login(ctx context.Context, name, password string) (*user.User, string, error)
+	ListStudents(ctx context.Context) ([]user.User, error)
+	ListParents(ctx context.Context) ([]user.ParentWithStudents, error)
+	StudentsForParent(ctx context.Context, parentID int) ([]user.User, error)
+	AddStudentToParent(ctx context.Context, parentID, studentID int) error
+	RemoveStudentFromParent(ctx context.Context, parentID, studentID int) error
 }
 
 type UserHandler struct {
@@ -47,7 +54,7 @@ func (h *UserHandler) Register(c *gin.Context) {
 		return
 	}
 
-	u, err := h.svc.Register(c.Request.Context(), req.Name, req.Password, req.Role)
+	u, err := h.svc.Register(c.Request.Context(), req.Name, req.Password, req.Role, req.StudentIDs)
 	if err != nil {
 		var confErr *user.ConflictError
 		var valErr *user.ValidationError
@@ -107,4 +114,149 @@ func (h *UserHandler) Login(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, user.AuthResponse{Token: tok, User: *u})
+}
+
+// ListStudents godoc
+// @Summary      List all students (admin only)
+// @Tags         users
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {array}   user.User
+// @Failure      401  {object}  scheduling.ErrorResponse
+// @Failure      403  {object}  scheduling.ErrorResponse
+// @Failure      500  {object}  scheduling.ErrorResponse
+// @Router       /students [get]
+func (h *UserHandler) ListStudents(c *gin.Context) {
+	students, err := h.svc.ListStudents(c.Request.Context())
+	if err != nil {
+		h.respondUserErr(c, err, "ListStudents")
+		return
+	}
+	c.JSON(http.StatusOK, students)
+}
+
+// ListParents godoc
+// @Summary      List all parents with their students (admin only)
+// @Tags         users
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {array}   user.ParentWithStudents
+// @Failure      401  {object}  scheduling.ErrorResponse
+// @Failure      403  {object}  scheduling.ErrorResponse
+// @Failure      500  {object}  scheduling.ErrorResponse
+// @Router       /parents [get]
+func (h *UserHandler) ListParents(c *gin.Context) {
+	parents, err := h.svc.ListParents(c.Request.Context())
+	if err != nil {
+		h.respondUserErr(c, err, "ListParents")
+		return
+	}
+	c.JSON(http.StatusOK, parents)
+}
+
+// GetParentStudents godoc
+// @Summary      List a parent's linked students (admin only)
+// @Tags         users
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "Parent user ID"
+// @Success      200  {array}   user.User
+// @Failure      400  {object}  scheduling.ErrorResponse
+// @Failure      500  {object}  scheduling.ErrorResponse
+// @Router       /parents/{id}/students [get]
+func (h *UserHandler) GetParentStudents(c *gin.Context) {
+	parentID, ok := pathID(c, "id")
+	if !ok {
+		return
+	}
+	students, err := h.svc.StudentsForParent(c.Request.Context(), parentID)
+	if err != nil {
+		h.respondUserErr(c, err, "GetParentStudents")
+		return
+	}
+	c.JSON(http.StatusOK, students)
+}
+
+// AddParentStudent godoc
+// @Summary      Link a student to a parent (admin only)
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path  int                       true  "Parent user ID"
+// @Param        body  body  user.LinkStudentRequest   true  "Student to link"
+// @Success      200  {object}  scheduling.MessageResponse
+// @Failure      400  {object}  scheduling.ErrorResponse
+// @Failure      404  {object}  scheduling.ErrorResponse
+// @Failure      500  {object}  scheduling.ErrorResponse
+// @Router       /parents/{id}/students [post]
+func (h *UserHandler) AddParentStudent(c *gin.Context) {
+	parentID, ok := pathID(c, "id")
+	if !ok {
+		return
+	}
+	var req user.LinkStudentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := h.svc.AddStudentToParent(c.Request.Context(), parentID, req.StudentID); err != nil {
+		h.respondUserErr(c, err, "AddParentStudent")
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "student linked"})
+}
+
+// RemoveParentStudent godoc
+// @Summary      Unlink a student from a parent (admin only)
+// @Tags         users
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id         path  int  true  "Parent user ID"
+// @Param        studentId  path  int  true  "Student user ID"
+// @Success      200  {object}  scheduling.MessageResponse
+// @Failure      400  {object}  scheduling.ErrorResponse
+// @Failure      404  {object}  scheduling.ErrorResponse
+// @Failure      500  {object}  scheduling.ErrorResponse
+// @Router       /parents/{id}/students/{studentId} [delete]
+func (h *UserHandler) RemoveParentStudent(c *gin.Context) {
+	parentID, ok := pathID(c, "id")
+	if !ok {
+		return
+	}
+	studentID, ok := pathID(c, "studentId")
+	if !ok {
+		return
+	}
+	if err := h.svc.RemoveStudentFromParent(c.Request.Context(), parentID, studentID); err != nil {
+		h.respondUserErr(c, err, "RemoveParentStudent")
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "student unlinked"})
+}
+
+func (h *UserHandler) respondUserErr(c *gin.Context, err error, op string) {
+	var notFound *shared.NotFoundError
+	var valErr *user.ValidationError
+	var confErr *user.ConflictError
+	switch {
+	case errors.As(err, &notFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+	case errors.As(err, &valErr):
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	case errors.As(err, &confErr):
+		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+	default:
+		h.logger.Error("request failed", "request_id", requestID(c), "op", op, "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "request failed"})
+	}
+}
+
+func pathID(c *gin.Context, name string) (int, bool) {
+	id, err := strconv.Atoi(c.Param(name))
+	if err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid " + name})
+		return 0, false
+	}
+	return id, true
 }

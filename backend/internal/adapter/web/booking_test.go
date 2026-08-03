@@ -18,13 +18,14 @@ import (
 )
 
 type mockBookingSvc struct {
-	result    *scheduling.BookingResponse
-	evalErr   error
-	confirm   *scheduling.Booking
-	confErr   error
-	cancelErr error
-	listAll   []scheduling.Booking
-	listErr   error
+	result       *scheduling.BookingResponse
+	evalErr      error
+	confirm      *scheduling.Booking
+	confErr      error
+	cancelErr    error
+	listAll      []scheduling.Booking
+	listErr      error
+	gotStudentID []int
 }
 
 func (m *mockBookingSvc) Evaluate(ctx context.Context, req scheduling.BookingRequest) (*scheduling.BookingResponse, error) {
@@ -41,6 +42,28 @@ func (m *mockBookingSvc) Cancel(ctx context.Context, bookingID int) error {
 
 func (m *mockBookingSvc) ListAll(ctx context.Context) ([]scheduling.Booking, error) {
 	return m.listAll, m.listErr
+}
+
+func (m *mockBookingSvc) ListForStudentIDs(ctx context.Context, studentIDs []int) ([]scheduling.Booking, error) {
+	m.gotStudentID = studentIDs
+	return m.listAll, m.listErr
+}
+
+type mockGuardian struct {
+	ids []int
+	err error
+}
+
+func (m *mockGuardian) StudentIDsForParent(ctx context.Context, parentID int) ([]int, error) {
+	return m.ids, m.err
+}
+
+// listRouter builds a ListBookings route that injects the given principal.
+func listRouter(h *BookingHandler, p shared.Principal) *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.GET("/api/bookings", func(c *gin.Context) { c.Set(principalContextKey, p) }, h.ListBookings)
+	return r
 }
 
 func slot(day int, start, end string) scheduling.WeeklySlot {
@@ -66,7 +89,7 @@ func TestBookingHandler_CreateBooking_ExactMatch(t *testing.T) {
 			}},
 		},
 	}
-	handler := NewBookingHandler(mock, slog.Default())
+	handler := NewBookingHandler(mock, &mockGuardian{}, slog.Default())
 
 	payload := scheduling.BookingRequest{
 		SubjectID:       3,
@@ -117,7 +140,7 @@ func TestBookingHandler_CreateBooking_Alternatives(t *testing.T) {
 			}},
 		},
 	}
-	handler := NewBookingHandler(mock, slog.Default())
+	handler := NewBookingHandler(mock, &mockGuardian{}, slog.Default())
 
 	payload := scheduling.BookingRequest{
 		SubjectID:       3,
@@ -156,7 +179,7 @@ func TestBookingHandler_CreateBooking_EmptyAlternatives(t *testing.T) {
 			}},
 		},
 	}
-	handler := NewBookingHandler(mock, slog.Default())
+	handler := NewBookingHandler(mock, &mockGuardian{}, slog.Default())
 
 	payload := scheduling.BookingRequest{
 		SubjectID:       3,
@@ -184,7 +207,7 @@ func TestBookingHandler_CreateBooking_ValidationError(t *testing.T) {
 	mock := &mockBookingSvc{
 		evalErr: &scheduling.ValidationError{Msg: "preferred_slots must not be empty"},
 	}
-	handler := NewBookingHandler(mock, slog.Default())
+	handler := NewBookingHandler(mock, &mockGuardian{}, slog.Default())
 
 	payload := scheduling.BookingRequest{
 		SubjectID:      0,
@@ -207,7 +230,7 @@ func TestBookingHandler_CreateBooking_ValidationError(t *testing.T) {
 
 func TestBookingHandler_CreateBooking_InvalidJSON(t *testing.T) {
 	mock := &mockBookingSvc{}
-	handler := NewBookingHandler(mock, slog.Default())
+	handler := NewBookingHandler(mock, &mockGuardian{}, slog.Default())
 
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
@@ -223,7 +246,7 @@ func TestBookingHandler_CreateBooking_InvalidJSON(t *testing.T) {
 
 func TestBookingHandler_CreateBooking_InvalidRequiredGender(t *testing.T) {
 	mock := &mockBookingSvc{}
-	handler := NewBookingHandler(mock, slog.Default())
+	handler := NewBookingHandler(mock, &mockGuardian{}, slog.Default())
 
 	payload := scheduling.BookingRequest{
 		SubjectID:       3,
@@ -248,7 +271,7 @@ func TestBookingHandler_CreateBooking_InvalidRequiredGender(t *testing.T) {
 
 func TestBookingHandler_CreateBooking_ServiceError(t *testing.T) {
 	mock := &mockBookingSvc{evalErr: assert.AnError}
-	handler := NewBookingHandler(mock, slog.Default())
+	handler := NewBookingHandler(mock, &mockGuardian{}, slog.Default())
 
 	payload := scheduling.BookingRequest{
 		SubjectID:       3,
@@ -291,7 +314,7 @@ func TestBookingHandler_CreateBooking_OptionalPreferredTeacher(t *testing.T) {
 			}},
 		},
 	}
-	handler := NewBookingHandler(mock, slog.Default())
+	handler := NewBookingHandler(mock, &mockGuardian{}, slog.Default())
 
 	preferredTeacher := 5
 	payload := scheduling.BookingRequest{
@@ -323,24 +346,25 @@ func TestBookingHandler_CreateBooking_OptionalPreferredTeacher(t *testing.T) {
 func TestBookingHandler_ConfirmBooking_Success(t *testing.T) {
 	mock := &mockBookingSvc{
 		confirm: &scheduling.Booking{
-			ID:         10,
-			TeacherID:  1,
-			BranchID:   2,
-			SubjectID:  3,
-			StartTime:  time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
-			EndTime:    time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
-			ClientName: "John Doe",
+			ID:          10,
+			TeacherID:   1,
+			BranchID:    2,
+			SubjectID:   3,
+			StartTime:   time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+			EndTime:     time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+			StudentID:   3,
+			StudentName: "John Doe",
 		},
 	}
-	handler := NewBookingHandler(mock, slog.Default())
+	handler := NewBookingHandler(mock, &mockGuardian{}, slog.Default())
 
 	payload := scheduling.ConfirmBookingRequest{
-		TeacherID:  1,
-		BranchID:   2,
-		SubjectID:  3,
-		StartTime:  time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
-		EndTime:    time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
-		ClientName: "John Doe",
+		TeacherID: 1,
+		BranchID:  2,
+		SubjectID: 3,
+		StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+		StudentID: 3,
 	}
 	body, _ := json.Marshal(payload)
 	req := httptest.NewRequest(http.MethodPost, "/api/bookings/confirm", bytes.NewReader(body))
@@ -359,14 +383,14 @@ func TestBookingHandler_ConfirmBooking_Success(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	require.NoError(t, err)
 	assert.Equal(t, 10, response.ID)
-	assert.Equal(t, "John Doe", response.ClientName)
+	assert.Equal(t, "John Doe", response.StudentName)
 }
 
 func TestBookingHandler_ConfirmBooking_ValidationError(t *testing.T) {
 	mock := &mockBookingSvc{
-		confErr: &scheduling.ValidationError{Msg: "client_name must not be empty"},
+		confErr: &scheduling.ValidationError{Msg: "student_id must be positive"},
 	}
-	handler := NewBookingHandler(mock, slog.Default())
+	handler := NewBookingHandler(mock, &mockGuardian{}, slog.Default())
 
 	payload := scheduling.ConfirmBookingRequest{
 		TeacherID: 1,
@@ -393,15 +417,15 @@ func TestBookingHandler_ConfirmBooking_ConflictError(t *testing.T) {
 	mock := &mockBookingSvc{
 		confErr: &scheduling.ConflictError{Msg: "overlapping booking with teacher requested time slot"},
 	}
-	handler := NewBookingHandler(mock, slog.Default())
+	handler := NewBookingHandler(mock, &mockGuardian{}, slog.Default())
 
 	payload := scheduling.ConfirmBookingRequest{
-		TeacherID:  1,
-		BranchID:   2,
-		SubjectID:  3,
-		StartTime:  time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
-		EndTime:    time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
-		ClientName: "John Doe",
+		TeacherID: 1,
+		BranchID:  2,
+		SubjectID: 3,
+		StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+		StudentID: 3,
 	}
 	body, _ := json.Marshal(payload)
 	req := httptest.NewRequest(http.MethodPost, "/api/bookings/confirm", bytes.NewReader(body))
@@ -420,15 +444,15 @@ func TestBookingHandler_ConfirmBooking_ConflictError(t *testing.T) {
 
 func TestBookingHandler_ConfirmBooking_ServiceError(t *testing.T) {
 	mock := &mockBookingSvc{confErr: assert.AnError}
-	handler := NewBookingHandler(mock, slog.Default())
+	handler := NewBookingHandler(mock, &mockGuardian{}, slog.Default())
 
 	payload := scheduling.ConfirmBookingRequest{
-		TeacherID:  1,
-		BranchID:   2,
-		SubjectID:  3,
-		StartTime:  time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
-		EndTime:    time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
-		ClientName: "John Doe",
+		TeacherID: 1,
+		BranchID:  2,
+		SubjectID: 3,
+		StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+		StudentID: 3,
 	}
 	body, _ := json.Marshal(payload)
 	req := httptest.NewRequest(http.MethodPost, "/api/bookings/confirm", bytes.NewReader(body))
@@ -447,7 +471,7 @@ func TestBookingHandler_ConfirmBooking_ServiceError(t *testing.T) {
 
 func TestBookingHandler_CancelBooking_Success(t *testing.T) {
 	mock := &mockBookingSvc{}
-	handler := NewBookingHandler(mock, slog.Default())
+	handler := NewBookingHandler(mock, &mockGuardian{}, slog.Default())
 
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
@@ -465,7 +489,7 @@ func TestBookingHandler_CancelBooking_NotFound(t *testing.T) {
 	mock := &mockBookingSvc{
 		cancelErr: &scheduling.NotFoundError{Msg: "booking 999 not found"},
 	}
-	handler := NewBookingHandler(mock, slog.Default())
+	handler := NewBookingHandler(mock, &mockGuardian{}, slog.Default())
 
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
@@ -481,7 +505,7 @@ func TestBookingHandler_CancelBooking_NotFound(t *testing.T) {
 
 func TestBookingHandler_CancelBooking_InvalidID(t *testing.T) {
 	mock := &mockBookingSvc{}
-	handler := NewBookingHandler(mock, slog.Default())
+	handler := NewBookingHandler(mock, &mockGuardian{}, slog.Default())
 
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
@@ -497,7 +521,7 @@ func TestBookingHandler_CancelBooking_InvalidID(t *testing.T) {
 
 func TestBookingHandler_CancelBooking_ServiceError(t *testing.T) {
 	mock := &mockBookingSvc{cancelErr: assert.AnError}
-	handler := NewBookingHandler(mock, slog.Default())
+	handler := NewBookingHandler(mock, &mockGuardian{}, slog.Default())
 
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
@@ -511,55 +535,59 @@ func TestBookingHandler_CancelBooking_ServiceError(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "failed to cancel booking")
 }
 
-func TestBookingHandler_ListBookings_Success(t *testing.T) {
+func TestBookingHandler_ListBookings_AdminSeesAll(t *testing.T) {
 	mock := &mockBookingSvc{
 		listAll: []scheduling.Booking{
-			{ID: 1, TeacherID: 1, ClientName: "John Doe", StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC), EndTime: time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)},
-			{ID: 2, TeacherID: 2, ClientName: "Jane Doe", StartTime: time.Date(2026, 6, 2, 10, 0, 0, 0, time.UTC), EndTime: time.Date(2026, 6, 2, 11, 0, 0, 0, time.UTC)},
+			{ID: 1, TeacherID: 1, StudentID: 3, StudentName: "John Doe", StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC), EndTime: time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)},
+			{ID: 2, TeacherID: 2, StudentID: 4, StudentName: "Jane Doe", StartTime: time.Date(2026, 6, 2, 10, 0, 0, 0, time.UTC), EndTime: time.Date(2026, 6, 2, 11, 0, 0, 0, time.UTC)},
 		},
 	}
-	handler := NewBookingHandler(mock, slog.Default())
-
-	gin.SetMode(gin.TestMode)
-	r := gin.Default()
-	r.GET("/api/bookings", handler.ListBookings)
+	handler := NewBookingHandler(mock, &mockGuardian{}, slog.Default())
+	r := listRouter(handler, shared.Principal{UserID: 1, Role: shared.RoleAdmin})
 
 	req := httptest.NewRequest(http.MethodGet, "/api/bookings", nil)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-
 	var bookings []scheduling.Booking
-	err := json.Unmarshal(w.Body.Bytes(), &bookings)
-	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &bookings))
 	assert.Len(t, bookings, 2)
-	assert.Equal(t, "John Doe", bookings[0].ClientName)
+	assert.Equal(t, "John Doe", bookings[0].StudentName)
+	assert.Nil(t, mock.gotStudentID) // admin path does not scope
 }
 
-func TestBookingHandler_ListBookings_Empty(t *testing.T) {
-	mock := &mockBookingSvc{listAll: []scheduling.Booking{}}
-	handler := NewBookingHandler(mock, slog.Default())
-
-	gin.SetMode(gin.TestMode)
-	r := gin.Default()
-	r.GET("/api/bookings", handler.ListBookings)
+func TestBookingHandler_ListBookings_StudentSeesOwn(t *testing.T) {
+	mock := &mockBookingSvc{listAll: []scheduling.Booking{{ID: 1, StudentID: 7}}}
+	handler := NewBookingHandler(mock, &mockGuardian{}, slog.Default())
+	r := listRouter(handler, shared.Principal{UserID: 7, Role: shared.RoleStudent})
 
 	req := httptest.NewRequest(http.MethodGet, "/api/bookings", nil)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, "[]", w.Body.String())
+	assert.Equal(t, []int{7}, mock.gotStudentID) // scoped to self
+}
+
+func TestBookingHandler_ListBookings_ParentSeesChildren(t *testing.T) {
+	mock := &mockBookingSvc{listAll: []scheduling.Booking{}}
+	guardian := &mockGuardian{ids: []int{3, 4}}
+	handler := NewBookingHandler(mock, guardian, slog.Default())
+	r := listRouter(handler, shared.Principal{UserID: 9, Role: shared.RoleParent})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/bookings", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, []int{3, 4}, mock.gotStudentID) // scoped to the parent's students
 }
 
 func TestBookingHandler_ListBookings_ServiceError(t *testing.T) {
 	mock := &mockBookingSvc{listErr: assert.AnError}
-	handler := NewBookingHandler(mock, slog.Default())
-
-	gin.SetMode(gin.TestMode)
-	r := gin.Default()
-	r.GET("/api/bookings", handler.ListBookings)
+	handler := NewBookingHandler(mock, &mockGuardian{}, slog.Default())
+	r := listRouter(handler, shared.Principal{UserID: 1, Role: shared.RoleAdmin})
 
 	req := httptest.NewRequest(http.MethodGet, "/api/bookings", nil)
 	w := httptest.NewRecorder()

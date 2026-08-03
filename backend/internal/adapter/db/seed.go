@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -18,6 +19,10 @@ func Seed(database *sql.DB) error {
 	}
 
 	if err := seedAdminUser(database); err != nil {
+		return err
+	}
+
+	if err := seedDemoUsers(database); err != nil {
 		return err
 	}
 
@@ -63,9 +68,14 @@ func truncateSeedTables(database *sql.DB) error {
 
 // seedAdminUser bootstraps the first admin. Idempotent: users is not truncated
 // and ON CONFLICT keeps an existing admin unchanged across re-seeds.
+// ADMIN_PASSWORD is required — there is no default, so a real deployment can
+// never end up with a guessable admin credential.
 func seedAdminUser(database *sql.DB) error {
 	name := getEnv("ADMIN_USERNAME", "admin")
-	password := getEnv("ADMIN_PASSWORD", "admin123")
+	password := os.Getenv("ADMIN_PASSWORD")
+	if password == "" {
+		return fmt.Errorf("ADMIN_PASSWORD is required to seed the admin user")
+	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -85,6 +95,49 @@ func seedAdminUser(database *sql.DB) error {
 	} else {
 		log.Printf("Admin user %q already exists, left unchanged", name)
 	}
+	return nil
+}
+
+// seedDemoUsers creates login accounts for each non-admin role (teacher,
+// student, parent) and links the parent to the students, so the RBAC flows can
+// be exercised out of the box. Idempotent: the upsert returns the id whether the
+// user was inserted or already existed, and the parent link uses ON CONFLICT.
+// These are demo credentials (all password "password"); the admin account is
+// the only one gated behind ADMIN_PASSWORD.
+func seedDemoUsers(database *sql.DB) error {
+	demo := []struct{ name, password, role string }{
+		{"teacher1", "password", "teacher"},
+		{"student1", "password", "student"},
+		{"student2", "password", "student"},
+		{"parent1", "password", "parent"},
+	}
+
+	ids := make(map[string]int, len(demo))
+	for _, u := range demo {
+		hash, err := bcrypt.GenerateFromPassword([]byte(u.password), bcrypt.DefaultCost)
+		if err != nil {
+			return fmt.Errorf("hash %s: %w", u.name, err)
+		}
+		var id int
+		err = database.QueryRow(`
+			INSERT INTO users (name, password_hash, role) VALUES ($1, $2, $3)
+			ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+			RETURNING id`, u.name, string(hash), u.role).Scan(&id)
+		if err != nil {
+			return fmt.Errorf("seed user %s: %w", u.name, err)
+		}
+		ids[u.name] = id
+	}
+
+	for _, student := range []string{"student1", "student2"} {
+		if _, err := database.Exec(`
+			INSERT INTO parent_students (parent_id, student_id) VALUES ($1, $2)
+			ON CONFLICT DO NOTHING`, ids["parent1"], ids[student]); err != nil {
+			return fmt.Errorf("link parent1 -> %s: %w", student, err)
+		}
+	}
+
+	log.Printf("Seeded demo users teacher1/student1/student2/parent1 (password %q); parent1 guards student1,student2", "password")
 	return nil
 }
 

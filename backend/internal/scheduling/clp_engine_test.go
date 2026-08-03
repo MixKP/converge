@@ -53,6 +53,11 @@ func (m *mockCLPBookingStore) FindAllBookings(ctx context.Context) ([]Booking, e
 	return args.Get(0).([]Booking), args.Error(1)
 }
 
+func (m *mockCLPBookingStore) FindBookingsByStudentIDs(ctx context.Context, studentIDs []int) ([]Booking, error) {
+	args := m.Called(ctx, studentIDs)
+	return args.Get(0).([]Booking), args.Error(1)
+}
+
 type mockCLPTeacherRoster struct {
 	mock.Mock
 }
