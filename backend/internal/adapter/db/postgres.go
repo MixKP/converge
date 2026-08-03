@@ -136,6 +136,9 @@ func AutoMigrate(database *sql.DB) error {
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'student' CHECK (role IN ('admin','student','parent'))`,
+		`DELETE FROM users WHERE role = 'teacher'`,
+		`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check`,
+		`ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('admin','student','parent'))`,
 
 		// bookings.student_id and its FK are added here (after users exists).
 		// client_name is superseded by student_id; the student's name is read via a join.
