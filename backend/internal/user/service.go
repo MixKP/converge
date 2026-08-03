@@ -11,10 +11,18 @@ import (
 type ValidationError = shared.ValidationError
 type ConflictError = shared.ConflictError
 
+// maxPasswordBytes is bcrypt's hard input limit; longer inputs make
+// GenerateFromPassword fail, so reject them as invalid input, not a 500.
+const maxPasswordBytes = 72
+
 // ErrInvalidCredentials is returned for any failed login. The message is
 // intentionally generic so it never reveals whether the username exists or the
 // password was wrong.
 var ErrInvalidCredentials = &shared.ValidationError{Msg: "invalid username or password"}
+
+// dummyPasswordHash lets the unknown-user login path pay the same bcrypt cost as
+// a real comparison, so response time never reveals whether a username exists.
+var dummyPasswordHash, _ = bcrypt.GenerateFromPassword([]byte("dummy-password"), bcrypt.DefaultCost)
 
 type Service struct {
 	store  UserStore
@@ -30,6 +38,7 @@ func (s *Service) Register(ctx context.Context, name, password, role string, stu
 	if err := shared.ValidateAll(RegisterRequest{Name: name, Password: password},
 		shared.NonEmpty("name", func(r RegisterRequest) string { return r.Name }),
 		shared.NonEmpty("password", func(r RegisterRequest) string { return r.Password }),
+		shared.MaxBytes("password", maxPasswordBytes, func(r RegisterRequest) string { return r.Password }),
 	); err != nil {
 		return nil, err
 	}
@@ -90,6 +99,7 @@ func (s *Service) Login(ctx context.Context, name, password string) (*User, stri
 	if err != nil {
 		var notFound *shared.NotFoundError
 		if errors.As(err, &notFound) {
+			_ = bcrypt.CompareHashAndPassword(dummyPasswordHash, []byte(password))
 			return nil, "", ErrInvalidCredentials
 		}
 		return nil, "", err

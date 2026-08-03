@@ -144,7 +144,9 @@ func AutoMigrate(database *sql.DB) error {
 		`DO $$
 		BEGIN
 			IF NOT EXISTS (
-				SELECT 1 FROM pg_constraint WHERE conname = 'bookings_student_fk'
+				SELECT 1 FROM pg_constraint
+				WHERE conrelid = 'bookings'::regclass
+				  AND conname = 'bookings_student_fk'
 			) THEN
 				ALTER TABLE bookings ADD CONSTRAINT bookings_student_fk
 					FOREIGN KEY (student_id) REFERENCES users(id);

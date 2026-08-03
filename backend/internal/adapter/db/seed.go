@@ -100,11 +100,17 @@ func seedAdminUser(database *sql.DB) error {
 
 // seedDemoUsers creates login accounts for each non-admin role (student,
 // parent) and links the parent to the students, so the RBAC flows can be
-// exercised out of the box. Idempotent: the upsert returns the id whether the
-// user was inserted or already existed, and the parent link uses ON CONFLICT.
-// These are demo credentials (all password "password"); the admin account is
-// the only one gated behind ADMIN_PASSWORD.
+// exercised out of the box. These use a shared default password, so they are
+// gated behind SEED_DEMO_USERS and skipped unless it is explicitly enabled;
+// this keeps known-credential accounts out of shared or production databases.
+// Idempotent: the upsert returns the id whether the user was inserted or
+// already existed, and the parent link uses ON CONFLICT.
 func seedDemoUsers(database *sql.DB) error {
+	if v := os.Getenv("SEED_DEMO_USERS"); v != "true" && v != "1" {
+		log.Println("SEED_DEMO_USERS not enabled; skipping demo user seeding")
+		return nil
+	}
+
 	demo := []struct{ name, password, role string }{
 		{"student1", "password", "student"},
 		{"student2", "password", "student"},
@@ -136,7 +142,7 @@ func seedDemoUsers(database *sql.DB) error {
 		}
 	}
 
-	log.Printf("Seeded demo users student1/student2/parent1 (password %q); parent1 guards student1,student2", "password")
+	log.Println("Seeded demo users student1/student2/parent1; parent1 guards student1,student2")
 	return nil
 }
 

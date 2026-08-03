@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"golang.org/x/crypto/bcrypt"
 	"log/slog"
+	"strings"
 	"testing"
 )
 
@@ -116,6 +117,17 @@ func TestUserService_Register_EmptyPassword_Rejected(t *testing.T) {
 	svc := NewService(store, stubIssuer{token: "tok-xyz"}, slog.Default())
 
 	_, err := svc.Register(context.Background(), "alice", "", "student", nil)
+
+	var valErr *shared.ValidationError
+	assert.ErrorAs(t, err, &valErr)
+	store.AssertNotCalled(t, "CreateUser", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestUserService_Register_PasswordTooLong_Rejected(t *testing.T) {
+	store := new(mockStore)
+	svc := NewService(store, stubIssuer{token: "tok-xyz"}, slog.Default())
+
+	_, err := svc.Register(context.Background(), "alice", strings.Repeat("a", 73), "student", nil)
 
 	var valErr *shared.ValidationError
 	assert.ErrorAs(t, err, &valErr)

@@ -63,3 +63,47 @@ func TestUserRepoGetCredentialByName_NotFound(t *testing.T) {
 	var notFoundErr *shared.NotFoundError
 	assert.True(t, errors.As(err, &notFoundErr))
 }
+
+func TestUserRepoCreateParent_Success(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewUserRepository(db)
+	s1 := seedStudent(t, db, "student-a")
+	s2 := seedStudent(t, db, "student-b")
+
+	p, err := repo.CreateParent(context.Background(), "mom", "hash", []int{s1, s2})
+	require.NoError(t, err)
+	assert.NotZero(t, p.ID)
+	assert.Equal(t, "parent", p.Role)
+
+	var links int
+	require.NoError(t, db.QueryRow(`SELECT COUNT(*) FROM parent_students WHERE parent_id = $1`, p.ID).Scan(&links))
+	assert.Equal(t, 2, links)
+}
+
+func TestUserRepoCreateParent_DuplicateStudentIDs_LinksOnce(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewUserRepository(db)
+	s1 := seedStudent(t, db, "student-a")
+
+	p, err := repo.CreateParent(context.Background(), "mom", "hash", []int{s1, s1})
+	require.NoError(t, err)
+
+	var links int
+	require.NoError(t, db.QueryRow(`SELECT COUNT(*) FROM parent_students WHERE parent_id = $1`, p.ID).Scan(&links))
+	assert.Equal(t, 1, links)
+}
+
+func TestUserRepoCreateParent_InvalidStudent_RollsBack(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewUserRepository(db)
+	s1 := seedStudent(t, db, "student-a")
+
+	_, err := repo.CreateParent(context.Background(), "mom", "hash", []int{s1, 99999})
+	require.Error(t, err)
+	var valErr *shared.ValidationError
+	assert.True(t, errors.As(err, &valErr))
+
+	var count int
+	require.NoError(t, db.QueryRow(`SELECT COUNT(*) FROM users WHERE name = 'mom'`).Scan(&count))
+	assert.Equal(t, 0, count)
+}

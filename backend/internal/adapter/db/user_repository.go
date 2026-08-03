@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 
 	"github.com/RinZ5/converge/backend/internal/shared"
 	"github.com/RinZ5/converge/backend/internal/user"
@@ -54,20 +53,23 @@ func (r *UserRepo) CreateParent(ctx context.Context, name, passwordHash string, 
 		return nil, fmt.Errorf("create parent: %w", err)
 	}
 
-	placeholders := make([]string, len(studentIDs))
-	args := []any{u.ID}
-	for i, id := range studentIDs {
-		placeholders[i] = fmt.Sprintf("$%d", i+2)
-		args = append(args, id)
+	seen := make(map[int]struct{}, len(studentIDs))
+	uniqueIDs := make([]int, 0, len(studentIDs))
+	for _, id := range studentIDs {
+		if _, dup := seen[id]; dup {
+			continue
+		}
+		seen[id] = struct{}{}
+		uniqueIDs = append(uniqueIDs, id)
 	}
-	res, err := tx.ExecContext(ctx, fmt.Sprintf(`
+	res, err := tx.ExecContext(ctx, `
 		INSERT INTO parent_students (parent_id, student_id)
-		SELECT $1, id FROM users WHERE id IN (%s) AND role = 'student'`,
-		strings.Join(placeholders, ",")), args...)
+		SELECT $1, id FROM users WHERE id = ANY($2) AND role = 'student'`,
+		u.ID, uniqueIDs)
 	if err != nil {
 		return nil, fmt.Errorf("link parent students: %w", err)
 	}
-	if n, _ := res.RowsAffected(); int(n) != len(studentIDs) {
+	if n, _ := res.RowsAffected(); int(n) != len(uniqueIDs) {
 		return nil, &shared.ValidationError{Msg: "one or more student_ids are not valid students"}
 	}
 

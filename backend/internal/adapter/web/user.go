@@ -162,6 +162,8 @@ func (h *UserHandler) ListParents(c *gin.Context) {
 // @Param        id  path  int  true  "Parent user ID"
 // @Success      200  {array}   user.User
 // @Failure      400  {object}  scheduling.ErrorResponse
+// @Failure      401  {object}  scheduling.ErrorResponse
+// @Failure      403  {object}  scheduling.ErrorResponse
 // @Failure      500  {object}  scheduling.ErrorResponse
 // @Router       /parents/{id}/students [get]
 func (h *UserHandler) GetParentStudents(c *gin.Context) {
@@ -187,6 +189,8 @@ func (h *UserHandler) GetParentStudents(c *gin.Context) {
 // @Param        body  body  user.LinkStudentRequest   true  "Student to link"
 // @Success      200  {object}  scheduling.MessageResponse
 // @Failure      400  {object}  scheduling.ErrorResponse
+// @Failure      401  {object}  scheduling.ErrorResponse
+// @Failure      403  {object}  scheduling.ErrorResponse
 // @Failure      404  {object}  scheduling.ErrorResponse
 // @Failure      500  {object}  scheduling.ErrorResponse
 // @Router       /parents/{id}/students [post]
@@ -216,6 +220,8 @@ func (h *UserHandler) AddParentStudent(c *gin.Context) {
 // @Param        studentId  path  int  true  "Student user ID"
 // @Success      200  {object}  scheduling.MessageResponse
 // @Failure      400  {object}  scheduling.ErrorResponse
+// @Failure      401  {object}  scheduling.ErrorResponse
+// @Failure      403  {object}  scheduling.ErrorResponse
 // @Failure      404  {object}  scheduling.ErrorResponse
 // @Failure      500  {object}  scheduling.ErrorResponse
 // @Router       /parents/{id}/students/{studentId} [delete]
