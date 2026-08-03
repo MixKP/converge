@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/RinZ5/converge/backend/internal/scheduling"
@@ -257,16 +256,9 @@ func (r *BookingRepo) FindBookingsByStudentIDs(ctx context.Context, studentIDs [
 	if len(studentIDs) == 0 {
 		return nil, nil
 	}
-	placeholders := make([]string, len(studentIDs))
-	args := make([]any, len(studentIDs))
-	for i, id := range studentIDs {
-		placeholders[i] = fmt.Sprintf("$%d", i+1)
-		args[i] = id
-	}
-	query := bookingWithStudentSelect +
-		fmt.Sprintf(` WHERE b.student_id IN (%s) ORDER BY b.created_at DESC`, strings.Join(placeholders, ","))
+	query := bookingWithStudentSelect + ` WHERE b.student_id = ANY($1) ORDER BY b.created_at DESC`
 
-	rows, err := r.DB.QueryContext(ctx, query, args...)
+	rows, err := r.DB.QueryContext(ctx, query, studentIDs)
 	if err != nil {
 		return nil, err
 	}

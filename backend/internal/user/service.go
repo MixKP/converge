@@ -18,7 +18,15 @@ const maxPasswordBytes = 72
 // password was wrong.
 var ErrInvalidCredentials = &shared.ValidationError{Msg: "invalid username or password"}
 
-var dummyPasswordHash, _ = bcrypt.GenerateFromPassword([]byte("dummy-password"), bcrypt.DefaultCost)
+var dummyPasswordHash = mustBcryptHash("dummy-password")
+
+func mustBcryptHash(pw string) []byte {
+	h, err := bcrypt.GenerateFromPassword([]byte(pw), bcrypt.DefaultCost)
+	if err != nil {
+		panic("user: precompute dummy password hash: " + err.Error())
+	}
+	return h
+}
 
 type Service struct {
 	store  UserStore

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -106,7 +107,7 @@ func seedAdminUser(database *sql.DB) error {
 // Idempotent: the upsert returns the id whether the user was inserted or
 // already existed, and the parent link uses ON CONFLICT.
 func seedDemoUsers(database *sql.DB) error {
-	if v := os.Getenv("SEED_DEMO_USERS"); v != "true" && v != "1" {
+	if enabled, _ := strconv.ParseBool(os.Getenv("SEED_DEMO_USERS")); !enabled {
 		log.Println("SEED_DEMO_USERS not enabled; skipping demo user seeding")
 		return nil
 	}

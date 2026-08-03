@@ -107,3 +107,17 @@ func TestUserRepoCreateParent_InvalidStudent_RollsBack(t *testing.T) {
 	require.NoError(t, db.QueryRow(`SELECT COUNT(*) FROM users WHERE name = 'mom'`).Scan(&count))
 	assert.Equal(t, 0, count)
 }
+
+func TestUserRepoCreateParent_NoStudents_Rejected(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewUserRepository(db)
+
+	_, err := repo.CreateParent(context.Background(), "mom", "hash", nil)
+	require.Error(t, err)
+	var valErr *shared.ValidationError
+	assert.True(t, errors.As(err, &valErr))
+
+	var count int
+	require.NoError(t, db.QueryRow(`SELECT COUNT(*) FROM users WHERE name = 'mom'`).Scan(&count))
+	assert.Equal(t, 0, count)
+}

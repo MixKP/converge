@@ -321,6 +321,39 @@ func TestBookingRepoFindAllBookings(t *testing.T) {
 	assert.Len(t, bookings, 3)
 }
 
+func TestBookingRepoFindBookingsByStudentIDs(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBookingRepository(db)
+	teacherID, branchID, subjectID := seedBookingParents(t, db)
+	s1 := seedStudent(t, db, "student-a")
+	s2 := seedStudent(t, db, "student-b")
+
+	insert := func(studentID, hour int) {
+		_, err := db.Exec(`
+			INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time, student_id)
+			VALUES ($1, $2, $3, $4, $5, $6)`, teacherID, branchID, subjectID,
+			time.Date(2026, 6, 1, hour, 0, 0, 0, time.UTC),
+			time.Date(2026, 6, 1, hour+1, 0, 0, 0, time.UTC), studentID)
+		require.NoError(t, err)
+	}
+	insert(s1, 9)
+	insert(s1, 11)
+	insert(s2, 13)
+
+	own, err := repo.FindBookingsByStudentIDs(context.Background(), []int{s1})
+	require.NoError(t, err)
+	assert.Len(t, own, 2)
+	assert.Equal(t, "student-a", own[0].StudentName)
+
+	both, err := repo.FindBookingsByStudentIDs(context.Background(), []int{s1, s2})
+	require.NoError(t, err)
+	assert.Len(t, both, 3)
+
+	none, err := repo.FindBookingsByStudentIDs(context.Background(), []int{})
+	require.NoError(t, err)
+	assert.Empty(t, none)
+}
+
 func TestBookingRepoFindExactMatch_Success(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewBookingRepository(db)

@@ -36,6 +36,10 @@ func (r *UserRepo) CreateUser(ctx context.Context, name, passwordHash, role stri
 // transaction. Every student_id must reference an existing user with role
 // 'student', otherwise the whole operation is rolled back.
 func (r *UserRepo) CreateParent(ctx context.Context, name, passwordHash string, studentIDs []int) (*user.User, error) {
+	if len(studentIDs) == 0 {
+		return nil, &shared.ValidationError{Msg: "a parent must be linked to at least one student"}
+	}
+
 	tx, err := r.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
