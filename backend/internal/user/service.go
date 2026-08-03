@@ -12,6 +12,7 @@ type ValidationError = shared.ValidationError
 type ConflictError = shared.ConflictError
 
 const maxPasswordBytes = 72
+const maxNameChars = 100
 
 // ErrInvalidCredentials is returned for any failed login. The message is
 // intentionally generic so it never reveals whether the username exists or the
@@ -41,6 +42,7 @@ func NewService(store UserStore, issuer TokenIssuer, logger *slog.Logger) *Servi
 func (s *Service) Register(ctx context.Context, name, password, role string, studentIDs []int) (*User, error) {
 	if err := shared.ValidateAll(RegisterRequest{Name: name, Password: password},
 		shared.NonEmpty("name", func(r RegisterRequest) string { return r.Name }),
+		shared.MaxRunes("name", maxNameChars, func(r RegisterRequest) string { return r.Name }),
 		shared.NonEmpty("password", func(r RegisterRequest) string { return r.Password }),
 		shared.MaxBytes("password", maxPasswordBytes, func(r RegisterRequest) string { return r.Password }),
 	); err != nil {

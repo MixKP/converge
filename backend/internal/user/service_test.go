@@ -134,6 +134,17 @@ func TestUserService_Register_PasswordTooLong_Rejected(t *testing.T) {
 	store.AssertNotCalled(t, "CreateUser", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
+func TestUserService_Register_NameTooLong_Rejected(t *testing.T) {
+	store := new(mockStore)
+	svc := NewService(store, stubIssuer{token: "tok-xyz"}, slog.Default())
+
+	_, err := svc.Register(context.Background(), strings.Repeat("a", 101), "s3cret", "student", nil)
+
+	var valErr *shared.ValidationError
+	assert.ErrorAs(t, err, &valErr)
+	store.AssertNotCalled(t, "CreateUser", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+}
+
 func TestUserService_Register_Parent_LinksStudents(t *testing.T) {
 	store := new(mockStore)
 	svc := NewService(store, stubIssuer{token: "tok-xyz"}, slog.Default())

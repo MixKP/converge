@@ -1,6 +1,9 @@
 package shared
 
-import "fmt"
+import (
+	"fmt"
+	"unicode/utf8"
+)
 
 type Validator[T any] func(T) error
 
@@ -44,6 +47,15 @@ func MaxBytes[T any](field string, max int, get func(T) string) Validator[T] {
 	return func(subject T) error {
 		if len(get(subject)) > max {
 			return &ValidationError{Msg: fmt.Sprintf("%s must be at most %d bytes", field, max)}
+		}
+		return nil
+	}
+}
+
+func MaxRunes[T any](field string, max int, get func(T) string) Validator[T] {
+	return func(subject T) error {
+		if utf8.RuneCountInString(get(subject)) > max {
+			return &ValidationError{Msg: fmt.Sprintf("%s must be at most %d characters", field, max)}
 		}
 		return nil
 	}
