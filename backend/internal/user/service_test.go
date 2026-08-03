@@ -79,11 +79,11 @@ func TestUserService_Register_Success_HashesPassword(t *testing.T) {
 
 	store.On("CreateUser", mock.Anything, "alice", mock.MatchedBy(func(hash string) bool {
 		return bcrypt.CompareHashAndPassword([]byte(hash), []byte("s3cret")) == nil
-	}), "teacher").Return(&User{ID: 1, Name: "alice", Role: "teacher"}, nil)
+	}), "student").Return(&User{ID: 1, Name: "alice", Role: "student"}, nil)
 
-	u, err := svc.Register(context.Background(), "alice", "s3cret", "teacher", nil)
+	u, err := svc.Register(context.Background(), "alice", "s3cret", "student", nil)
 	assert.NoError(t, err)
-	assert.Equal(t, &User{ID: 1, Name: "alice", Role: "teacher"}, u)
+	assert.Equal(t, &User{ID: 1, Name: "alice", Role: "student"}, u)
 	store.AssertExpectations(t)
 }
 
@@ -153,11 +153,11 @@ func TestUserService_Login_Success(t *testing.T) {
 
 	hash, err := bcrypt.GenerateFromPassword([]byte("s3cret"), bcrypt.DefaultCost)
 	assert.NoError(t, err)
-	store.On("GetCredentialByName", mock.Anything, "alice").Return(1, string(hash), "teacher", nil)
+	store.On("GetCredentialByName", mock.Anything, "alice").Return(1, string(hash), "student", nil)
 
 	u, tok, err := svc.Login(context.Background(), "alice", "s3cret")
 	assert.NoError(t, err)
-	assert.Equal(t, &User{ID: 1, Name: "alice", Role: "teacher"}, u)
+	assert.Equal(t, &User{ID: 1, Name: "alice", Role: "student"}, u)
 	assert.Equal(t, "tok-xyz", tok)
 }
 
@@ -167,7 +167,7 @@ func TestUserService_Login_WrongPassword_InvalidCredentials(t *testing.T) {
 
 	hash, err := bcrypt.GenerateFromPassword([]byte("s3cret"), bcrypt.DefaultCost)
 	assert.NoError(t, err)
-	store.On("GetCredentialByName", mock.Anything, "alice").Return(1, string(hash), "teacher", nil)
+	store.On("GetCredentialByName", mock.Anything, "alice").Return(1, string(hash), "student", nil)
 
 	_, _, err = svc.Login(context.Background(), "alice", "wrong")
 	assert.ErrorIs(t, err, ErrInvalidCredentials)

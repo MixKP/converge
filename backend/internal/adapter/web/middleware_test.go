@@ -59,7 +59,7 @@ func TestAuthMiddleware_InvalidToken(t *testing.T) {
 }
 
 func TestRequireRole_WrongRole(t *testing.T) {
-	v := stubVerifier{valid: "good", principal: shared.Principal{UserID: 1, Role: shared.RoleTeacher}}
+	v := stubVerifier{valid: "good", principal: shared.Principal{UserID: 1, Role: shared.RoleStudent}}
 	r := newRouter(v, shared.RoleAdmin)
 
 	w := httptest.NewRecorder()
@@ -72,7 +72,7 @@ func TestRequireRole_WrongRole(t *testing.T) {
 
 func TestRequireRole_Allowed(t *testing.T) {
 	v := stubVerifier{valid: "good", principal: shared.Principal{UserID: 1, Role: shared.RoleAdmin}}
-	r := newRouter(v, shared.RoleAdmin, shared.RoleTeacher)
+	r := newRouter(v, shared.RoleAdmin, shared.RoleStudent)
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/protected", nil)

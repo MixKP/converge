@@ -291,7 +291,7 @@ definitions:
         example: alice
         type: string
       role:
-        example: teacher
+        example: student
         type: string
       students:
         items:
@@ -309,10 +309,9 @@ definitions:
       role:
         enum:
         - admin
-        - teacher
         - student
         - parent
-        example: teacher
+        example: student
         type: string
       student_ids:
         description: StudentIDs links a parent to the students they guard. Required
@@ -337,7 +336,7 @@ definitions:
         example: alice
         type: string
       role:
-        example: teacher
+        example: student
         type: string
     type: object
 info:

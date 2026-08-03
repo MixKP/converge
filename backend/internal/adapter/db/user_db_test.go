@@ -16,11 +16,11 @@ func TestUserRepoCreateUser_Success(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewUserRepository(db)
 
-	u, err := repo.CreateUser(context.Background(), "alice", "hashed-secret", "teacher")
+	u, err := repo.CreateUser(context.Background(), "alice", "hashed-secret", "student")
 	require.NoError(t, err)
 	assert.NotZero(t, u.ID)
 	assert.Equal(t, "alice", u.Name)
-	assert.Equal(t, "teacher", u.Role)
+	assert.Equal(t, "student", u.Role)
 
 	var storedHash string
 	require.NoError(t, db.QueryRow(`SELECT password_hash FROM users WHERE id = $1`, u.ID).Scan(&storedHash))

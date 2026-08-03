@@ -132,10 +132,10 @@ func AutoMigrate(database *sql.DB) error {
 			id SERIAL PRIMARY KEY,
 			name VARCHAR(100) NOT NULL UNIQUE,
 			password_hash VARCHAR(255) NOT NULL,
-			role VARCHAR(20) NOT NULL DEFAULT 'student' CHECK (role IN ('admin','teacher','student','parent')),
+			role VARCHAR(20) NOT NULL DEFAULT 'student' CHECK (role IN ('admin','student','parent')),
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)`,
-		`ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'student' CHECK (role IN ('admin','teacher','student','parent'))`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'student' CHECK (role IN ('admin','student','parent'))`,
 
 		// bookings.student_id and its FK are added here (after users exists).
 		// client_name is superseded by student_id; the student's name is read via a join.

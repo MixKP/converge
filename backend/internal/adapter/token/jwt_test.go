@@ -13,7 +13,7 @@ import (
 
 func TestIssueVerifyRoundTrip(t *testing.T) {
 	j := NewJWT([]byte("test-secret"), time.Hour)
-	want := shared.Principal{UserID: 42, Name: "alice", Role: shared.RoleTeacher}
+	want := shared.Principal{UserID: 42, Name: "alice", Role: shared.RoleStudent}
 
 	tok, err := j.Issue(want)
 	require.NoError(t, err)

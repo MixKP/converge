@@ -1493,7 +1493,7 @@ const docTemplate = `{
                 },
                 "role": {
                     "type": "string",
-                    "example": "teacher"
+                    "example": "student"
                 },
                 "students": {
                     "type": "array",
@@ -1523,11 +1523,10 @@ const docTemplate = `{
                     "type": "string",
                     "enum": [
                         "admin",
-                        "teacher",
                         "student",
                         "parent"
                     ],
-                    "example": "teacher"
+                    "example": "student"
                 },
                 "student_ids": {
                     "description": "StudentIDs links a parent to the students they guard. Required when role is parent, ignored otherwise.",
@@ -1555,7 +1554,7 @@ const docTemplate = `{
                 },
                 "role": {
                     "type": "string",
-                    "example": "teacher"
+                    "example": "student"
                 }
             }
         }
