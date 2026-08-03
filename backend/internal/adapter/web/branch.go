@@ -30,7 +30,10 @@ func NewBranchHandler(svc branchService, logger *slog.Logger) *BranchHandler {
 // @Description  Returns all branches ordered by id
 // @Tags         branches
 // @Produce      json
+// @Security     BearerAuth
 // @Success      200  {array}  branch.Branch
+// @Failure      401  {object}  scheduling.ErrorResponse
+// @Failure      403  {object}  scheduling.ErrorResponse
 // @Failure      500  {object}  scheduling.ErrorResponse
 // @Router       /branches [get]
 func (h *BranchHandler) GetBranches(c *gin.Context) {
@@ -53,10 +56,13 @@ func (h *BranchHandler) GetBranches(c *gin.Context) {
 // @Tags         branches
 // @Accept       json
 // @Produce      json
+// @Security     BearerAuth
 // @Param        id    path  int                          true  "Branch ID"
 // @Param        body  body  branch.UpdateCapacityRequest  true  "New capacity"
 // @Success      200  {object}  scheduling.MessageResponse
 // @Failure      400  {object}  scheduling.ErrorResponse
+// @Failure      401  {object}  scheduling.ErrorResponse
+// @Failure      403  {object}  scheduling.ErrorResponse
 // @Failure      404  {object}  scheduling.ErrorResponse
 // @Failure      500  {object}  scheduling.ErrorResponse
 // @Router       /branches/{id}/capacity [patch]

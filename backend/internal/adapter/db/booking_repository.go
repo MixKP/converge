@@ -189,8 +189,8 @@ func (r *BookingRepo) CreateBooking(ctx context.Context, req scheduling.ConfirmB
 			RETURNING id, teacher_id, branch_id, subject_id, start_time, end_time, student_id, created_at
 		)
 		SELECT ins.id, ins.teacher_id, ins.branch_id, ins.subject_id, ins.start_time, ins.end_time,
-		       COALESCE(ins.student_id, 0), COALESCE(u.name, ''), ins.created_at
-		FROM ins LEFT JOIN users u ON u.id = ins.student_id`,
+		       ins.student_id, u.name, ins.created_at
+		FROM ins JOIN users u ON u.id = ins.student_id`,
 		req.TeacherID, req.BranchID, req.SubjectID, req.StartTime, req.EndTime, req.StudentID,
 	)
 
@@ -227,12 +227,12 @@ func (r *BookingRepo) DeleteBooking(ctx context.Context, bookingID int) error {
 
 const bookingWithStudentSelect = `
 	SELECT b.id, b.teacher_id, b.branch_id, b.subject_id, b.start_time, b.end_time,
-	       COALESCE(b.student_id, 0), COALESCE(u.name, ''), b.created_at
+	       b.student_id, u.name, b.created_at
 	FROM bookings b
-	LEFT JOIN users u ON u.id = b.student_id`
+	JOIN users u ON u.id = b.student_id`
 
 func scanStudentBookings(rows *sql.Rows) ([]scheduling.Booking, error) {
-	bookings := []scheduling.Booking{}
+	var bookings []scheduling.Booking
 	for rows.Next() {
 		var b scheduling.Booking
 		if err := rows.Scan(&b.ID, &b.TeacherID, &b.BranchID, &b.SubjectID,
@@ -255,7 +255,7 @@ func (r *BookingRepo) FindAllBookings(ctx context.Context) ([]scheduling.Booking
 
 func (r *BookingRepo) FindBookingsByStudentIDs(ctx context.Context, studentIDs []int) ([]scheduling.Booking, error) {
 	if len(studentIDs) == 0 {
-		return []scheduling.Booking{}, nil
+		return nil, nil
 	}
 	placeholders := make([]string, len(studentIDs))
 	args := make([]any, len(studentIDs))

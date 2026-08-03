@@ -390,10 +390,20 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Submit weekly availability
       tags:
       - availability
@@ -450,10 +460,20 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Evaluate a booking request
       tags:
       - bookings
@@ -475,6 +495,14 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
         "404":
           description: Not Found
           schema:
@@ -483,6 +511,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Cancel a booking
       tags:
       - bookings
@@ -510,6 +540,14 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
         "409":
           description: Conflict
           schema:
@@ -518,6 +556,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Confirm a booking
       tags:
       - bookings
@@ -533,10 +573,20 @@ paths:
             items:
               $ref: '#/definitions/branch.Branch'
             type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: List branches
       tags:
       - branches
@@ -569,6 +619,14 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
         "404":
           description: Not Found
           schema:
@@ -577,6 +635,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Update a branch's capacity
       tags:
       - branches
@@ -605,10 +665,20 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Get commute time between two branches
       tags:
       - commute
@@ -635,10 +705,20 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Update the global commute time
       tags:
       - commute
@@ -892,10 +972,20 @@ paths:
             items:
               $ref: '#/definitions/shared.Subject'
             type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: List subjects
       tags:
       - subjects
@@ -959,10 +1049,20 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Create a teacher
       tags:
       - teachers
@@ -994,6 +1094,14 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
         "404":
           description: Not Found
           schema:
@@ -1002,6 +1110,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Update a teacher's gender
       tags:
       - teachers
@@ -1033,6 +1143,14 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
         "404":
           description: Not Found
           schema:
@@ -1041,6 +1159,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Toggle teacher active/deactivated status
       tags:
       - teachers

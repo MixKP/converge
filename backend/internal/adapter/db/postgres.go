@@ -150,6 +150,8 @@ func AutoMigrate(database *sql.DB) error {
 					FOREIGN KEY (student_id) REFERENCES users(id);
 			END IF;
 		END $$;`,
+		`DELETE FROM bookings WHERE student_id IS NULL`,
+		`ALTER TABLE bookings ALTER COLUMN student_id SET NOT NULL`,
 		`CREATE TABLE IF NOT EXISTS parent_students (
 			parent_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 			student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

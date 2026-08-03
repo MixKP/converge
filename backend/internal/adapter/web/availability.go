@@ -126,7 +126,10 @@ func (h *AvailabilityHandler) GetAllAvailability(c *gin.Context) {
 // @Description  Returns all subjects ordered by id
 // @Tags         subjects
 // @Produce      json
+// @Security     BearerAuth
 // @Success      200  {array}  shared.Subject
+// @Failure      401  {object}  scheduling.ErrorResponse
+// @Failure      403  {object}  scheduling.ErrorResponse
 // @Failure      500  {object}  scheduling.ErrorResponse
 // @Router       /subjects [get]
 func (h *AvailabilityHandler) GetSubjects(c *gin.Context) {
@@ -149,9 +152,12 @@ func (h *AvailabilityHandler) GetSubjects(c *gin.Context) {
 // @Tags         availability
 // @Accept       json
 // @Produce      json
+// @Security     BearerAuth
 // @Param        body  body  map[string]interface{}  true  "Weekly availability payload"
 // @Success      201  {object}  scheduling.MessageResponse
 // @Failure      400  {object}  scheduling.ErrorResponse
+// @Failure      401  {object}  scheduling.ErrorResponse
+// @Failure      403  {object}  scheduling.ErrorResponse
 // @Failure      500  {object}  scheduling.ErrorResponse
 // @Router       /availability [post]
 func (h *AvailabilityHandler) SubmitWeeklyAvailability(c *gin.Context) {
@@ -189,9 +195,12 @@ func (h *AvailabilityHandler) SubmitWeeklyAvailability(c *gin.Context) {
 // @Tags         teachers
 // @Accept       json
 // @Produce      json
+// @Security     BearerAuth
 // @Param        body  body  teacher.CreateTeacherRequest  true  "New teacher payload"
 // @Success      201  {object}  teacher.Teacher
 // @Failure      400  {object}  scheduling.ErrorResponse
+// @Failure      401  {object}  scheduling.ErrorResponse
+// @Failure      403  {object}  scheduling.ErrorResponse
 // @Failure      500  {object}  scheduling.ErrorResponse
 // @Router       /teachers [post]
 func (h *AvailabilityHandler) CreateTeacher(c *gin.Context) {
@@ -226,10 +235,13 @@ func (h *AvailabilityHandler) CreateTeacher(c *gin.Context) {
 // @Tags         teachers
 // @Accept       json
 // @Produce      json
+// @Security     BearerAuth
 // @Param        id    path  int                         true  "Teacher ID"
 // @Param        body  body  teacher.UpdateStatusRequest  true  "New status"
 // @Success      200  {object}  scheduling.MessageResponse
 // @Failure      400  {object}  scheduling.ErrorResponse
+// @Failure      401  {object}  scheduling.ErrorResponse
+// @Failure      403  {object}  scheduling.ErrorResponse
 // @Failure      404  {object}  scheduling.ErrorResponse
 // @Failure      500  {object}  scheduling.ErrorResponse
 // @Router       /teachers/{id}/status [patch]
@@ -260,10 +272,13 @@ func (h *AvailabilityHandler) UpdateTeacherStatus(c *gin.Context) {
 // @Tags         teachers
 // @Accept       json
 // @Produce      json
+// @Security     BearerAuth
 // @Param        id    path  int                         true  "Teacher ID"
 // @Param        body  body  teacher.UpdateGenderRequest  true  "New gender"
 // @Success      200  {object}  scheduling.MessageResponse
 // @Failure      400  {object}  scheduling.ErrorResponse
+// @Failure      401  {object}  scheduling.ErrorResponse
+// @Failure      403  {object}  scheduling.ErrorResponse
 // @Failure      404  {object}  scheduling.ErrorResponse
 // @Failure      500  {object}  scheduling.ErrorResponse
 // @Router       /teachers/{id}/gender [patch]

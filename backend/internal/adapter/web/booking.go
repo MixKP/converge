@@ -42,9 +42,12 @@ func NewBookingHandler(svc bookingService, guardian guardianResolver, logger *sl
 // @Tags         bookings
 // @Accept       json
 // @Produce      json
+// @Security     BearerAuth
 // @Param        body  body    scheduling.BookingRequest  true  "Booking request"
 // @Success      200   {object}  scheduling.BookingResponse
 // @Failure      400   {object}  scheduling.ErrorResponse
+// @Failure      401   {object}  scheduling.ErrorResponse
+// @Failure      403   {object}  scheduling.ErrorResponse
 // @Failure      500   {object}  scheduling.ErrorResponse
 // @Router       /bookings [post]
 func (h *BookingHandler) CreateBooking(c *gin.Context) {
@@ -81,9 +84,12 @@ func (h *BookingHandler) CreateBooking(c *gin.Context) {
 // @Tags         bookings
 // @Accept       json
 // @Produce      json
+// @Security     BearerAuth
 // @Param        body  body  scheduling.ConfirmBookingRequest  true  "Booking confirmation"
 // @Success      201   {object}  scheduling.Booking
 // @Failure      400   {object}  scheduling.ErrorResponse
+// @Failure      401   {object}  scheduling.ErrorResponse
+// @Failure      403   {object}  scheduling.ErrorResponse
 // @Failure      409   {object}  scheduling.ErrorResponse
 // @Failure      500   {object}  scheduling.ErrorResponse
 // @Router       /bookings/confirm [post]
@@ -128,9 +134,12 @@ func (h *BookingHandler) ConfirmBooking(c *gin.Context) {
 // @Summary      Cancel a booking
 // @Description  Deletes a confirmed booking by ID. Returns 404 if not found.
 // @Tags         bookings
+// @Security     BearerAuth
 // @Param        id  path  int  true  "Booking ID"
 // @Success      200  {object}  scheduling.MessageResponse
 // @Failure      400  {object}  scheduling.ErrorResponse
+// @Failure      401  {object}  scheduling.ErrorResponse
+// @Failure      403  {object}  scheduling.ErrorResponse
 // @Failure      404  {object}  scheduling.ErrorResponse
 // @Failure      500  {object}  scheduling.ErrorResponse
 // @Router       /bookings/{id} [delete]

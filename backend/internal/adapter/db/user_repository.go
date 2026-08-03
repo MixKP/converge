@@ -78,7 +78,7 @@ func (r *UserRepo) CreateParent(ctx context.Context, name, passwordHash string, 
 }
 
 func scanUsers(rows *sql.Rows) ([]user.User, error) {
-	users := []user.User{}
+	var users []user.User
 	for rows.Next() {
 		var u user.User
 		if err := rows.Scan(&u.ID, &u.Name, &u.Role); err != nil {
@@ -111,7 +111,7 @@ func (r *UserRepo) ListParentsWithStudents(ctx context.Context) ([]user.ParentWi
 	}
 	defer rows.Close()
 
-	result := []user.ParentWithStudents{}
+	var result []user.ParentWithStudents
 	indexByID := map[int]int{}
 	for rows.Next() {
 		var pID int

@@ -166,8 +166,6 @@ func main() {
 	api.GET("/availability", availHandler.GetAllAvailability)
 
 	api.POST("/register", authRequired, web.RequireRole(shared.RoleAdmin), userHandler.Register)
-	// Teachers are admin-managed records, not login users, so submitting
-	// availability (which trusts the body teacher_id) is admin-only.
 	api.POST("/availability", authRequired, web.RequireRole(shared.RoleAdmin), availHandler.SubmitWeeklyAvailability)
 
 	// Bookings list is scoped by role inside the handler.

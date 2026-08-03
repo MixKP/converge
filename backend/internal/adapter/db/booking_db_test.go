@@ -219,15 +219,16 @@ func TestBookingRepoFindConflictingBookings(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewBookingRepository(db)
 	teacherID, branchID, subjectID := seedBookingParents(t, db)
+	studentID := seedStudent(t, db, "Student")
 
 	_, err := db.Exec(`
-		INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time)
-		VALUES ($1, $2, $3, '2026-06-01T09:00:00Z', '2026-06-01T10:00:00Z')`, teacherID, branchID, subjectID)
+		INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time, student_id)
+		VALUES ($1, $2, $3, '2026-06-01T09:00:00Z', '2026-06-01T10:00:00Z', $4)`, teacherID, branchID, subjectID, studentID)
 	require.NoError(t, err)
 
 	_, err = db.Exec(`
-		INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time)
-		VALUES ($1, $2, $3, '2026-06-01T11:00:00Z', '2026-06-01T12:00:00Z')`, teacherID, branchID, subjectID)
+		INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time, student_id)
+		VALUES ($1, $2, $3, '2026-06-01T11:00:00Z', '2026-06-01T12:00:00Z', $4)`, teacherID, branchID, subjectID, studentID)
 	require.NoError(t, err)
 
 	conflicts, err := repo.FindConflictingBookings(context.Background(), teacherID,
@@ -250,15 +251,16 @@ func TestBookingRepoFindBookingsByBranch(t *testing.T) {
 
 	var secondTeacherID int
 	require.NoError(t, db.QueryRow(`INSERT INTO teachers (id, name, email, gender, status) VALUES (2, 'Teacher B', 'b@test.com', 'female', 'active') RETURNING id`).Scan(&secondTeacherID))
+	studentID := seedStudent(t, db, "Student")
 
 	_, err := db.Exec(`
-		INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time)
-		VALUES ($1, $2, $3, '2026-06-01T09:00:00Z', '2026-06-01T10:00:00Z')`, teacherID, branchID, subjectID)
+		INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time, student_id)
+		VALUES ($1, $2, $3, '2026-06-01T09:00:00Z', '2026-06-01T10:00:00Z', $4)`, teacherID, branchID, subjectID, studentID)
 	require.NoError(t, err)
 
 	_, err = db.Exec(`
-		INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time)
-		VALUES ($1, $2, $3, '2026-06-01T09:30:00Z', '2026-06-01T10:30:00Z')`, secondTeacherID, branchID, subjectID)
+		INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time, student_id)
+		VALUES ($1, $2, $3, '2026-06-01T09:30:00Z', '2026-06-01T10:30:00Z', $4)`, secondTeacherID, branchID, subjectID, studentID)
 	require.NoError(t, err)
 
 	overlapping, err := repo.FindBookingsByBranch(context.Background(), branchID,
@@ -278,12 +280,13 @@ func TestBookingRepoDeleteBooking(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewBookingRepository(db)
 	teacherID, branchID, subjectID := seedBookingParents(t, db)
+	studentID := seedStudent(t, db, "Student")
 
 	var bookingID int
 	require.NoError(t, db.QueryRow(`
-		INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time)
-		VALUES ($1, $2, $3, '2026-06-01T09:00:00Z', '2026-06-01T10:00:00Z')
-		RETURNING id`, teacherID, branchID, subjectID).Scan(&bookingID))
+		INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time, student_id)
+		VALUES ($1, $2, $3, '2026-06-01T09:00:00Z', '2026-06-01T10:00:00Z', $4)
+		RETURNING id`, teacherID, branchID, subjectID, studentID).Scan(&bookingID))
 
 	err := repo.DeleteBooking(context.Background(), bookingID)
 	require.NoError(t, err)
@@ -302,13 +305,14 @@ func TestBookingRepoFindAllBookings(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewBookingRepository(db)
 	teacherID, branchID, subjectID := seedBookingParents(t, db)
+	studentID := seedStudent(t, db, "Student")
 
 	for i := range 3 {
 		_, err := db.Exec(`
-			INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time)
-			VALUES ($1, $2, $3, $4, $5)`, teacherID, branchID, subjectID,
+			INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time, student_id)
+			VALUES ($1, $2, $3, $4, $5, $6)`, teacherID, branchID, subjectID,
 			fmt.Sprintf("2026-06-0%dT09:00:00Z", i+1),
-			fmt.Sprintf("2026-06-0%dT10:00:00Z", i+1))
+			fmt.Sprintf("2026-06-0%dT10:00:00Z", i+1), studentID)
 		require.NoError(t, err)
 	}
 
@@ -409,13 +413,14 @@ func TestBookingRepoFindExactMatch_ConflictExcludes(t *testing.T) {
 	require.NoError(t, err)
 
 	// Insert a booking that overlaps with the slot
+	studentID := seedStudent(t, db, "Student")
 	loc := shared.LoadLocation()
 	anchor := shared.AnchorDateForDay(0, loc)
 	conflictStart := time.Date(anchor.Year(), anchor.Month(), anchor.Day(), 9, 30, 0, 0, loc)
 	conflictEnd := time.Date(anchor.Year(), anchor.Month(), anchor.Day(), 10, 30, 0, 0, loc)
-	_, err = db.Exec(`INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time)
-		VALUES ($1, $2, $3, $4, $5)`,
-		teacherID, branchID, subjectID, conflictStart, conflictEnd)
+	_, err = db.Exec(`INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time, student_id)
+		VALUES ($1, $2, $3, $4, $5, $6)`,
+		teacherID, branchID, subjectID, conflictStart, conflictEnd, studentID)
 	require.NoError(t, err)
 
 	slot := shared.WeeklySlot{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("10:00")}

@@ -33,10 +33,13 @@ func NewCommuteHandler(svc commuteService, logger *slog.Logger) *CommuteHandler 
 // @Description  Returns the commute time in minutes. Without query params, returns the default commute time. With both source_branch and destination_branch, returns 0 when they are equal, otherwise the default.
 // @Tags         commute
 // @Produce      json
+// @Security     BearerAuth
 // @Param        source_branch       query  int  false  "Source branch ID"
 // @Param        destination_branch  query  int  false  "Destination branch ID"
 // @Success      200  {object}  commute.CommuteResponse
 // @Failure      400  {object}  scheduling.ErrorResponse
+// @Failure      401  {object}  scheduling.ErrorResponse
+// @Failure      403  {object}  scheduling.ErrorResponse
 // @Failure      500  {object}  scheduling.ErrorResponse
 // @Router       /commute [get]
 func (h *CommuteHandler) GetCommute(c *gin.Context) {
@@ -104,9 +107,12 @@ func (h *CommuteHandler) GetCommute(c *gin.Context) {
 // @Tags         commute
 // @Accept       json
 // @Produce      json
+// @Security     BearerAuth
 // @Param        body  body  commute.UpdateCommuteRequest  true  "New commute time"
 // @Success      200  {object}  commute.CommuteResponse
 // @Failure      400  {object}  scheduling.ErrorResponse
+// @Failure      401  {object}  scheduling.ErrorResponse
+// @Failure      403  {object}  scheduling.ErrorResponse
 // @Failure      500  {object}  scheduling.ErrorResponse
 // @Router       /commute [patch]
 func (h *CommuteHandler) UpdateCommute(c *gin.Context) {
