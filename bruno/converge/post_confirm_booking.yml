@@ -15,7 +15,7 @@ http:
           "subject_id": 1,
           "start_time": "2026-06-08T09:00:00Z",
           "end_time": "2026-06-08T10:00:00Z",
-          "client_name": "John Doe"
+          "student_id": 3
         }
   auth: inherit
 

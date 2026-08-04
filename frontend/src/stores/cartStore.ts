@@ -4,6 +4,7 @@ import { bookingApi } from '../services/bookingApi'
 import { getValidatedArray, setItem } from '../utils/storage'
 import { getErrorMessage } from '../utils/errorHandler'
 import { hasOverlapWithCart } from '../utils/dateValidation'
+import { toConfirmRequest } from '../utils/bookingPayload'
 import { useNotification } from '../composables/useNotification'
 import { cartItemSchema, cartItemInputSchema } from '../schemas/booking'
 import { dateRangeSchema } from '../schemas/common'
@@ -84,6 +85,17 @@ export const useCartStore = defineStore('cart', () => {
       return
     }
 
+    // Confirming rejects a booking with no student, so refuse to build a cart
+    // item that could never be confirmed.
+    const student = booking.selectedStudent
+    if (!student) {
+      showError(
+        new Error('Student must be selected'),
+        'Please select the student this booking is for'
+      )
+      return
+    }
+
     isAddingToCart = true
 
     const toIso = (value: string | Date): string | null => {
@@ -123,7 +135,8 @@ export const useCartStore = defineStore('cart', () => {
       subject_name: subject?.name || '',
       start_time: normalizedStart,
       end_time: normalizedEnd,
-      client_name: 'Guest',
+      student_id: student.id,
+      student_name: student.name,
     })
     if (cartItems.value.length > before) {
       booking.events = []
@@ -143,17 +156,12 @@ export const useCartStore = defineStore('cart', () => {
     const items = cartItems.value.slice()
 
     try {
-      const promises = items.map((item) =>
-        bookingApi.confirm({
-          teacher_id: item.teacher_id,
-          branch_id: item.branch_id,
-          subject_id: item.subject_id,
-          start_time: item.start_time,
-          end_time: item.end_time,
-          client_name: item.client_name,
-          required_gender: booking.requiredGender ?? 'male',
-        })
-      )
+      const promises = items.map((item) => {
+        const request = toConfirmRequest(item)
+        return request
+          ? bookingApi.confirm(request)
+          : Promise.reject(new Error('This booking is missing a student and cannot be confirmed'))
+      })
 
       const results = await Promise.allSettled(promises)
 

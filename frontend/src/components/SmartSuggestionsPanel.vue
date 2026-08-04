@@ -11,10 +11,12 @@
 
   interface Props {
     modelValue: WeeklySlot[]
+    selectedStudentId: number | null
     selectedSubjectId: number | null
     selectedBranchId: number | null
     selectedTeacherId: number | null
     selectedGender: 'male' | 'female' | 'lgbtq+' | null
+    students: Array<{ id: number; name: string }>
     subjects: Array<{ id: number; name: string }>
     branches: Array<{ id: number; name: string }>
     filteredTeachers: Array<{ id: number; name: string }>
@@ -35,6 +37,7 @@
 
   const emit = defineEmits<{
     'update:modelValue': [value: WeeklySlot[]]
+    'update:selectedStudentId': [value: number | null]
     'update:selectedSubjectId': [value: number | null]
     'update:selectedBranchId': [value: number | null]
     'update:selectedTeacherId': [value: number | null]
@@ -53,12 +56,18 @@
   } = useForm({
     validationSchema: toTypedSchema(aiSuggestionsFormSchema),
     initialValues: {
+      student_id: props.selectedStudentId,
       subject_id: props.selectedSubjectId,
       branch_id: props.selectedBranchId,
       required_gender: props.selectedGender,
       teacher_id: props.selectedTeacherId,
       slots: props.modelValue,
     },
+  })
+
+  const localStudentId = computed({
+    get: () => props.selectedStudentId,
+    set: (val) => emit('update:selectedStudentId', val),
   })
 
   const localSubjectId = computed({
@@ -222,6 +231,24 @@
     <div :class="getCls('body')">
       <!-- Form -->
       <div v-if="showForm" :class="getCls('form')">
+        <!-- Student -->
+        <div :class="getCls('field')">
+          <label :class="getCls('label')">
+            Student <span :class="getCls('required')">*</span>
+          </label>
+          <FormSelect
+            v-model="localStudentId"
+            name="student_id"
+            :select-class="getCls('select')"
+            :show-error="showErrors"
+          >
+            <option :value="null">Select student</option>
+            <option v-for="student in students" :key="student.id" :value="student.id">
+              {{ student.name }}
+            </option>
+          </FormSelect>
+        </div>
+
         <!-- Subject -->
         <div :class="getCls('field')">
           <label :class="getCls('label')">

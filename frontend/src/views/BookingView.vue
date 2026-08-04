@@ -22,8 +22,10 @@
     businessHours,
     subjects,
     branches,
+    students,
     filteredTeachers,
     genderFilteredTeachers,
+    selectedStudentId,
     selectedSubjectId,
     selectedBranchId,
     selectedTeacherId,
@@ -36,6 +38,7 @@
     resetBookingState,
     fetchSubjects,
     fetchBranches,
+    fetchStudents,
   } = useBooking()
 
   const { cartItems, loadCart, addSlotToCart } = useCart()
@@ -54,6 +57,7 @@
     validationSchema: toTypedSchema(manualBookingFormSchema),
     keepValuesOnUnmount: true,
     initialValues: {
+      student_id: selectedStudentId.value,
       subject_id: selectedSubjectId.value,
       branch_id: selectedBranchId.value,
       teacher_id: selectedTeacherId.value,
@@ -73,6 +77,7 @@
     loadCart()
     fetchSubjects()
     fetchBranches()
+    fetchStudents()
   })
 
   const previouslyFocusedElement = ref<HTMLElement | null>(null)
@@ -161,6 +166,28 @@
       >
         <!-- Form Section -->
         <div class="flex flex-col gap-4">
+          <!-- Student - Full Width -->
+          <div class="flex flex-col gap-2">
+            <label
+              class="flex items-center gap-2 font-[Inter,sans-serif] text-[0.6875rem] font-semibold tracking-[0.08em] text-(--text-muted) uppercase"
+            >
+              <span class="h-1 w-1 rounded-full bg-(--text-muted)"></span>
+              <span>STUDENT</span>
+            </label>
+            <FormSelect
+              v-model="selectedStudentId"
+              name="student_id"
+              select-class="mobile-select"
+              aria-label="Select student"
+              :show-error="showErrors"
+            >
+              <option :value="null">Select student</option>
+              <option v-for="student in students" :key="student.id" :value="student.id">
+                {{ student.name }}
+              </option>
+            </FormSelect>
+          </div>
+
           <!-- Subject - Full Width -->
           <div class="flex flex-col gap-2">
             <label
@@ -344,10 +371,12 @@
         <SmartSuggestionsPanel
           v-if="aiMode !== 'idle'"
           v-model="aiTimeSlots"
+          :selected-student-id="selectedStudentId"
           :selected-subject-id="selectedSubjectId"
           :selected-branch-id="selectedBranchId"
           :selected-teacher-id="selectedTeacherId"
           :selected-gender="smartSuggestionGender"
+          :students="students"
           :subjects="subjects"
           :branches="branches"
           :filtered-teachers="genderFilteredTeachers"
@@ -357,6 +386,7 @@
           layout="mobile"
           :is-mobile="isMobile"
           :cart-items="cartItems"
+          @update:selected-student-id="(v) => (selectedStudentId = v)"
           @update:selected-subject-id="(v) => (selectedSubjectId = v)"
           @update:selected-branch-id="(v) => (selectedBranchId = v)"
           @update:selected-teacher-id="(v) => (selectedTeacherId = v)"
@@ -372,6 +402,26 @@
       <div v-else-if="isTablet" class="flex max-w-full flex-col gap-5 overflow-x-hidden p-6">
         <!-- Form Section -->
         <div class="flex flex-col gap-4">
+          <!-- Student -->
+          <div class="flex flex-col gap-2.5">
+            <label
+              class="font-[Inter,sans-serif] text-xs font-semibold tracking-wider text-(--text-muted) uppercase"
+              >Student</label
+            >
+            <FormSelect
+              v-model="selectedStudentId"
+              name="student_id"
+              select-class="tablet-select"
+              aria-label="Select student"
+              :show-error="showErrors"
+            >
+              <option :value="null">Select student</option>
+              <option v-for="student in students" :key="student.id" :value="student.id">
+                {{ student.name }}
+              </option>
+            </FormSelect>
+          </div>
+
           <div class="grid grid-cols-3 gap-4">
             <div class="flex flex-col gap-2.5">
               <label
@@ -574,10 +624,12 @@
         <SmartSuggestionsPanel
           v-if="aiMode !== 'idle'"
           v-model="aiTimeSlots"
+          :selected-student-id="selectedStudentId"
           :selected-subject-id="selectedSubjectId"
           :selected-branch-id="selectedBranchId"
           :selected-teacher-id="selectedTeacherId"
           :selected-gender="smartSuggestionGender"
+          :students="students"
           :subjects="subjects"
           :branches="branches"
           :filtered-teachers="genderFilteredTeachers"
@@ -586,6 +638,7 @@
           :is-evaluating="isEvaluating"
           layout="tablet"
           :cart-items="cartItems"
+          @update:selected-student-id="(v) => (selectedStudentId = v)"
           @update:selected-subject-id="(v) => (selectedSubjectId = v)"
           @update:selected-branch-id="(v) => (selectedBranchId = v)"
           @update:selected-teacher-id="(v) => (selectedTeacherId = v)"
@@ -677,6 +730,32 @@
           <div class="flex h-full min-h-0 flex-col gap-4 overflow-y-auto px-4 py-4.5">
             <!-- Selection Form -->
             <div class="flex flex-col gap-3.5">
+              <div class="flex flex-col gap-1.5">
+                <div class="flex flex-col gap-1.5">
+                  <div class="flex items-center gap-2">
+                    <span
+                      class="h-3 w-0.75 rounded-[1.5px] bg-(--primary-indigo) opacity-80"
+                    ></span>
+                    <span
+                      class="font-[Inter,sans-serif] text-[0.8125rem] font-medium text-(--text-primary)"
+                      >Student</span
+                    >
+                  </div>
+                  <FormSelect
+                    v-model="selectedStudentId"
+                    name="student_id"
+                    select-class="field-select"
+                    aria-label="Select student"
+                    :show-error="showErrors"
+                  >
+                    <option :value="null">Select student</option>
+                    <option v-for="student in students" :key="student.id" :value="student.id">
+                      {{ student.name }}
+                    </option>
+                  </FormSelect>
+                </div>
+              </div>
+
               <div class="flex flex-col gap-1.5">
                 <div class="flex flex-col gap-1.5">
                   <div class="flex items-center gap-2">
@@ -822,10 +901,12 @@
         >
           <SmartSuggestionsPanel
             v-model="aiTimeSlots"
+            :selected-student-id="selectedStudentId"
             :selected-subject-id="selectedSubjectId"
             :selected-branch-id="selectedBranchId"
             :selected-teacher-id="selectedTeacherId"
             :selected-gender="smartSuggestionGender"
+            :students="students"
             :subjects="subjects"
             :branches="branches"
             :filtered-teachers="genderFilteredTeachers"
@@ -834,6 +915,7 @@
             :is-evaluating="isEvaluating"
             layout="desktop"
             :cart-items="cartItems"
+            @update:selected-student-id="(v) => (selectedStudentId = v)"
             @update:selected-subject-id="(v) => (selectedSubjectId = v)"
             @update:selected-branch-id="(v) => (selectedBranchId = v)"
             @update:selected-teacher-id="(v) => (selectedTeacherId = v)"

@@ -9,8 +9,10 @@ export function useBooking() {
     // Selection State
     subjects: refs.subjects,
     branches: refs.branches,
+    students: refs.students,
     filteredTeachers: refs.filteredTeachers,
     genderFilteredTeachers: refs.genderFilteredTeachers,
+    selectedStudentId: refs.selectedStudentId,
     selectedSubjectId: refs.selectedSubjectId,
     selectedBranchId: refs.selectedBranchId,
     selectedTeacherId: refs.selectedTeacherId,
@@ -31,6 +33,7 @@ export function useBooking() {
     // Actions
     fetchSubjects: bookingStore.fetchSubjects,
     fetchBranches: bookingStore.fetchBranches,
+    fetchStudents: bookingStore.fetchStudents,
     resetBookingState: bookingStore.resetBookingState,
     fetchConfirmedBookings: bookingStore.fetchConfirmedBookings,
     initialize: bookingStore.initialize,

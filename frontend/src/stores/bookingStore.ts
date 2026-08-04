@@ -5,6 +5,7 @@ import { bookingApi } from '../services/bookingApi'
 import { subjectApi } from '../services/subjectApi'
 import { teacherApi } from '../services/teacherApi'
 import { branchApi } from '../services/branchApi'
+import { userApi } from '../services/userApi'
 import { transformBackendAvailability } from '../utils/availabilityTransform'
 import { debounce } from '../utils/common'
 import { useNotification } from '../composables/useNotification'
@@ -18,6 +19,7 @@ import type {
   Teacher,
   Branch,
   CartItem,
+  AuthUser,
 } from '../types'
 import {
   getNextDateForDayOfWeek,
@@ -35,7 +37,11 @@ export const useBookingStore = defineStore('booking', () => {
 
   const subjects = ref<Subject[]>([])
   const branches = ref<Branch[]>([])
+  const students = ref<AuthUser[]>([])
   const filteredTeachers = ref<Teacher[]>([])
+  // An admin books on behalf of a student, so every booking needs one chosen up
+  // front: the backend attributes the confirmed booking to this id.
+  const selectedStudentId = ref<number | null>(null)
   const selectedSubjectId = ref<number | null>(null)
   const selectedBranchId = ref<number | null>(null)
   const isLoadingTeachers = ref(false)
@@ -45,6 +51,10 @@ export const useBookingStore = defineStore('booking', () => {
     if (!requiredGender.value) return filteredTeachers.value
     return filteredTeachers.value.filter((t) => t.gender === requiredGender.value)
   })
+
+  const selectedStudent = computed<AuthUser | null>(
+    () => students.value.find((s) => s.id === selectedStudentId.value) ?? null
+  )
 
   const selectedTeacherId = computed({
     get: () => teacherStore.selectedTeacherId,
@@ -71,6 +81,10 @@ export const useBookingStore = defineStore('booking', () => {
 
   const fetchBranches = async () => {
     branches.value = await branchApi.getAll()
+  }
+
+  const fetchStudents = async () => {
+    students.value = await userApi.listStudents()
   }
 
   const fetchTeachersBySubject = async (subjectId: number): Promise<void> => {
@@ -426,8 +440,11 @@ export const useBookingStore = defineStore('booking', () => {
     // Selection State
     subjects,
     branches,
+    students,
     filteredTeachers,
     genderFilteredTeachers,
+    selectedStudentId,
+    selectedStudent,
     selectedSubjectId,
     selectedBranchId,
     selectedTeacherId,
@@ -454,6 +471,7 @@ export const useBookingStore = defineStore('booking', () => {
     // Actions
     fetchSubjects,
     fetchBranches,
+    fetchStudents,
     fetchTeachersBySubject,
     handleSubjectChange,
     fetchConfirmedBookings,

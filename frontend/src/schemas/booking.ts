@@ -27,8 +27,7 @@ export const confirmBookingRequestSchema = z
     subject_id: z.number().int().positive(),
     start_time: isoDateTime,
     end_time: isoDateTime,
-    client_name: z.string(),
-    required_gender: genderSchema,
+    student_id: z.number().int().positive(),
   })
   .refine((v) => new Date(v.start_time) < new Date(v.end_time), {
     message: 'Start time must be before end time',
@@ -66,7 +65,8 @@ export const bookingSchema = z.object({
   subject_id: z.number(),
   start_time: z.string(),
   end_time: z.string(),
-  client_name: z.string(),
+  student_id: z.number(),
+  student_name: z.string(),
   created_at: z.string(),
 })
 
@@ -80,7 +80,10 @@ export const cartItemSchema = z.object({
   subject_name: z.string(),
   start_time: z.string(),
   end_time: z.string(),
-  client_name: z.string(),
+  // The booking is made on behalf of this student; the backend attributes and
+  // scopes it by student_id, so a cart item is meaningless without one.
+  student_id: z.number().int().positive(),
+  student_name: z.string(),
   status: z.enum(['pending', 'confirmed']),
 })
 

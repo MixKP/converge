@@ -154,6 +154,7 @@
                   formatTime(item.end_time)
                 }}</span
               >
+              <span class="text-sm text-(--text-secondary)">Student: {{ item.student_name }}</span>
               <span class="text-sm text-(--text-secondary)">Teacher: {{ item.teacher_name }}</span>
               <span class="text-sm text-(--text-secondary)">Branch: {{ item.branch_name }}</span>
             </div>

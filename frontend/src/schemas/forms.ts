@@ -10,6 +10,7 @@ const selectGender = () =>
     .refine((v): v is 'male' | 'female' | 'lgbtq+' => v !== null, 'Please select a gender preference')
 
 export const aiSuggestionsFormSchema = z.object({
+  student_id: selectId('a student'),
   subject_id: selectId('a subject'),
   branch_id: selectId('a branch'),
   required_gender: selectGender(),
@@ -26,6 +27,7 @@ export const aiSuggestionsFormSchema = z.object({
 })
 
 export const manualBookingFormSchema = z.object({
+  student_id: selectId('a student'),
   subject_id: selectId('a subject'),
   branch_id: selectId('a branch'),
   teacher_id: selectId('a teacher'),
