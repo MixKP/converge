@@ -1,4 +1,4 @@
-import { ref, watch, onUnmounted, type Ref } from 'vue'
+import { ref, onUnmounted, type Ref } from 'vue'
 import type FullCalendar from '@fullcalendar/vue3'
 import type { EventInput, DateSelectArg, EventClickArg, EventDropArg } from '@fullcalendar/core'
 import {
@@ -14,7 +14,6 @@ type CalendarRef = Ref<InstanceType<typeof FullCalendar> | null>
 interface InteractionOptions {
   calendarRef: CalendarRef
   isMobile: Ref<boolean>
-  cancelBtnRef: Ref<HTMLButtonElement | null>
   isEditable: () => boolean
   getModelValue: () => EventInput[]
   getAdditionalEvents: () => EventInput[]
@@ -28,7 +27,6 @@ export function useCalendarInteraction(options: InteractionOptions) {
   const {
     calendarRef,
     isMobile,
-    cancelBtnRef,
     isEditable,
     getModelValue,
     getAdditionalEvents,
@@ -163,37 +161,15 @@ export function useCalendarInteraction(options: InteractionOptions) {
 
   const isUserEvent = (id: string): boolean => getModelValue().some((e) => e.id === id)
 
-  const showDeleteDialog = ref(false)
-  const eventToDelete = ref<string | null>(null)
-
-  const openDeleteDialog = (id: string) => {
-    eventToDelete.value = id
-    showDeleteDialog.value = true
+  const deleteEvent = (id: string) => {
     deselectEvent()
-  }
-
-  const closeDeleteDialog = () => {
-    showDeleteDialog.value = false
-    eventToDelete.value = null
-  }
-
-  const confirmDelete = () => {
-    if (eventToDelete.value) {
-      onUpdate(editableModelValue().filter((e) => e.id !== eventToDelete.value))
-    }
-    closeDeleteDialog()
+    onUpdate(editableModelValue().filter((e) => e.id !== id))
   }
 
   const handleDeleteButtonClick = (e: MouseEvent, eventId: string) => {
     e.stopPropagation()
-    openDeleteDialog(eventId)
+    deleteEvent(eventId)
   }
-
-  watch(showDeleteDialog, (isOpen) => {
-    if (isOpen) {
-      cancelBtnRef.value?.focus()
-    }
-  })
 
   const lastClickTime = ref(0)
   const lastClickedEventId = ref<string | null>(null)
@@ -206,7 +182,13 @@ export function useCalendarInteraction(options: InteractionOptions) {
     if (now - lastDragTime.value < 200) return
 
     const target = clickInfo.jsEvent.target as HTMLElement
-    if (target.closest('.fc-event-resizer') || target.closest('.event-delete-btn')) return
+    if (target.closest('.fc-event-resizer')) return
+
+    if (target.closest('.event-delete-btn')) {
+      clickInfo.jsEvent.stopPropagation()
+      deleteEvent(id)
+      return
+    }
 
     const isSuggestionEvent = id.startsWith('suggestion-') || !isUserEvent(id)
     if (isSuggestionEvent) {
@@ -218,7 +200,7 @@ export function useCalendarInteraction(options: InteractionOptions) {
     const isDoubleClick = timeSinceLastClick < DOUBLE_CLICK_DELAY && lastClickedEventId.value === id
 
     if (!isMobile.value && isDoubleClick) {
-      openDeleteDialog(id)
+      deleteEvent(id)
     } else {
       selectEvent(id, clickInfo.el as HTMLElement)
     }
@@ -284,11 +266,8 @@ export function useCalendarInteraction(options: InteractionOptions) {
   return {
     // template state
     selectedEventId,
-    showDeleteDialog,
     handleContainerClick,
     handleDeleteButtonClick,
-    closeDeleteDialog,
-    confirmDelete,
     // calendar option handlers
     handleDateSelect,
     handleSelectAllow,

@@ -35,7 +35,6 @@
   }>()
 
   const calendarRef = ref<InstanceType<typeof FullCalendar> | null>(null)
-  const cancelBtnRef = ref<HTMLButtonElement | null>(null)
 
   const { isMobile, dayHeaderFormat, initialView, longPressDelay } =
     useCalendarResponsive(calendarRef)
@@ -47,11 +46,8 @@
 
   const {
     selectedEventId,
-    showDeleteDialog,
     handleContainerClick,
     handleDeleteButtonClick,
-    closeDeleteDialog,
-    confirmDelete,
     handleDateSelect,
     handleSelectAllow,
     handleEventAllow,
@@ -65,7 +61,6 @@
   } = useCalendarInteraction({
     calendarRef,
     isMobile,
-    cancelBtnRef,
     isEditable: () => props.editable,
     getModelValue: () => props.modelValue ?? [],
     getAdditionalEvents: () => props.additionalEvents ?? [],
@@ -98,16 +93,30 @@
     return `${startFormatted} ${startAmpm} - ${endFormatted} ${endAmpm}`
   }
 
-  const handleEventContent = (arg: { event: { start: Date | null; end: Date | null } }) => {
+  const handleEventContent = (arg: {
+    event: { start: Date | null; end: Date | null; extendedProps?: Record<string, unknown> }
+  }) => {
     const start = arg.event.start
     const end = arg.event.end
     if (!start || !end) return {}
 
     const timeRange = formatTimeRange(new Date(start), new Date(end))
+    const p = arg.event.extendedProps
+    const isRemovable = !p?.isCartItem && !p?.isBooked && !p?.isSuggestion
+
+    const deleteButton = isRemovable
+      ? `<button type="button" class="event-delete-btn" aria-label="Remove this time slot" title="Remove this time slot">
+           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+           </svg>
+         </button>`
+      : ''
+
     return {
       html: `
         <div class="custom-event-content">
           <div class="event-time-range">${timeRange}</div>
+          ${deleteButton}
         </div>
       `,
     }
@@ -206,76 +215,6 @@
         Delete
       </button>
     </Transition>
-
-    <Transition
-      enter-active-class="transition-opacity duration-200"
-      enter-from-class="opacity-0"
-      enter-to-class="opacity-100"
-      leave-active-class="transition-opacity duration-150"
-      leave-from-class="opacity-100"
-      leave-to-class="opacity-0"
-    >
-      <div
-        v-if="showDeleteDialog"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-(--ink-primary)/30 backdrop-blur-md"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="deleteDialogTitle"
-      >
-        <div
-          class="scale-in mx-4 w-full max-w-sm rounded-2xl border border-(--border-subtle) bg-(--paper-white) p-8 shadow-2xl transition-all duration-300 ease-out"
-        >
-          <div class="mb-5 flex items-start gap-4">
-            <div
-              class="flex h-12 w-12 shrink-0 items-center justify-center rounded-sm border border-red-100 bg-red-50"
-            >
-              <svg
-                class="h-6 w-6 text-red-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                />
-              </svg>
-            </div>
-            <div class="flex-1">
-              <h3
-                id="deleteDialogTitle"
-                class="mb-1.5 text-lg font-semibold tracking-tight text-(--ink-primary)"
-              >
-                Delete Time Slot
-              </h3>
-              <p class="text-sm leading-relaxed text-(--text-secondary)">
-                Are you sure you want to delete this time slot? This action cannot be undone.
-              </p>
-            </div>
-          </div>
-          <div class="flex justify-end gap-3">
-            <button
-              ref="cancelBtnRef"
-              type="button"
-              class="rounded-xl border-2 border-(--border-subtle) bg-white px-5 py-2.5 text-sm font-semibold text-(--ink-primary) transition-all hover:bg-(--paper-cream) focus:ring-2 focus:ring-(--accent-sage)"
-              @click="closeDeleteDialog"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              class="rounded-xl px-5 py-2.5 text-sm font-semibold tracking-wide text-white shadow-md transition-all hover:opacity-90 focus:ring-2 focus:ring-(--accent-sage)"
-              style="background: linear-gradient(135deg, #e8a598 0%, #f5c7bf 100%)"
-              @click="confirmDelete"
-            >
-              Delete
-            </button>
-          </div>
-        </div>
-      </div>
-    </Transition>
   </div>
 </template>
 
@@ -306,5 +245,69 @@
     background: rgba(157, 180, 160, 0.4);
     width: 12px;
     height: 12px;
+  }
+
+  /* Per-slot remove button rendered by eventContent */
+  :deep(.custom-event-content) {
+    position: relative;
+    height: 100%;
+  }
+
+  :deep(.event-delete-btn) {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--accent-coral);
+    cursor: pointer;
+    opacity: 0;
+    transition:
+      opacity 0.15s ease,
+      transform 0.15s ease;
+  }
+
+  :deep(.event-delete-btn svg) {
+    width: 11px;
+    height: 11px;
+  }
+
+  :deep(.event-delete-btn:hover) {
+    background: #fff;
+    transform: scale(1.1);
+  }
+
+  :deep(.event-delete-btn:focus-visible) {
+    opacity: 1;
+    outline: 2px solid var(--accent-sage);
+    outline-offset: 1px;
+  }
+
+  /* Reveal on hover where hovering is possible, always on touch devices */
+  @media (hover: hover) {
+    :deep(.fc-event:hover .event-delete-btn),
+    :deep(.fc-event-selected .event-delete-btn) {
+      opacity: 1;
+    }
+  }
+
+  @media (hover: none) {
+    :deep(.event-delete-btn) {
+      opacity: 1;
+      width: 22px;
+      height: 22px;
+    }
+
+    :deep(.event-delete-btn svg) {
+      width: 13px;
+      height: 13px;
+    }
   }
 </style>
