@@ -62,6 +62,16 @@ module.exports = [
   prettier,
 
   {
-    ignores: ['dist/**', 'node_modules/**', '*.config.js', '*.config.ts', '*.config.cjs'],
+    // scripts/ holds standalone node checks run via --experimental-strip-types.
+    // They sit outside the app tsconfig projects, so the typed linter cannot
+    // resolve them; they are verified by running them (npm run check:auth).
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      'scripts/**',
+      '*.config.js',
+      '*.config.ts',
+      '*.config.cjs',
+    ],
   },
 ]
