@@ -999,11 +999,6 @@ const docTemplate = `{
         },
         "/subjects": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "description": "Returns all subjects ordered by id",
                 "produces": [
                     "application/json"
@@ -1020,18 +1015,6 @@ const docTemplate = `{
                             "items": {
                                 "$ref": "#/definitions/shared.Subject"
                             }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/scheduling.ErrorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/scheduling.ErrorResponse"
                         }
                     },
                     "500": {

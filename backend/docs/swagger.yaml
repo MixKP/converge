@@ -996,20 +996,10 @@ paths:
             items:
               $ref: '#/definitions/shared.Subject'
             type: array
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/scheduling.ErrorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/scheduling.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
-      security:
-      - BearerAuth: []
       summary: List subjects
       tags:
       - subjects

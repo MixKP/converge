@@ -126,10 +126,7 @@ func (h *AvailabilityHandler) GetAllAvailability(c *gin.Context) {
 // @Description  Returns all subjects ordered by id
 // @Tags         subjects
 // @Produce      json
-// @Security     BearerAuth
 // @Success      200  {array}  shared.Subject
-// @Failure      401  {object}  scheduling.ErrorResponse
-// @Failure      403  {object}  scheduling.ErrorResponse
 // @Failure      500  {object}  scheduling.ErrorResponse
 // @Router       /subjects [get]
 func (h *AvailabilityHandler) GetSubjects(c *gin.Context) {

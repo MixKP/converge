@@ -160,8 +160,9 @@ func main() {
 
 	api := r.Group("/api")
 
-	// Public (guest): login + viewing teacher availability.
+	// Public (guest): login + browsing subjects and teacher availability.
 	api.POST("/login", userHandler.Login)
+	api.GET("/subjects", availHandler.GetSubjects)
 	api.GET("/teachers", availHandler.GetTeachers)
 	api.GET("/availability", availHandler.GetAllAvailability)
 
@@ -185,7 +186,6 @@ func main() {
 	admin.PATCH("/branches/:id/capacity", branchHandler.UpdateBranchCapacity)
 	admin.GET("/commute", commuteHandler.GetCommute)
 	admin.PATCH("/commute", commuteHandler.UpdateCommute)
-	admin.GET("/subjects", availHandler.GetSubjects)
 	admin.POST("/bookings", bookingHandler.CreateBooking)
 	admin.POST("/bookings/confirm", bookingHandler.ConfirmBooking)
 	admin.DELETE("/bookings/:id", bookingHandler.CancelBooking)
