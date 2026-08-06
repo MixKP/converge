@@ -3,6 +3,7 @@ import type { Role } from '../types'
 export const LOGIN_PATH = '/login'
 export const GUEST_PATH = '/'
 export const ADMIN_HOME = '/manage'
+export const MY_CLASSES_PATH = '/my-classes'
 
 // Type aliases, not interfaces: vue-router's RouteMeta carries an index
 // signature, and only an alias is structurally assignable to it.
@@ -23,7 +24,15 @@ const ALLOW: GuardDecision = { type: 'allow' }
 
 /** Where a signed-in user belongs when they land somewhere they may not go. */
 export function homeFor(role: Role | null): string {
-  return role === 'admin' ? ADMIN_HOME : GUEST_PATH
+  switch (role) {
+    case 'admin':
+      return ADMIN_HOME
+    case 'student':
+    case 'parent':
+      return MY_CLASSES_PATH
+    default:
+      return GUEST_PATH
+  }
 }
 
 /**

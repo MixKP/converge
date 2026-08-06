@@ -10,11 +10,19 @@ type TimeHHMM = shared.TimeHHMM
 type WeeklySlot = shared.WeeklySlot
 type Subject = shared.Subject
 
+// Booking carries the display names alongside the foreign keys so a client
+// listing bookings does not need to resolve them: /branches is admin-only, so
+// students and parents cannot look a branch name up themselves. The name
+// fields are only populated by the list queries; the overlap/conflict scans
+// leave them empty, as they do for StudentName.
 type Booking struct {
 	ID          int       `json:"id"`
 	TeacherID   int       `json:"teacher_id"`
+	TeacherName string    `json:"teacher_name,omitempty"`
 	BranchID    int       `json:"branch_id"`
+	BranchName  string    `json:"branch_name,omitempty"`
 	SubjectID   int       `json:"subject_id"`
+	SubjectName string    `json:"subject_name,omitempty"`
 	StartTime   time.Time `json:"start_time"`
 	EndTime     time.Time `json:"end_time"`
 	StudentID   int       `json:"student_id"`

@@ -1352,6 +1352,9 @@
                 "branch_id": {
                     "type": "integer"
                 },
+                "branch_name": {
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -1373,8 +1376,14 @@
                 "subject_id": {
                     "type": "integer"
                 },
+                "subject_name": {
+                    "type": "string"
+                },
                 "teacher_id": {
                     "type": "integer"
+                },
+                "teacher_name": {
+                    "type": "string"
                 }
             }
         },

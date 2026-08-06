@@ -8,9 +8,10 @@ import TeacherManagement from '../views/TeacherManagement.vue'
 import BranchManagement from '../views/BranchManagement.vue'
 import CommuteManagement from '../views/CommuteManagement.vue'
 import AccountManagement from '../views/AccountManagement.vue'
+import MyClassesView from '../views/MyClassesView.vue'
 import { useAuthStore } from '../stores/authStore'
 import { setUnauthorizedHandler } from '../utils/api'
-import { LOGIN_PATH, resolveRoute, type RouteAccess } from './guard'
+import { LOGIN_PATH, MY_CLASSES_PATH, resolveRoute, type RouteAccess } from './guard'
 import type { Role } from '../types'
 
 // guard.ts stays framework-free, so the vue-router contract is declared here.
@@ -22,6 +23,7 @@ declare module 'vue-router' {
 }
 
 const adminOnly: RouteAccess = { requiresAuth: true, roles: ['admin'] }
+const familyOnly: RouteAccess = { requiresAuth: true, roles: ['student', 'parent'] }
 
 const router = createRouter({
   history: createWebHistory(),
@@ -35,6 +37,12 @@ const router = createRouter({
       path: LOGIN_PATH,
       name: 'login',
       component: LoginView,
+    },
+    {
+      path: MY_CLASSES_PATH,
+      name: 'my-classes',
+      component: MyClassesView,
+      meta: familyOnly,
     },
     {
       path: '/form',

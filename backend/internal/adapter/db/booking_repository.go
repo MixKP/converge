@@ -225,17 +225,21 @@ func (r *BookingRepo) DeleteBooking(ctx context.Context, bookingID int) error {
 }
 
 const bookingWithStudentSelect = `
-	SELECT b.id, b.teacher_id, b.branch_id, b.subject_id, b.start_time, b.end_time,
-	       b.student_id, u.name, b.created_at
+	SELECT b.id, b.teacher_id, t.name, b.branch_id, br.name, b.subject_id, s.name,
+	       b.start_time, b.end_time, b.student_id, u.name, b.created_at
 	FROM bookings b
-	JOIN users u ON u.id = b.student_id`
+	JOIN users u ON u.id = b.student_id
+	JOIN teachers t ON t.id = b.teacher_id
+	JOIN branches br ON br.id = b.branch_id
+	JOIN subjects s ON s.id = b.subject_id`
 
 func scanStudentBookings(rows *sql.Rows) ([]scheduling.Booking, error) {
 	var bookings []scheduling.Booking
 	for rows.Next() {
 		var b scheduling.Booking
-		if err := rows.Scan(&b.ID, &b.TeacherID, &b.BranchID, &b.SubjectID,
-			&b.StartTime, &b.EndTime, &b.StudentID, &b.StudentName, &b.CreatedAt); err != nil {
+		if err := rows.Scan(&b.ID, &b.TeacherID, &b.TeacherName, &b.BranchID, &b.BranchName,
+			&b.SubjectID, &b.SubjectName, &b.StartTime, &b.EndTime,
+			&b.StudentID, &b.StudentName, &b.CreatedAt); err != nil {
 			return nil, err
 		}
 		bookings = append(bookings, b)

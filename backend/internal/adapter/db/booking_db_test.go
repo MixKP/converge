@@ -344,6 +344,9 @@ func TestBookingRepoFindBookingsByStudentIDs(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, own, 2)
 	assert.Equal(t, "student-a", own[0].StudentName)
+	assert.Equal(t, "Test Teacher", own[0].TeacherName)
+	assert.Equal(t, "Test Branch", own[0].BranchName)
+	assert.Equal(t, "Test Subject", own[0].SubjectName)
 
 	both, err := repo.FindBookingsByStudentIDs(context.Background(), []int{s1, s2})
 	require.NoError(t, err)

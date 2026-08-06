@@ -1359,6 +1359,9 @@ const docTemplate = `{
                 "branch_id": {
                     "type": "integer"
                 },
+                "branch_name": {
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -1380,8 +1383,14 @@ const docTemplate = `{
                 "subject_id": {
                     "type": "integer"
                 },
+                "subject_name": {
+                    "type": "string"
+                },
                 "teacher_id": {
                     "type": "integer"
+                },
+                "teacher_name": {
+                    "type": "string"
                 }
             }
         },

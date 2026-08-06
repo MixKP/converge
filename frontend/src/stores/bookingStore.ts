@@ -375,7 +375,7 @@ export const useBookingStore = defineStore('booking', () => {
   const fetchConfirmedBookings = async () => {
     isLoadingBookings.value = true
     try {
-      confirmedBookings.value = await bookingApi.listAll()
+      confirmedBookings.value = await bookingApi.list()
     } catch (error) {
       console.error('Failed to fetch bookings:', error)
     } finally {

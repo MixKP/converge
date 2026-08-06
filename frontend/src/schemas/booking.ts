@@ -58,11 +58,16 @@ export const bookingResponseSchema = z.object({
   results: z.array(slotResultSchema),
 })
 
+// The *_name fields are omitempty in Go: the list endpoint joins them in, but
+// the confirm response returns the booking without them.
 export const bookingSchema = z.object({
   id: z.number(),
   teacher_id: z.number(),
+  teacher_name: z.string().optional(),
   branch_id: z.number(),
+  branch_name: z.string().optional(),
   subject_id: z.number(),
+  subject_name: z.string().optional(),
   start_time: z.string(),
   end_time: z.string(),
   student_id: z.number(),

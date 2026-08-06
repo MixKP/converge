@@ -16,8 +16,10 @@ function expect(label: string, actual: unknown, expected: unknown) {
 }
 
 const adminOnly = { requiresAuth: true, roles: ['admin'] } as const
+const myClassesOnly = { requiresAuth: true, roles: ['student', 'parent'] } as const
 const admin = { isAuthenticated: true, role: 'admin' } as const
 const student = { isAuthenticated: true, role: 'student' } as const
+const parent = { isAuthenticated: true, role: 'parent' } as const
 const anon = { isAuthenticated: false, role: null }
 
 const target = (path: string, access = {}) => ({ path, fullPath: path, access })
@@ -50,7 +52,22 @@ console.log('resolveRoute — wrong role')
 expect(
   'student on an admin route is sent home, not to login',
   resolveRoute(target('/manage', adminOnly), student),
-  { type: 'redirect', path: '/' },
+  { type: 'redirect', path: '/my-classes' },
+)
+expect(
+  'student reaches their own classes page',
+  resolveRoute(target('/my-classes', myClassesOnly), student),
+  { type: 'allow' },
+)
+expect(
+  'parent reaches the same classes page',
+  resolveRoute(target('/my-classes', myClassesOnly), parent),
+  { type: 'allow' },
+)
+expect(
+  'admin on the classes page is sent back to management',
+  resolveRoute(target('/my-classes', myClassesOnly), admin),
+  { type: 'redirect', path: '/manage' },
 )
 expect(
   'signed-in admin is bounced off the login page',
@@ -60,7 +77,8 @@ expect(
 
 console.log('homeFor')
 expect('admin home', homeFor('admin'), '/manage')
-expect('student home', homeFor('student'), '/')
+expect('student home', homeFor('student'), '/my-classes')
+expect('parent home', homeFor('parent'), '/my-classes')
 expect('unknown role home', homeFor(null), '/')
 
 console.log('safeRedirect — untrusted query value')

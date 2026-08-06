@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/RinZ5/converge/backend/internal/shared"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -23,7 +24,8 @@ func Seed(database *sql.DB) error {
 		return err
 	}
 
-	if err := seedDemoUsers(database); err != nil {
+	demoUserIDs, err := seedDemoUsers(database)
+	if err != nil {
 		return err
 	}
 
@@ -31,6 +33,7 @@ func Seed(database *sql.DB) error {
 	if err != nil {
 		return err
 	}
+
 
 	subjectIDs, err := seedSubjects(database)
 	if err != nil {
@@ -54,8 +57,13 @@ func Seed(database *sql.DB) error {
 		return err
 	}
 
-	log.Printf("Seed complete: %d branches, %d subjects, %d teachers",
-		len(branchIDs), len(subjectIDs), len(teacherIDs))
+	bookingCount, err := seedBookings(database, demoUserIDs, teacherIDs, subjectIDs, branchIDs)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("Seed complete: %d branches, %d subjects, %d teachers, %d bookings",
+		len(branchIDs), len(subjectIDs), len(teacherIDs), bookingCount)
 	return nil
 }
 
@@ -106,10 +114,12 @@ func seedAdminUser(database *sql.DB) error {
 // this keeps known-credential accounts out of shared or production databases.
 // Idempotent: the upsert returns the id whether the user was inserted or
 // already existed, and the parent link uses ON CONFLICT.
-func seedDemoUsers(database *sql.DB) error {
+// Returns the seeded user ids by name, or nil when seeding is disabled, so
+// seedBookings knows whether there are students to book classes for.
+func seedDemoUsers(database *sql.DB) (map[string]int, error) {
 	if enabled, _ := strconv.ParseBool(os.Getenv("SEED_DEMO_USERS")); !enabled {
 		log.Println("SEED_DEMO_USERS not enabled; skipping demo user seeding")
-		return nil
+		return nil, nil
 	}
 
 	demo := []struct{ name, password, role string }{
@@ -122,7 +132,7 @@ func seedDemoUsers(database *sql.DB) error {
 	for _, u := range demo {
 		hash, err := bcrypt.GenerateFromPassword([]byte(u.password), bcrypt.DefaultCost)
 		if err != nil {
-			return fmt.Errorf("hash %s: %w", u.name, err)
+			return nil, fmt.Errorf("hash %s: %w", u.name, err)
 		}
 		var id int
 		err = database.QueryRow(`
@@ -130,7 +140,7 @@ func seedDemoUsers(database *sql.DB) error {
 			ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
 			RETURNING id`, u.name, string(hash), u.role).Scan(&id)
 		if err != nil {
-			return fmt.Errorf("seed user %s: %w", u.name, err)
+			return nil, fmt.Errorf("seed user %s: %w", u.name, err)
 		}
 		ids[u.name] = id
 	}
@@ -139,12 +149,12 @@ func seedDemoUsers(database *sql.DB) error {
 		if _, err := database.Exec(`
 			INSERT INTO parent_students (parent_id, student_id) VALUES ($1, $2)
 			ON CONFLICT DO NOTHING`, ids["parent1"], ids[student]); err != nil {
-			return fmt.Errorf("link parent1 -> %s: %w", student, err)
+			return nil, fmt.Errorf("link parent1 -> %s: %w", student, err)
 		}
 	}
 
 	log.Println("Seeded demo users student1/student2/parent1; parent1 guards student1,student2")
-	return nil
+	return ids, nil
 }
 
 func seedBranches(database *sql.DB) ([]int, error) {
@@ -298,6 +308,73 @@ func seedTeacherAvailability(database *sql.DB, teacherIDs []int) error {
 		}
 	}
 	return nil
+}
+
+// seedBookings creates confirmed classes for the demo students, split either
+// side of today so both the upcoming and past views have something to show.
+// It depends on the demo students, so it is skipped whenever seedDemoUsers was
+// (there is nobody to book a class for). Bookings are not truncated directly:
+// TRUNCATE ... CASCADE on teachers/branches/subjects already clears them.
+//
+// The times are deliberately laid out so no teacher is double-booked, since
+// the bookings table carries a gist EXCLUDE constraint on
+// (teacher_id, tstzrange(start_time, end_time)) that would reject an overlap.
+func seedBookings(database *sql.DB, userIDs map[string]int, teacherIDs, subjectIDs, branchIDs []int) (int, error) {
+	if len(userIDs) == 0 {
+		log.Println("No demo students seeded; skipping booking seeding")
+		return 0, nil
+	}
+
+	// Anchored to local midnight so a class seeded for "tomorrow at 09:00"
+	// lands at that wall-clock time rather than drifting with the run time.
+	loc := shared.LoadLocation()
+	now := time.Now().In(loc)
+	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+
+	type bookingSeed struct {
+		student   string
+		teacher   int // index into teacherIDs
+		subject   int // index into subjectIDs
+		branch    int // index into branchIDs
+		dayOffset int // relative to today; negative is a past class
+		hour      int
+	}
+
+	// Alice=0, Bob=1, Carol=2, David=3 (deactivated, unbooked), Eva=4.
+	// Subjects: Mathematics=0, Physics=1, English=2, History=3, CS=4, Art=5.
+	// Branches: Main Campus=0, Downtown=1, Westside=2, Online=3.
+	seeds := []bookingSeed{
+		{"student1", 0, 0, 0, -7, 9},
+		{"student1", 1, 2, 1, -3, 10},
+		{"student2", 2, 4, 2, -2, 13},
+		// Two classes on the same day for student1, so the day grouping shows
+		// more than one card under a heading.
+		{"student1", 0, 0, 0, 1, 9},
+		{"student1", 2, 5, 3, 1, 14},
+		{"student2", 1, 3, 1, 2, 11},
+		{"student1", 0, 1, 0, 5, 10},
+		{"student2", 4, 2, 0, 5, 9},
+	}
+
+	for _, s := range seeds {
+		studentID, ok := userIDs[s.student]
+		if !ok {
+			return 0, fmt.Errorf("seed booking: unknown demo student %q", s.student)
+		}
+		start := midnight.AddDate(0, 0, s.dayOffset).Add(time.Duration(s.hour) * time.Hour)
+		_, err := database.Exec(`
+			INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time, student_id)
+			VALUES ($1, $2, $3, $4, $5, $6)`,
+			teacherIDs[s.teacher], branchIDs[s.branch], subjectIDs[s.subject],
+			start, start.Add(time.Hour), studentID,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("insert booking (student=%s, start=%s): %w", s.student, start, err)
+		}
+	}
+
+	log.Printf("Seeded %d bookings for the demo students", len(seeds))
+	return len(seeds), nil
 }
 
 func seedFormSubmissions(database *sql.DB, teacherIDs []int) error {
