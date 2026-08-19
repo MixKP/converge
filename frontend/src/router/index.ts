@@ -9,6 +9,7 @@ import BranchManagement from '../views/BranchManagement.vue'
 import CommuteManagement from '../views/CommuteManagement.vue'
 import AccountManagement from '../views/AccountManagement.vue'
 import MyClassesView from '../views/MyClassesView.vue'
+import ScheduleDashboard from '../views/ScheduleDashboard.vue'
 import { useAuthStore } from '../stores/authStore'
 import { setUnauthorizedHandler } from '../utils/api'
 import { LOGIN_PATH, MY_CLASSES_PATH, resolveRoute, type RouteAccess } from './guard'
@@ -78,6 +79,12 @@ const router = createRouter({
       path: '/manage/commute',
       name: 'commute-management',
       component: CommuteManagement,
+      meta: adminOnly,
+    },
+    {
+      path: '/manage/schedule',
+      name: 'schedule-dashboard',
+      component: ScheduleDashboard,
       meta: adminOnly,
     },
     {

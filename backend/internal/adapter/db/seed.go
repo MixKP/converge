@@ -125,6 +125,8 @@ func seedDemoUsers(database *sql.DB) (map[string]int, error) {
 	demo := []struct{ name, password, role string }{
 		{"student1", "password", "student"},
 		{"student2", "password", "student"},
+		{"student3", "password", "student"},
+		{"student4", "password", "student"},
 		{"parent1", "password", "parent"},
 	}
 
@@ -145,7 +147,9 @@ func seedDemoUsers(database *sql.DB) (map[string]int, error) {
 		ids[u.name] = id
 	}
 
-	for _, student := range []string{"student1", "student2"} {
+	// student4 is deliberately left unguarded: an admin sees their classes, but
+	// no parent does, which keeps the parent-scoping path honest.
+	for _, student := range []string{"student1", "student2", "student3"} {
 		if _, err := database.Exec(`
 			INSERT INTO parent_students (parent_id, student_id) VALUES ($1, $2)
 			ON CONFLICT DO NOTHING`, ids["parent1"], ids[student]); err != nil {
@@ -153,7 +157,7 @@ func seedDemoUsers(database *sql.DB) (map[string]int, error) {
 		}
 	}
 
-	log.Println("Seeded demo users student1/student2/parent1; parent1 guards student1,student2")
+	log.Println("Seeded demo users student1..student4/parent1; parent1 guards student1,student2,student3")
 	return ids, nil
 }
 
@@ -310,15 +314,105 @@ func seedTeacherAvailability(database *sql.DB, teacherIDs []int) error {
 	return nil
 }
 
+type bookingSeed struct {
+	student   string
+	teacher   int // index into teacherIDs
+	subject   int // index into subjectIDs
+	branch    int // index into branchIDs
+	dayOffset int // relative to today; negative is a past class
+	hour      int
+}
+
+// bookingSeeds is the mock timetable: roughly three weeks either side of today
+// across four students and every teacher, so the admin schedule dashboard has
+// enough volume for its teacher and student filters to be worth using.
+//
+// Teachers: Alice=0, Bob=1, Carol=2, David=3, Eva=4. David is deactivated, so
+// he only ever appears in past classes. Hours stay inside each teacher's seeded
+// availability window (Alice 09-12, Bob 10-15, Carol 13-17, David 08-10,
+// Eva 09-14), though the day offsets are not aligned to those weekdays.
+// Subjects: Mathematics=0, Physics=1, English=2, History=3, CS=4, Art=5.
+// Branches: Main Campus=0, Downtown=1, Westside=2, Online=3.
+func bookingSeeds() []bookingSeed {
+	return []bookingSeed{
+		// Past
+		{"student1", 0, 0, 0, -21, 9},
+		{"student3", 1, 2, 1, -21, 10},
+		{"student2", 2, 4, 2, -21, 13},
+		{"student1", 3, 1, 0, -20, 8},
+		{"student4", 4, 2, 3, -20, 9},
+		{"student2", 0, 0, 0, -14, 10},
+		{"student1", 1, 3, 1, -14, 11},
+		{"student3", 2, 5, 2, -14, 14},
+		{"student4", 3, 1, 0, -13, 9},
+		{"student2", 4, 4, 3, -13, 12},
+		{"student1", 0, 1, 0, -7, 9},
+		{"student3", 0, 0, 0, -7, 10},
+		{"student2", 1, 2, 1, -7, 13},
+		{"student1", 4, 2, 3, -6, 11},
+		{"student4", 2, 4, 2, -6, 15},
+		{"student3", 1, 3, 1, -3, 10},
+		{"student2", 2, 0, 2, -2, 13},
+		{"student1", 0, 0, 0, -1, 11},
+		{"student4", 4, 4, 3, -1, 13},
+
+		// Today: an early class has already finished while a late one has not,
+		// so "today" shows up under both the past and the upcoming tab.
+		{"student2", 4, 2, 3, 0, 9},
+		{"student1", 2, 5, 2, 0, 16},
+
+		// Upcoming. Four classes land on day +1 so the day grouping and the
+		// per-teacher filter both have something substantial to show.
+		{"student1", 0, 0, 0, 1, 9},
+		{"student3", 0, 1, 0, 1, 10},
+		{"student4", 1, 2, 1, 1, 11},
+		{"student2", 2, 4, 2, 1, 14},
+		{"student3", 4, 2, 3, 2, 9},
+		{"student2", 1, 3, 1, 2, 11},
+		{"student1", 2, 5, 2, 2, 13},
+		{"student1", 0, 0, 0, 3, 9},
+		{"student4", 2, 4, 2, 3, 15},
+		{"student3", 1, 2, 1, 4, 10},
+		{"student2", 4, 4, 3, 4, 12},
+		{"student4", 4, 2, 3, 5, 9},
+		{"student1", 0, 1, 0, 5, 10},
+		{"student2", 2, 0, 2, 5, 13},
+		{"student1", 1, 3, 1, 7, 12},
+		{"student3", 2, 5, 2, 7, 16},
+		{"student2", 0, 0, 0, 8, 11},
+		{"student4", 4, 4, 3, 9, 13},
+		{"student1", 2, 4, 2, 10, 14},
+		{"student3", 0, 0, 0, 12, 9},
+		{"student2", 1, 2, 1, 14, 10},
+	}
+}
+
+// validateBookingSeeds rejects a timetable that books one teacher twice in the
+// same hour. Every seeded class is exactly one hour on the hour, so an
+// identical (teacher, day, hour) is the only way they can overlap. Catching it
+// here names the offending pair, where the gist EXCLUDE constraint on
+// (teacher_id, tstzrange(start_time, end_time)) would only report a conflict.
+func validateBookingSeeds(seeds []bookingSeed) error {
+	type key struct{ teacher, dayOffset, hour int }
+	seen := make(map[key]string, len(seeds))
+	for _, s := range seeds {
+		k := key{s.teacher, s.dayOffset, s.hour}
+		if prev, clash := seen[k]; clash {
+			return fmt.Errorf(
+				"booking seeds double-book teacher index %d on day %+d at %02d:00 (%s and %s)",
+				s.teacher, s.dayOffset, s.hour, prev, s.student,
+			)
+		}
+		seen[k] = s.student
+	}
+	return nil
+}
+
 // seedBookings creates confirmed classes for the demo students, split either
 // side of today so both the upcoming and past views have something to show.
 // It depends on the demo students, so it is skipped whenever seedDemoUsers was
 // (there is nobody to book a class for). Bookings are not truncated directly:
 // TRUNCATE ... CASCADE on teachers/branches/subjects already clears them.
-//
-// The times are deliberately laid out so no teacher is double-booked, since
-// the bookings table carries a gist EXCLUDE constraint on
-// (teacher_id, tstzrange(start_time, end_time)) that would reject an overlap.
 func seedBookings(database *sql.DB, userIDs map[string]int, teacherIDs, subjectIDs, branchIDs []int) (int, error) {
 	if len(userIDs) == 0 {
 		log.Println("No demo students seeded; skipping booking seeding")
@@ -331,29 +425,9 @@ func seedBookings(database *sql.DB, userIDs map[string]int, teacherIDs, subjectI
 	now := time.Now().In(loc)
 	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 
-	type bookingSeed struct {
-		student   string
-		teacher   int // index into teacherIDs
-		subject   int // index into subjectIDs
-		branch    int // index into branchIDs
-		dayOffset int // relative to today; negative is a past class
-		hour      int
-	}
-
-	// Alice=0, Bob=1, Carol=2, David=3 (deactivated, unbooked), Eva=4.
-	// Subjects: Mathematics=0, Physics=1, English=2, History=3, CS=4, Art=5.
-	// Branches: Main Campus=0, Downtown=1, Westside=2, Online=3.
-	seeds := []bookingSeed{
-		{"student1", 0, 0, 0, -7, 9},
-		{"student1", 1, 2, 1, -3, 10},
-		{"student2", 2, 4, 2, -2, 13},
-		// Two classes on the same day for student1, so the day grouping shows
-		// more than one card under a heading.
-		{"student1", 0, 0, 0, 1, 9},
-		{"student1", 2, 5, 3, 1, 14},
-		{"student2", 1, 3, 1, 2, 11},
-		{"student1", 0, 1, 0, 5, 10},
-		{"student2", 4, 2, 0, 5, 9},
+	seeds := bookingSeeds()
+	if err := validateBookingSeeds(seeds); err != nil {
+		return 0, err
 	}
 
 	for _, s := range seeds {
