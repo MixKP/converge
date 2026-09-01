@@ -12,6 +12,7 @@
     EventClickArg,
     BusinessHoursInput,
     CalendarOptions,
+    DatesSetArg,
   } from '@fullcalendar/core'
 
   interface Props {
@@ -20,6 +21,9 @@
     constraint?: string
     modelValue?: EventInput[]
     additionalEvents?: EventInput[]
+    // The toolbar carries the week title and the prev/next buttons together, so
+    // hiding it also removes week navigation.
+    showHeader?: boolean
   }
 
   const props = withDefaults(defineProps<Props>(), {
@@ -28,10 +32,14 @@
     constraint: undefined,
     modelValue: () => [],
     additionalEvents: () => [],
+    showHeader: true,
   })
   const emit = defineEmits<{
     'update:modelValue': [value: EventInput[]]
     'event-click': [info: EventClickArg]
+    // Lets a parent build events for exactly the week on screen, which is
+    // required when those events have to be reconciled against real bookings.
+    'dates-set': [range: { start: Date; end: Date }]
   }>()
 
   const calendarRef = ref<InstanceType<typeof FullCalendar> | null>(null)
@@ -147,11 +155,6 @@
   }
 
   const CALENDAR_DEFAULT_OPTIONS = {
-    headerToolbar: {
-      left: 'prev',
-      center: 'title',
-      right: 'next',
-    },
     height: '100%',
     weekends: true,
     allDaySlot: false,
@@ -170,6 +173,9 @@
   const calendarOptions = computed(() => ({
     plugins: [timeGridPlugin, interactionPlugin],
     ...CALENDAR_DEFAULT_OPTIONS,
+    headerToolbar: props.showHeader
+      ? ({ left: 'prev', center: 'title', right: 'next' } as const)
+      : (false as const),
     initialView: initialView.value,
     editable: props.editable,
     selectable: props.editable,
@@ -190,6 +196,7 @@
     eventClick: handleEventClick,
     eventDrop: handleEventDrop,
     eventResize: handleEventResize,
+    datesSet: (arg: DatesSetArg) => emit('dates-set', { start: arg.start, end: arg.end }),
     dayHeaderFormat: dayHeaderFormat.value,
     longPressDelay: longPressDelay.value,
     eventLongPressDelay: longPressDelay.value,

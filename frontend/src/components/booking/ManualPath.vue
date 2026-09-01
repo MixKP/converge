@@ -3,7 +3,11 @@
   import { CalendarOff, Eye, Loader2, X } from '@lucide/vue'
   import { useBooking } from '../../composables/useBooking'
   import { useBookingContext } from '../../composables/useBookingContext'
-  import { useBrowseEvents, type BrowseTeacher } from '../../composables/useBrowseEvents'
+  import {
+    useBrowseEvents,
+    type BrowseTeacher,
+    type VisibleRange,
+  } from '../../composables/useBrowseEvents'
   import { useCart } from '../../composables/useCart'
   import { useNotification } from '../../composables/useNotification'
   import { useNumberSelect, useEnumSelect, NONE } from '../../composables/useSelectProxy'
@@ -33,7 +37,11 @@
   } = useBooking()
 
   const { contextBlocker, contextComplete } = useBookingContext()
-  const { browseEvents } = useBrowseEvents()
+
+  // Browse blocks are built per visible week so they can be reconciled against
+  // dated bookings, so the calendar has to say which week it is showing.
+  const visibleRange = ref<VisibleRange | null>(null)
+  const { browseEvents } = useBrowseEvents(() => visibleRange.value)
   const { addSlotToCart } = useCart()
   const { showSuccess } = useNotification()
 
@@ -190,10 +198,12 @@
               :model-value="allEvents"
               :additional-events="calendarState === 'browse' ? browseEvents : []"
               :editable="calendarState === 'editable'"
+              :show-header="false"
               :business-hours="businessHours"
               constraint="businessHours"
               @update:model-value="events = $event"
               @event-click="handleEventClick"
+              @dates-set="visibleRange = $event"
             />
           </div>
 

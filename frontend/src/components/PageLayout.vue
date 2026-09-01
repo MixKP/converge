@@ -4,15 +4,19 @@
   interface Props {
     title: string
     showCart?: boolean
+    backTo?: string
+    backLabel?: string
   }
   withDefaults(defineProps<Props>(), {
     showCart: true,
+    backTo: undefined,
+    backLabel: 'Back',
   })
 </script>
 
 <template>
   <div class="page-layout">
-    <AppNavbar :title="title" :show-cart="showCart" />
+    <AppNavbar :title="title" :show-cart="showCart" :back-to="backTo" :back-label="backLabel" />
     <main class="page-main">
       <slot />
     </main>

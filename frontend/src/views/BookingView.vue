@@ -46,7 +46,7 @@
 </script>
 
 <template>
-  <PageLayout title="Book a Session">
+  <PageLayout title="Book a Session" back-to="/manage" back-label="Manage">
     <!-- Desktop-first: the week grid is the primary surface, so it gets the
          room. The forms above it are grids and simply breathe wider. -->
     <div class="mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-6 sm:px-6 lg:px-8">

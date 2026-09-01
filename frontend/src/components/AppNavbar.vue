@@ -1,16 +1,23 @@
 <script setup lang="ts">
   import { computed, onMounted } from 'vue'
   import { useRouter } from 'vue-router'
+  import { ChevronLeft } from '@lucide/vue'
   import { useCart } from '../composables/useCart'
   import { useAuthStore } from '../stores/authStore'
 
   interface Props {
     title: string
     showCart?: boolean
+    // Opt-in: pages reached from elsewhere in the app can offer a way back
+    // without relying on browser history, which is empty on a direct load.
+    backTo?: string
+    backLabel?: string
   }
 
   withDefaults(defineProps<Props>(), {
     showCart: true,
+    backTo: undefined,
+    backLabel: 'Back',
   })
 
   const router = useRouter()
@@ -39,6 +46,10 @@
   <header class="app-navbar">
     <div class="navbar-container">
       <div class="navbar-left">
+        <router-link v-if="backTo" :to="backTo" class="navbar-back" :aria-label="backLabel">
+          <ChevronLeft class="navbar-back-icon" aria-hidden="true" />
+          <span class="navbar-back-label">{{ backLabel }}</span>
+        </router-link>
         <div class="navbar-indicator"></div>
         <h1 class="navbar-title">{{ title }}</h1>
       </div>
@@ -102,6 +113,34 @@
     gap: 0.75rem;
     min-width: 0;
     flex: 1;
+  }
+
+  .navbar-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.125rem;
+    padding: 0.375rem 0.625rem 0.375rem 0.375rem;
+    font-family: Inter, sans-serif;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: #6b7280;
+    background: transparent;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    text-decoration: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+  }
+
+  .navbar-back:hover {
+    color: #111827;
+    background: #f9fafb;
+  }
+
+  .navbar-back-icon {
+    width: 1rem;
+    height: 1rem;
   }
 
   .navbar-indicator {
@@ -176,6 +215,16 @@
   @media (max-width: 767px) {
     .navbar-user {
       display: none;
+    }
+
+    /* The title is already tight here, so the back control drops to its icon.
+       The link keeps its aria-label, so the accessible name survives. */
+    .navbar-back-label {
+      display: none;
+    }
+
+    .navbar-back {
+      padding: 0.375rem;
     }
   }
 
