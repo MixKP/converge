@@ -1,5 +1,10 @@
-@import 'tailwindcss';
+/* Must stay first: `@import 'tailwindcss'` expands inline, so any @import after
+ * it lands mid-stylesheet and gets dropped as an invalid late @import. */
 @import 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600;700&display=swap';
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
 
 :root {
   /* Soft Sage Color Palette */
@@ -41,6 +46,91 @@
   --primary-indigo: var(--primary-navy);
   --primary-indigo-deep: var(--primary-navy-deep);
   --accent-terracotta: var(--accent-sage);
+}
+
+/* ---------------------------------------------------------------------------
+ * shadcn-vue token layer.
+ * These are the names shadcn components consume. Every value maps back to the
+ * Soft Sage palette above, so components inherit the existing identity instead
+ * of shipping shadcn's default neutral theme.
+ * ------------------------------------------------------------------------- */
+:root {
+  --radius: 0.625rem;
+
+  --background: var(--bg-cream);
+  --foreground: var(--text-primary);
+
+  --card: var(--bg-card);
+  --card-foreground: var(--text-primary);
+  --popover: var(--bg-card);
+  --popover-foreground: var(--text-primary);
+
+  --primary: var(--primary-navy);
+  --primary-foreground: var(--bg-cream);
+
+  --secondary: var(--bg-subtle);
+  --secondary-foreground: var(--text-primary);
+
+  --muted: var(--bg-subtle);
+  --muted-foreground: var(--text-muted);
+
+  /* Hover/active surface: a touch warmer than --muted so the two are distinct. */
+  --accent: #e8efe9;
+  --accent-foreground: var(--text-primary);
+
+  /* --accent-coral is a soft tint meant for alert *backgrounds*; it fails
+   * contrast as a text/solid-button color, so destructive uses a deeper
+   * terracotta from the same family. */
+  --destructive: #c0574a;
+  --destructive-foreground: #ffffff;
+
+  --border: var(--border-subtle);
+  --input: var(--border-subtle);
+  --ring: var(--accent-sage);
+
+  --chart-1: var(--primary-navy);
+  --chart-2: var(--accent-sage);
+  --chart-3: var(--accent-gold);
+  --chart-4: var(--accent-mint);
+  --chart-5: var(--accent-coral);
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
 }
 
 body {

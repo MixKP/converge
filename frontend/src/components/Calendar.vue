@@ -93,6 +93,13 @@
     return `${startFormatted} ${startAmpm} - ${endFormatted} ${endAmpm}`
   }
 
+  const escapeHtml = (value: string): string =>
+    value.replace(
+      /[&<>"']/g,
+      (char) =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] ?? char
+    )
+
   const handleEventContent = (arg: {
     event: { start: Date | null; end: Date | null; extendedProps?: Record<string, unknown> }
   }) => {
@@ -102,6 +109,23 @@
 
     const timeRange = formatTimeRange(new Date(start), new Date(end))
     const p = arg.event.extendedProps
+
+    // Browse-mode blocks are read-only previews of who is free, so they carry a
+    // teacher label instead of a remove button.
+    if (p?.isBrowse) {
+      // Who is free is the point of browse mode, and the grid position already
+      // conveys the time — so the name leads and the range is secondary. Both
+      // truncate, because overlapping windows make these columns very narrow.
+      return {
+        html: `
+          <div class="custom-event-content browse-event-content">
+            <div class="browse-event-label">${escapeHtml(String(p.browseLabel ?? ''))}</div>
+            <div class="browse-event-time">${timeRange}</div>
+          </div>
+        `,
+      }
+    }
+
     const isRemovable = !p?.isCartItem && !p?.isBooked && !p?.isSuggestion
 
     const deleteButton = isRemovable
@@ -183,7 +207,7 @@
 </script>
 <template>
   <div
-    class="calendar-container h-full overflow-x-hidden overflow-y-auto rounded-2xl border border-(--border-subtle) bg-(--paper-white) shadow-[0_4px_16px_rgba(45,74,62,0.06)] [-webkit-tap-highlight-color:transparent] md:overflow-y-hidden **:[-webkit-tap-highlight-color:transparent]"
+    class="calendar-container h-full overflow-x-hidden overflow-y-auto rounded-2xl border border-(--border-subtle) bg-(--paper-white) shadow-[0_4px_16px_rgba(45,74,62,0.06)] [-webkit-tap-highlight-color:transparent] **:[-webkit-tap-highlight-color:transparent] md:overflow-y-hidden"
     @click="handleContainerClick"
   >
     <FullCalendar ref="calendarRef" :options="calendarOptions" />
@@ -245,6 +269,70 @@
     background: rgba(157, 180, 160, 0.4);
     width: 12px;
     height: 12px;
+  }
+
+  /* Browse-mode blocks (v3): read-only, so they show a teacher label and a
+     pointer cursor rather than drag/resize affordances. */
+  :deep(.browse-event) {
+    cursor: pointer;
+    border-width: 1px;
+    border-style: solid;
+  }
+
+  /* Overlapping windows can squeeze a column to a fraction of its width. The
+     global rules centre event text without capping it, so it spills out both
+     sides of the block; capping the width is what lets ellipsis take over. */
+  :deep(.custom-event-content) {
+    max-width: 100%;
+  }
+
+  :deep(.event-time-range) {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* The global .custom-event-content centres with align-items, which makes a
+     flex column shrink-wrap its children to their content width — the box is
+     then never narrower than the text, so ellipsis never triggers and the
+     label spills out both sides. Stretching is what makes truncation work. */
+  :deep(.browse-event-content) {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 1px;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  /* Mono is wide and these columns are narrow once windows overlap. */
+  :deep(.fc-event.browse-event .fc-event-main) {
+    padding: 4px 5px;
+    text-align: left;
+    font-family: 'Inter', sans-serif;
+  }
+
+  :deep(.browse-event-label),
+  :deep(.browse-event-time) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.25;
+    font-family: 'Inter', sans-serif;
+  }
+
+  :deep(.browse-event-label) {
+    font-size: 0.6875rem;
+    font-weight: 600;
+  }
+
+  :deep(.browse-event-time) {
+    font-size: 0.625rem;
+    font-weight: 400;
+    opacity: 0.75;
   }
 
   /* Per-slot remove button rendered by eventContent */
