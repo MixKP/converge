@@ -8,8 +8,6 @@ export const bookingApi = {
   confirm: (request: ConfirmBookingRequest) =>
     postApi<Booking>(`${API_ENDPOINTS.BOOKINGS}/confirm`, request),
 
-  // Scoped by role server-side: an admin gets every booking, a student their
-  // own, a parent their linked students'.
   list: () => fetchList<Booking>(API_ENDPOINTS.BOOKINGS),
 
   cancel: (id: number) => fetchApi<void>(`${API_ENDPOINTS.BOOKINGS}/${id}`, { method: 'DELETE' }),

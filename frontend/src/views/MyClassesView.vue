@@ -20,8 +20,6 @@
     isLoading.value = true
     loadError.value = ''
     try {
-      // The endpoint is scoped by role server-side, so a student receives only
-      // their own classes and a parent only their linked students'.
       bookings.value = await bookingApi.list()
     } catch (err) {
       loadError.value = err instanceof Error ? err.message : 'Failed to load your classes'
@@ -32,8 +30,6 @@
 
   onMounted(load)
 
-  // Derived from the bookings themselves: the parent/student link endpoints are
-  // admin-only, so a linked student with no classes yet has no chip to show.
   const students = computed(() => {
     const byId = new Map<number, string>()
     for (const b of bookings.value) byId.set(b.student_id, b.student_name)
@@ -55,7 +51,6 @@
       studentFilter.value === null
         ? scoped.value
         : scoped.value.filter((b) => b.student_id === studentFilter.value)
-    // Upcoming reads best soonest-first; past reads best most-recent-first.
     return [...list].sort((a, b) => {
       const delta = new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
       return scope.value === 'past' ? -delta : delta

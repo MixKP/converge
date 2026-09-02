@@ -12,10 +12,6 @@ export type PersonOption = { id: number; name: string }
 
 export type ScheduleDay = { key: string; items: Booking[] }
 
-/**
- * An unparsable timestamp sorts to the end and never counts as past, so a
- * malformed booking stays visible to the admin instead of silently vanishing.
- */
 function timeOf(iso: string): number {
   const ms = new Date(iso).getTime()
   return Number.isNaN(ms) ? Number.POSITIVE_INFINITY : ms
@@ -30,8 +26,6 @@ function people(bookings: Booking[], pick: (booking: Booking) => [number, string
   return [...byId].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
 }
 
-// The name fields are omitempty server-side, so every option falls back to the
-// id rather than rendering a blank entry that cannot be told apart from another.
 export function teacherOptions(bookings: Booking[]): PersonOption[] {
   return people(bookings, (b) => [b.teacher_id, b.teacher_name || `Teacher #${b.teacher_id}`])
 }
@@ -53,7 +47,6 @@ export function filterBookings(
     return true
   })
 
-  // Upcoming reads best soonest-first; past reads best most-recent-first.
   return matched.sort((a, b) => {
     const delta = timeOf(a.start_time) - timeOf(b.start_time)
     if (Number.isNaN(delta)) return 0
@@ -61,7 +54,6 @@ export function filterBookings(
   })
 }
 
-/** Groups an already-sorted list into consecutive calendar days. */
 export function groupByDay(bookings: Booking[]): ScheduleDay[] {
   const out: ScheduleDay[] = []
   for (const booking of bookings) {

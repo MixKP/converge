@@ -8,8 +8,6 @@
   interface Props {
     title: string
     showCart?: boolean
-    // Opt-in: pages reached from elsewhere in the app can offer a way back
-    // without relying on browser history, which is empty on a direct load.
     backTo?: string
     backLabel?: string
   }
@@ -31,8 +29,6 @@
 
   const handleLogout = () => {
     auth.logout()
-    // loadCart re-reads the now-cleared storage so the badge does not keep
-    // showing the previous operator's item count.
     loadCart()
     router.replace('/login')
   }
@@ -217,8 +213,6 @@
       display: none;
     }
 
-    /* The title is already tight here, so the back control drops to its icon.
-       The link keeps its aria-label, so the accessible name survives. */
     .navbar-back-label {
       display: none;
     }
@@ -285,7 +279,6 @@
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   }
 
-  /* Laptop/Tablet (768px - 1439px) */
   @media (min-width: 768px) and (max-width: 1439px) {
     .navbar-container {
       height: 60px;
@@ -321,7 +314,6 @@
     }
   }
 
-  /* Mobile (< 768px) */
   @media (max-width: 767px) {
     .navbar-container {
       height: 60px;
@@ -374,7 +366,6 @@
     }
   }
 
-  /* Small mobile (< 425px) */
   @media (max-width: 424px) {
     .navbar-container {
       height: 60px;

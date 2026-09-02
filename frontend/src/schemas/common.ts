@@ -10,7 +10,7 @@ export const requiredId = (label: string) =>
     .int()
     .positive(`Please select ${label}`)
 
-    export const selectId = (label: string) =>
+export const selectId = (label: string) =>
   z
     .number({ error: `Please select ${label}` })
     .int()

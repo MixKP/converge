@@ -35,5 +35,8 @@ export const noPerDayOverlap = (slots: WeeklySlotInput[], ctx: z.RefinementCtx) 
 
 export const availabilityPayloadSchema = z.object({
   teacher_id: requiredId('a teacher'),
-  weekly: z.array(weeklySlotSchema).min(1, 'Add at least one time slot').superRefine(noPerDayOverlap),
+  weekly: z
+    .array(weeklySlotSchema)
+    .min(1, 'Add at least one time slot')
+    .superRefine(noPerDayOverlap),
 })

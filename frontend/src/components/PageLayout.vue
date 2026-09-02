@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import AppNavbar from './AppNavbar.vue'
+  import AppToasts from './AppToasts.vue'
 
   interface Props {
     title: string
@@ -20,6 +21,7 @@
     <main class="page-main">
       <slot />
     </main>
+    <AppToasts />
   </div>
 </template>
 
@@ -36,7 +38,6 @@
     width: 100%;
   }
 
-  /* Mobile (< 768px) - white background like app */
   @media (max-width: 767px) {
     .page-layout {
       background: #ffffff;

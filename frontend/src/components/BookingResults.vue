@@ -79,11 +79,11 @@
   )
 
   const getScoreColor = (score: number): string => {
-    if (score >= 90) return 'score-excellent' // 90-100: Green
-    if (score >= 75) return 'score-high' // 75-89: Light green
-    if (score >= 60) return 'score-medium' // 60-74: Yellow
-    if (score >= 45) return 'score-low' // 45-59: Orange
-    return 'score-poor' // 0-44: Red
+    if (score >= 90) return 'score-excellent'
+    if (score >= 75) return 'score-high'
+    if (score >= 60) return 'score-medium'
+    if (score >= 45) return 'score-low'
+    return 'score-poor'
   }
 
   const formatTime = (dateStr: string): string => {
@@ -426,8 +426,6 @@
     animation-delay: calc(var(--stagger-index, 0) * 80ms + 0.2s);
   }
 
-  /* Result card background colors based on score */
-
   @keyframes result-card-enter {
     from {
       opacity: 0;
@@ -505,25 +503,24 @@
     color: var(--accent-sage);
   }
 
-  /* Score colors for exact matches: green → yellow → orange → red */
   .match-score.score-excellent {
-    color: #22c55e; /* Green for 90-100 */
+    color: #22c55e;
   }
 
   .match-score.score-high {
-    color: #84cc16; /* Light green for 75-89 */
+    color: #84cc16;
   }
 
   .match-score.score-medium {
-    color: #eab308; /* Yellow for 60-74 */
+    color: #eab308;
   }
 
   .match-score.score-low {
-    color: #f97316; /* Orange for 45-59 */
+    color: #f97316;
   }
 
   .match-score.score-poor {
-    color: #ef4444; /* Red for 0-44 */
+    color: #ef4444;
   }
 
   .match-reasons {
@@ -643,25 +640,24 @@
     margin: 0.25rem 0 0 0;
   }
 
-  /* Score colors: green → yellow → orange → red */
   .alternative-score.score-excellent {
-    color: #22c55e; /* Green for 90-100 */
+    color: #22c55e;
   }
 
   .alternative-score.score-high {
-    color: #84cc16; /* Light green for 75-89 */
+    color: #84cc16;
   }
 
   .alternative-score.score-medium {
-    color: #eab308; /* Yellow for 60-74 */
+    color: #eab308;
   }
 
   .alternative-score.score-low {
-    color: #f97316; /* Orange for 45-59 */
+    color: #f97316;
   }
 
   .alternative-score.score-poor {
-    color: #ef4444; /* Red for 0-44 */
+    color: #ef4444;
   }
 
   .alternative-time {

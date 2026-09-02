@@ -16,7 +16,6 @@ export const bookingRequestSchema = z.object({
   preferred_slots: z.array(weeklySlotSchema).min(1),
   duration_minutes: z.number().int().positive().optional(),
   required_gender: genderSchema,
-  // preferred_teacher_id is *int in Go: optional & nullable.
   preferred_teacher_id: z.number().int().positive().nullish(),
 })
 
@@ -58,8 +57,6 @@ export const bookingResponseSchema = z.object({
   results: z.array(slotResultSchema),
 })
 
-// The *_name fields are omitempty in Go: the list endpoint joins them in, but
-// the confirm response returns the booking without them.
 export const bookingSchema = z.object({
   id: z.number(),
   teacher_id: z.number(),
@@ -85,8 +82,6 @@ export const cartItemSchema = z.object({
   subject_name: z.string(),
   start_time: z.string(),
   end_time: z.string(),
-  // The booking is made on behalf of this student; the backend attributes and
-  // scopes it by student_id, so a cart item is meaningless without one.
   student_id: z.number().int().positive(),
   student_name: z.string(),
   status: z.enum(['pending', 'confirmed']),

@@ -26,8 +26,6 @@ export function useAISuggestions() {
       branch_id: bookingStore.selectedBranchId,
       preferred_slots: slots,
       duration_minutes: aiDuration,
-      // Left undefined when unset so the schema rejects it. Defaulting here
-      // silently searched male-only teachers and looked like "no matches".
       required_gender: bookingStore.requiredGender ?? undefined,
       preferred_teacher_id: bookingStore.selectedTeacherId ?? undefined,
     })

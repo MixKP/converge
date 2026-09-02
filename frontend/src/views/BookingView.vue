@@ -4,7 +4,6 @@
   import { useBooking } from '../composables/useBooking'
   import { useBookingContext } from '../composables/useBookingContext'
   import { useCart } from '../composables/useCart'
-  import { useNotification } from '../composables/useNotification'
   import PageLayout from '../components/PageLayout.vue'
   import ContextBar from '../components/booking/ContextBar.vue'
   import ManualPath from '../components/booking/ManualPath.vue'
@@ -16,21 +15,16 @@
     useBooking()
   const { contextComplete } = useBookingContext()
   const { loadCart } = useCart()
-  const { successMessage, errorMessage } = useNotification()
 
   type Path = 'manual' | 'smart'
   const path = ref<Path | null>(null)
 
-  /* Both paths share the context bar, so switching keeps student, subject and
-   * branch. Only the mode-specific results are dropped. */
   const selectPath = (next: Path) => {
     if (path.value === next) return
     path.value = next
     resetBookingState()
   }
 
-  // Re-opening the context bar to change the student or branch invalidates any
-  // suggestions already on screen, so the choice is asked again.
   watch(contextComplete, (complete) => {
     if (!complete) path.value = null
   })
@@ -47,8 +41,6 @@
 
 <template>
   <PageLayout title="Book a Session" back-to="/dashboard" back-label="Dashboard">
-    <!-- Desktop-first: the week grid is the primary surface, so it gets the
-         room. The forms above it are grids and simply breathe wider. -->
     <div class="mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-6 sm:px-6 lg:px-8">
       <ContextBar />
 
@@ -86,23 +78,6 @@
         <RouterLink to="/booking/confirm">
           <Button variant="ghost">Review cart</Button>
         </RouterLink>
-      </div>
-
-      <div
-        v-if="successMessage"
-        class="bg-primary text-primary-foreground fixed right-6 bottom-6 z-50 rounded-lg px-4 py-3 text-sm shadow-lg"
-        role="status"
-        aria-live="polite"
-      >
-        {{ successMessage }}
-      </div>
-      <div
-        v-if="errorMessage"
-        class="bg-destructive fixed right-6 bottom-6 z-50 rounded-lg px-4 py-3 text-sm text-white shadow-lg"
-        role="alert"
-        aria-live="assertive"
-      >
-        {{ errorMessage }}
       </div>
     </div>
   </PageLayout>

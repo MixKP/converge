@@ -85,8 +85,6 @@ export const useCartStore = defineStore('cart', () => {
       return
     }
 
-    // Confirming rejects a booking with no student, so refuse to build a cart
-    // item that could never be confirmed.
     const student = booking.selectedStudent
     if (!student) {
       showError(
@@ -211,11 +209,9 @@ export const useCartStore = defineStore('cart', () => {
   }
 
   return {
-    // State
     cartItems,
     isConfirming,
 
-    // Actions
     loadCart,
     addToCart,
     addSlotToCart,

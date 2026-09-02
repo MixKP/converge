@@ -1,9 +1,9 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 
 const BREAKPOINTS = {
-  MOBILE: 425, // ≤425px
-  TABLET: 1024, // 426px - 1023px
-  DESKTOP: 1024, // ≥1024px
+  MOBILE: 425,
+  TABLET: 1024,
+  DESKTOP: 1024,
 } as const
 
 export function useScreenSize() {

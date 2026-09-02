@@ -1,22 +1,11 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import GuestView from '../views/GuestView.vue'
 import LoginView from '../views/LoginView.vue'
-import SubmitAvailability from '../views/SubmitAvailability.vue'
-import AdminDashboard from '../views/AdminDashboard.vue'
-import BookingView from '../views/BookingView.vue'
-import BookingConfirm from '../views/BookingCart.vue'
-import TeacherManagement from '../views/TeacherManagement.vue'
-import BranchManagement from '../views/BranchManagement.vue'
-import CommuteManagement from '../views/CommuteManagement.vue'
-import AccountManagement from '../views/AccountManagement.vue'
-import MyClassesView from '../views/MyClassesView.vue'
-import ScheduleDashboard from '../views/ScheduleDashboard.vue'
 import { useAuthStore } from '../stores/authStore'
 import { setUnauthorizedHandler } from '../utils/api'
 import { LOGIN_PATH, MY_CLASSES_PATH, resolveRoute, type RouteAccess } from './guard'
 import type { Role } from '../types'
 
-// guard.ts stays framework-free, so the vue-router contract is declared here.
 declare module 'vue-router' {
   interface RouteMeta {
     requiresAuth?: boolean
@@ -43,61 +32,61 @@ const router = createRouter({
     {
       path: MY_CLASSES_PATH,
       name: 'my-classes',
-      component: MyClassesView,
+      component: () => import('../views/MyClassesView.vue'),
       meta: familyOnly,
     },
     {
       path: '/form',
       name: 'submit-availability',
-      component: SubmitAvailability,
+      component: () => import('../views/SubmitAvailability.vue'),
       meta: adminOnly,
     },
     {
       path: '/dashboard',
       name: 'admin-dashboard',
-      component: AdminDashboard,
+      component: () => import('../views/AdminDashboard.vue'),
       meta: adminOnly,
     },
     {
       path: '/booking',
       name: 'booking',
-      component: BookingView,
+      component: () => import('../views/BookingView.vue'),
       meta: adminOnly,
     },
     {
       path: '/booking/confirm',
       name: 'booking-confirm',
-      component: BookingConfirm,
+      component: () => import('../views/BookingCart.vue'),
       meta: adminOnly,
     },
     {
       path: '/manage',
       name: 'teacher-management',
-      component: TeacherManagement,
+      component: () => import('../views/TeacherManagement.vue'),
       meta: adminOnly,
     },
     {
       path: '/manage/branches',
       name: 'branch-management',
-      component: BranchManagement,
+      component: () => import('../views/BranchManagement.vue'),
       meta: adminOnly,
     },
     {
       path: '/manage/commute',
       name: 'commute-management',
-      component: CommuteManagement,
+      component: () => import('../views/CommuteManagement.vue'),
       meta: adminOnly,
     },
     {
       path: '/manage/schedule',
       name: 'schedule-dashboard',
-      component: ScheduleDashboard,
+      component: () => import('../views/ScheduleDashboard.vue'),
       meta: adminOnly,
     },
     {
       path: '/manage/accounts',
       name: 'account-management',
-      component: AccountManagement,
+      component: () => import('../views/AccountManagement.vue'),
       meta: adminOnly,
     },
     {
@@ -117,8 +106,6 @@ router.beforeEach((to) => {
   return { path: decision.path, query: decision.query ?? {}, replace: true }
 })
 
-// A token can expire mid-session, so the 401 on the next request is the
-// authoritative signal to end it rather than a client-side expiry timer.
 setUnauthorizedHandler(() => {
   const auth = useAuthStore()
   if (!auth.isAuthenticated) return

@@ -74,17 +74,11 @@
     timeSlots.value = timeSlots.value.filter((_, i) => i !== index)
   }
 
-  /* The backend contract makes gender mandatory here even though it is only a
-   * filter on the manual path — bookingRequestSchema requires required_gender,
-   * and omitting it fails validation before the request is ever sent. */
   const submitBlocker = computed<string | null>(() => {
     if (!contextComplete.value) return contextBlocker.value
     if (requiredGender.value === null) return 'Choose a gender preference.'
     if (timeSlots.value.length === 0) return 'Add at least one preferred time window.'
-    /* useAISuggestions derives duration_minutes from the first slot alone, so
-     * mixed lengths would silently apply the first window's duration to all of
-     * them. The old vee-validate schema blocked this; it is enforced here now
-     * that the schema is gone. */
+
     const durations = new Set(timeSlots.value.map((s) => toMinutes(s.end) - toMinutes(s.start)))
     if (durations.size > 1) return 'All time windows must be the same length.'
     return null
@@ -237,9 +231,6 @@
           Find teachers
         </Button>
       </div>
-
-      <!-- Results render in place rather than taking the viewport over, which is
-           what the old modal did and why suggestions had nowhere to live. -->
       <template v-if="showDetailedResults || isEvaluating">
         <Separator />
         <BookingResults

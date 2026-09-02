@@ -6,8 +6,6 @@ import { clearSession, getSession, persistSession, restoreSession } from '../uti
 import { removeItem } from '../utils/storage'
 
 export const useAuthStore = defineStore('auth', () => {
-  // Mirrors the module-level session so components get reactivity while
-  // utils/api.ts can still read the token without importing this store.
   const session = ref<AuthSession | null>(getSession())
 
   const sync = (next: AuthSession | null) => {
@@ -19,7 +17,6 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => session.value !== null)
   const isAdmin = computed(() => role.value === 'admin')
 
-  /** Rehydrate from localStorage. Must run before the router is installed. */
   const restore = () => {
     sync(restoreSession())
   }
@@ -34,8 +31,6 @@ export const useAuthStore = defineStore('auth', () => {
   const logout = () => {
     clearSession()
     sync(null)
-    // The cart is per-operator state; leaving it behind would hand the next
-    // person to sign in on this machine a half-built booking.
     removeItem('bookingCart')
   }
 

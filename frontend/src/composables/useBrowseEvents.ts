@@ -20,26 +20,12 @@ export interface VisibleRange {
   end: Date
 }
 
-/* Browse mode needs no backend call: the store already pulls every teacher's
- * weekly availability into `availabilityCache` on initialize(). The store then
- * flattens it into `businessHours`, which loses the teacher identity — this
- * rebuilds that identity as clickable events instead. */
-
-// One tone for every block; the teacher's name is the label. Per-teacher
-// colours would fight the Soft Sage palette, so identity is carried by text.
 const BROWSE_BACKGROUND = 'rgba(45, 74, 62, 0.10)'
 const BROWSE_BORDER = 'var(--primary-indigo)'
 const BROWSE_TEXT = 'var(--primary-indigo)'
 
-/* Sessions are one-to-one, so a teacher with a booking at 9–10 is not free at
- * 9–10 even though their weekly availability says so. Anything left shorter
- * than one calendar slot after subtraction is dropped: it cannot be selected,
- * so showing it would only be noise. */
 const MIN_REMAINDER_MS = 30 * 60 * 1000
 
-/* The backend is not guaranteed to pad hours or omit seconds, and "9:00" vs
- * "09:00" for the same window would otherwise key as two groups and render as
- * two stacked blocks for what is one slot. */
 const normalizeTime = (value: string): string => {
   const [hours = '', minutes = '00'] = value.split(':')
   return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`
@@ -50,8 +36,6 @@ interface Interval {
   end: number
 }
 
-/* Removes each busy interval from `base`, which either trims one end, splits
- * the window in two when the booking sits in the middle, or eliminates it. */
 const subtractBusy = (base: Interval, busy: Interval[]): Interval[] => {
   let remaining: Interval[] = [base]
 
@@ -89,8 +73,6 @@ export function useBrowseEvents(getRange: () => VisibleRange | null) {
   const { availabilityCache, genderFilteredTeachers, confirmedBookings } = storeToRefs(store)
   const { cartItems } = storeToRefs(cartStore)
 
-  /* A cart item is as blocking as a confirmed booking — it is the same teacher
-   * at the same hour, just not submitted yet. */
   const busyByTeacher = computed<Map<number, Interval[]>>(() => {
     const map = new Map<number, Interval[]>()
 
@@ -113,11 +95,6 @@ export function useBrowseEvents(getRange: () => VisibleRange | null) {
     return map
   })
 
-  /* Availability is weekly but bookings are concrete dates, so the recurrence
-   * is expanded across whichever week the calendar is showing and subtraction
-   * happens on real timestamps. Teachers frequently share an identical window,
-   * and one block each turns a busy day into an unreadable stack — so equal
-   * ranges collapse into a single block naming how many teachers it covers. */
   const browseGroups = computed<BrowseGroup[]>(() => {
     const range = getRange()
     if (!range) return []

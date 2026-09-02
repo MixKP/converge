@@ -114,7 +114,6 @@
     }
   }
 
-  /* BookingView — mobile layout */
   .mobile-select {
     width: 100%;
     padding: 0.625rem 2rem 0.625rem 0.875rem;
@@ -150,7 +149,6 @@
     background-color: var(--bg-subtle);
   }
 
-  /* BookingView — tablet layout */
   .tablet-select {
     width: 100%;
     padding: 0.75rem 2.5rem 0.75rem 1rem;
@@ -187,7 +185,6 @@
     background-color: var(--bg-subtle);
   }
 
-  /* BookingView — desktop field layout */
   .field-select {
     width: 100%;
     padding: 0.75rem 2rem 0.75rem 0.875rem;

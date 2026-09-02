@@ -1,9 +1,5 @@
 import { computed, type Ref, type WritableComputedRef } from 'vue'
 
-/* shadcn's Select is string-valued while every id in the booking store is a
- * number, and SelectItem rejects an empty-string value — so `__none` stands in
- * for null. Every v3 select goes through one of these instead of scattering
- * casts across the templates. */
 export const NONE = '__none'
 
 export function useNumberSelect(source: Ref<number | null>): WritableComputedRef<string> {

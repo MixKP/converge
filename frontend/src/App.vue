@@ -6,6 +6,7 @@
     await teacherStore.fetchTeachers()
   })
 </script>
+
 <template>
   <router-view />
 </template>

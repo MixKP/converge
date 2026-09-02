@@ -6,7 +6,6 @@ export function useBooking() {
   const refs = storeToRefs(bookingStore)
 
   return {
-    // Selection State
     subjects: refs.subjects,
     branches: refs.branches,
     students: refs.students,
@@ -19,7 +18,6 @@ export function useBooking() {
     isLoadingTeachers: refs.isLoadingTeachers,
     requiredGender: refs.requiredGender,
 
-    // Calendar & Availability State
     calendarRef: refs.calendarRef,
     isEvaluating: refs.isEvaluating,
     events: refs.events,
@@ -27,11 +25,8 @@ export function useBooking() {
     isAvailabilityLoaded: refs.isAvailabilityLoaded,
     suggestions: refs.suggestions,
     showDetailedResults: refs.showDetailedResults,
-    suggestionEvents: refs.suggestionEvents,
-    filteredSuggestionEvents: refs.filteredSuggestionEvents,
     allEvents: refs.allEvents,
 
-    // Actions
     fetchSubjects: bookingStore.fetchSubjects,
     fetchBranches: bookingStore.fetchBranches,
     fetchStudents: bookingStore.fetchStudents,

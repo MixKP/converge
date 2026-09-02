@@ -13,9 +13,6 @@ export function getValidatedArray<T>(key: string, validator: (value: unknown) =>
   }
 }
 
-// Single-object counterpart to getValidatedArray. Returns null when the key is
-// absent, the JSON is malformed, or the value fails validation, so a tampered or
-// stale entry fails closed instead of propagating an unusable object.
 export function getValidated<T>(key: string, validator: (value: unknown) => value is T): T | null {
   const stored = localStorage.getItem(key)
   if (!stored) return null

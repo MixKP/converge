@@ -39,65 +39,6 @@ export function hasOverlapWithCart(
   })
 }
 
-export function formatTimeString(date: Date): string {
-  if (!isValidDate(date)) return '00:00'
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
-  return `${hours}:${minutes}`
-}
-
-function formatDayName(date: Date, format: 'long' | 'short' | 'narrow' = 'long'): string {
-  if (!isValidDate(date)) return ''
-  return date.toLocaleDateString('en-US', { weekday: format })
-}
-
-function formatTime12Hour(date: Date): string {
-  if (!isValidDate(date)) return ''
-
-  const hours = date.getHours()
-  const minutes = date.getMinutes()
-  const ampm = hours >= 12 ? 'pm' : 'am'
-  const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours
-  const displayMinutes = minutes > 0 ? `:${String(minutes).padStart(2, '0')}` : ''
-
-  return `${displayHours}${displayMinutes}${ampm}`
-}
-
-export function getNextDateForDayOfWeek(dayOfWeek: number, timeStr: string): Date {
-  const now = new Date()
-  const currentDay = now.getDay()
-  const diff = (dayOfWeek - currentDay + 7) % 7
-  const targetDate = new Date(now)
-  targetDate.setDate(now.getDate() + diff)
-
-  const totalMinutes = toMinutes(timeStr)
-  if (isNaN(totalMinutes)) {
-    throw new Error(`Invalid time format: ${timeStr}. Expected HH:MM format.`)
-  }
-  const hours = Math.floor(totalMinutes / 60)
-  const minutes = totalMinutes % 60
-  targetDate.setHours(hours, minutes, 0, 0)
-
-  if (targetDate <= now) {
-    targetDate.setDate(targetDate.getDate() + 7)
-  }
-
-  return targetDate
-}
-
-export function isNextWeek(date: Date): boolean {
-  if (!isValidDate(date)) return false
-  const now = new Date()
-  const oneWeekFromNow = new Date(now)
-  oneWeekFromNow.setDate(now.getDate() + 7)
-  return date >= oneWeekFromNow
-}
-
-export function formatSuggestionDate(start: Date, end: Date): string {
-  const dayName = formatDayName(start, 'short')
-  return `${dayName} ${formatTime12Hour(start)} - ${formatTime12Hour(end)}`
-}
-
 export function toMinutes(timeStr: string): number {
   const parts = timeStr.split(':')
   if (parts.length !== 2) return NaN

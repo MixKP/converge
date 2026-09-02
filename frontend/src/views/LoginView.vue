@@ -36,8 +36,6 @@
       const fallback = homeFor(session.user.role)
       await router.replace(safeRedirect(route.query.redirect, fallback))
     } catch (err) {
-      // The backend deliberately returns one generic message for both an unknown
-      // username and a wrong password. Surface it verbatim rather than guessing.
       formError.value = getErrorMessage(err, 'Unable to sign in. Please try again.')
       password.value = ''
     } finally {

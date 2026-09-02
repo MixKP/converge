@@ -13,7 +13,6 @@ import type { EventInput, BusinessHoursInput } from '@fullcalendar/core'
 import type {
   WeeklySlot,
   BookingResponse,
-  BookingAlternative,
   Booking,
   Subject,
   Teacher,
@@ -21,12 +20,6 @@ import type {
   CartItem,
   AuthUser,
 } from '../types'
-import {
-  getNextDateForDayOfWeek,
-  formatTimeString,
-  formatSuggestionDate,
-  isNextWeek,
-} from '../utils/dateValidation'
 
 import { useTeacherStore } from './teacherStore'
 import { useCartStore } from './cartStore'
@@ -39,8 +32,7 @@ export const useBookingStore = defineStore('booking', () => {
   const branches = ref<Branch[]>([])
   const students = ref<AuthUser[]>([])
   const filteredTeachers = ref<Teacher[]>([])
-  // An admin books on behalf of a student, so every booking needs one chosen up
-  // front: the backend attributes the confirmed booking to this id.
+
   const selectedStudentId = ref<number | null>(null)
   const selectedSubjectId = ref<number | null>(null)
   const selectedBranchId = ref<number | null>(null)
@@ -66,8 +58,7 @@ export const useBookingStore = defineStore('booking', () => {
   const events = ref<EventInput[]>([])
   const businessHours = ref<BusinessHoursInput>([])
   const availabilityCache = ref<Map<number, WeeklySlot[]>>(new Map())
-  /* Until this flips, an empty businessHours means "still fetching", not "this
-   * teacher has none" — the two are indistinguishable from the value alone. */
+
   const isAvailabilityLoaded = ref(false)
   const suggestions = ref<BookingResponse | null>(null)
   const showDetailedResults = ref(false)
@@ -76,7 +67,7 @@ export const useBookingStore = defineStore('booking', () => {
   const isLoadingBookings = ref(false)
 
   let availabilityPromise: Promise<void> | null = null
-  let watchersInitialized = false
+  let dataFetched = false
 
   const fetchSubjects = async () => {
     subjects.value = await subjectApi.getAll()
@@ -111,124 +102,6 @@ export const useBookingStore = defineStore('booking', () => {
 
   watch(selectedSubjectId, (newSubjectId) => {
     handleSubjectChange(newSubjectId)
-  })
-
-  const getDateForDayOfWeek = (dayOfWeek: number, timeStr: string): Date => {
-    return getNextDateForDayOfWeek(dayOfWeek, timeStr)
-  }
-
-  const createExactMatchEvent = (match: BookingAlternative, slot: WeeklySlot): EventInput => {
-    const backendDate = new Date(match.start_time)
-    const timeStr = formatTimeString(backendDate)
-    const startDate = getDateForDayOfWeek(backendDate.getDay(), timeStr)
-
-    const backendEndDate = new Date(match.end_time)
-    const endTimeStr = formatTimeString(backendEndDate)
-    const endDate = getDateForDayOfWeek(backendEndDate.getDay(), endTimeStr)
-
-    const dateStr = formatSuggestionDate(startDate, endDate)
-    const nextWeekTag = isNextWeek(startDate) ? ' (next week)' : ''
-    const title = `${dateStr}${nextWeekTag} Exact match found\n${match.teacher_name}`
-
-    return {
-      id: `suggestion-exact-${match.teacher_id}-${slot.day_of_week}-${slot.start}`,
-      title,
-      start: startDate.toISOString(),
-      end: endDate.toISOString(),
-      backgroundColor: 'var(--accent-gold)',
-      borderColor: 'var(--accent-gold)',
-      textColor: '#fff',
-      classNames: ['suggestion-exact'],
-      extendedProps: {
-        isSuggestion: true,
-        teacherId: match.teacher_id,
-        teacherName: match.teacher_name,
-        score: match.score,
-      },
-    }
-  }
-
-  const createAlternativeEvent = (alt: BookingAlternative, slot: WeeklySlot): EventInput => {
-    const backendDate = new Date(alt.start_time)
-    const timeStr = formatTimeString(backendDate)
-    const startDate = getDateForDayOfWeek(backendDate.getDay(), timeStr)
-
-    const backendEndDate = new Date(alt.end_time)
-    const endTimeStr = formatTimeString(backendEndDate)
-    const endDate = getDateForDayOfWeek(backendEndDate.getDay(), endTimeStr)
-
-    return {
-      id: `suggestion-alt-${alt.teacher_id}-${slot.day_of_week}-${slot.start}`,
-      title: `${alt.teacher_name} (Score: ${alt.score})`,
-      start: startDate.toISOString(),
-      end: endDate.toISOString(),
-      backgroundColor: 'var(--accent-gold-soft)',
-      borderColor: 'var(--accent-gold)',
-      textColor: 'var(--ink-primary)',
-      classNames: ['suggestion-alt'],
-      extendedProps: {
-        isSuggestion: true,
-        teacherId: alt.teacher_id,
-        teacherName: alt.teacher_name,
-        score: alt.score,
-      },
-    }
-  }
-
-  const suggestionEvents = computed<EventInput[]>(() => {
-    if (!suggestions.value || !showDetailedResults.value) return []
-    const result: EventInput[] = []
-    for (const slotResult of suggestions.value.results) {
-      if (slotResult.exact_match) {
-        result.push(createExactMatchEvent(slotResult.exact_match, slotResult.slot))
-      }
-      if (slotResult.alternatives) {
-        for (const alt of slotResult.alternatives) {
-          result.push(createAlternativeEvent(alt, slotResult.slot))
-        }
-      }
-    }
-    return result
-  })
-
-  const slotKey = (teacherId: number, date: Date): string =>
-    `${teacherId}-${date.getDay()}-${date.getHours()}:${date.getMinutes()}`
-
-  const bookedSlotKeys = computed<Set<string>>(
-    () => new Set(confirmedBookings.value.map((b) => slotKey(b.teacher_id, new Date(b.start_time))))
-  )
-
-  const filteredSuggestionEvents = computed<EventInput[]>(() => {
-    const cartStore = useCartStore()
-    const cartSlotKeys = new Set(
-      cartStore.cartItems.map((item) => slotKey(item.teacher_id, new Date(item.start_time)))
-    )
-
-    return suggestionEvents.value.filter((event) => {
-      const teacherId = event.extendedProps?.teacherId
-
-      if (
-        teacherId &&
-        event.start &&
-        cartSlotKeys.has(slotKey(teacherId, new Date(event.start as string)))
-      ) {
-        return false
-      }
-
-      if (
-        teacherId &&
-        event.start &&
-        bookedSlotKeys.value.has(slotKey(teacherId, new Date(event.start as string)))
-      ) {
-        return false
-      }
-
-      if (selectedTeacherId.value) {
-        return teacherId === selectedTeacherId.value
-      }
-
-      return true
-    })
   })
 
   const mapCartItemToEvent = (item: CartItem): EventInput => {
@@ -393,55 +266,54 @@ export const useBookingStore = defineStore('booking', () => {
     events.value = []
   }
 
+  watch(selectedSubjectId, () => {
+    resetBookingState()
+  })
+
+  watch(selectedTeacherId, async (teacherId) => {
+    if (availabilityPromise) {
+      await availabilityPromise
+    }
+    if (teacherId) {
+      updateBusinessHours(teacherId)
+    } else if (selectedSubjectId.value) {
+      updateBusinessHoursFromTeachers(genderFilteredTeachers.value)
+    } else {
+      businessHours.value = []
+    }
+    resetBookingState()
+  })
+
+  watch(genderFilteredTeachers, (teachers) => {
+    updateBusinessHoursFromTeachers(teachers)
+  })
+
+  watch(requiredGender, () => {
+    if (selectedTeacherId.value) {
+      const match = filteredTeachers.value.find((t) => t.id === selectedTeacherId.value)
+      if (match && requiredGender.value && match.gender !== requiredGender.value) {
+        teacherStore.setSelectedTeacherById(null)
+        resetBookingState()
+      }
+    }
+  })
+
+  watch(selectedBranchId, (newBranchId) => {
+    if (newBranchId === null) {
+      selectedTeacherId.value = null
+      resetBookingState()
+    }
+  })
+
   const initialize = () => {
-    if (watchersInitialized) return
-    watchersInitialized = true
+    if (dataFetched) return
+    dataFetched = true
 
     availabilityPromise = fetchAvailability()
     fetchConfirmedBookings()
-
-    watch(selectedSubjectId, () => {
-      resetBookingState()
-    })
-
-    watch(selectedTeacherId, async (teacherId) => {
-      if (availabilityPromise) {
-        await availabilityPromise
-      }
-      if (teacherId) {
-        updateBusinessHours(teacherId)
-      } else if (selectedSubjectId.value) {
-        updateBusinessHoursFromTeachers(genderFilteredTeachers.value)
-      } else {
-        businessHours.value = []
-      }
-      resetBookingState()
-    })
-
-    watch(genderFilteredTeachers, (teachers) => {
-      updateBusinessHoursFromTeachers(teachers)
-    })
-
-    watch(requiredGender, () => {
-      if (selectedTeacherId.value) {
-        const match = filteredTeachers.value.find((t) => t.id === selectedTeacherId.value)
-        if (match && requiredGender.value && match.gender !== requiredGender.value) {
-          teacherStore.setSelectedTeacherById(null)
-          resetBookingState()
-        }
-      }
-    })
-
-    watch(selectedBranchId, (newBranchId) => {
-      if (newBranchId === null) {
-        selectedTeacherId.value = null
-        resetBookingState()
-      }
-    })
   }
 
   return {
-    // Selection State
     subjects,
     branches,
     students,
@@ -455,7 +327,6 @@ export const useBookingStore = defineStore('booking', () => {
     isLoadingTeachers,
     requiredGender,
 
-    // Calendar & Availability State
     calendarRef,
     isEvaluating,
     events,
@@ -464,16 +335,11 @@ export const useBookingStore = defineStore('booking', () => {
     isAvailabilityLoaded,
     suggestions,
     showDetailedResults,
-    suggestionEvents,
-    filteredSuggestionEvents,
     allEvents,
-    bookedEvents,
 
-    // Confirmed Bookings
     confirmedBookings,
     isLoadingBookings,
 
-    // Actions
     fetchSubjects,
     fetchBranches,
     fetchStudents,

@@ -66,7 +66,6 @@
   >
     <div class="manage-root">
       <ManagementNav />
-      <!-- Add Teacher Form -->
       <div class="manage-section">
         <h2 class="manage-section-title">Add Teacher</h2>
         <div class="manage-form">
@@ -115,8 +114,6 @@
           </div>
         </div>
       </div>
-
-      <!-- Mobile / Tablet Card List -->
       <div v-if="isMobile || isTablet" class="manage-section">
         <h2 class="manage-section-title">Teachers ({{ store.teachers.length }})</h2>
         <div v-if="store.teachers.length === 0" class="manage-empty">No teachers found</div>
@@ -168,8 +165,6 @@
           </div>
         </div>
       </div>
-
-      <!-- Desktop Table -->
       <div v-else class="manage-section">
         <h2 class="manage-section-title">Teachers ({{ store.teachers.length }})</h2>
         <div v-if="store.teachers.length === 0" class="manage-empty">No teachers found</div>

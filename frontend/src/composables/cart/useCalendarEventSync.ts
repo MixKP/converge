@@ -12,10 +12,6 @@ export function useCalendarEventSync(
   source: () => EventInput[] | undefined,
   transform?: (event: EventInput) => EventInput
 ) {
-  // calendarRef is part of the source so the first sync re-runs once the
-  // calendar has actually mounted. Watching the events alone silently dropped
-  // any set that was already populated before mount — the early return fired,
-  // the array reference never changed again, and nothing was ever added.
   watch(
     [calendarRef, source] as const,
     ([, newEvents], previous) => {

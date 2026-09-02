@@ -38,8 +38,6 @@
   const loadAccounts = async () => {
     isLoading.value = true
     try {
-      // Fetched together: the create-parent flow needs the student list, and the
-      // parents table needs it to label links, so one round trip serves both.
       const [nextStudents, nextParents] = await Promise.all([
         userApi.listStudents(),
         userApi.listParents(),
@@ -73,8 +71,6 @@
       : [...current, id]
   }
 
-  // The backend rejects a parent with no links, so block the request client-side
-  // rather than surfacing a 400 the admin cannot act on.
   const canSubmit = computed(() => {
     if (isSubmitting.value) return false
     if (form.value.name.trim() === '' || form.value.password === '') return false
@@ -101,8 +97,6 @@
       isModalOpen.value = false
       await loadAccounts()
     } catch (err) {
-      // A duplicate username comes back as 409; keep it inline on the form so the
-      // admin can correct the name without losing what they typed.
       formError.value = err instanceof Error ? err.message : 'Failed to create account'
     } finally {
       isSubmitting.value = false
@@ -139,8 +133,6 @@
   }
 
   const handleUnlink = async (parent: ParentWithStudents, student: AuthUser) => {
-    // The backend requires a parent to keep at least one student, so removing the
-    // last link would orphan the account.
     if (parent.students.length <= 1) {
       showError(null, `${parent.name} must stay linked to at least one student`)
       return
@@ -205,8 +197,6 @@
         </div>
 
         <div v-if="isLoading" class="manage-empty">Loading accounts...</div>
-
-        <!-- Students -->
         <template v-else-if="activeTab === 'students'">
           <div v-if="students.length === 0" class="manage-empty">No student accounts yet</div>
           <div v-else-if="isCompact" class="manage-card-list">
@@ -236,8 +226,6 @@
             </table>
           </div>
         </template>
-
-        <!-- Parents -->
         <template v-else>
           <div v-if="parents.length === 0" class="manage-empty">No parent accounts yet</div>
           <div v-else class="manage-card-list">
@@ -300,8 +288,6 @@
         </template>
       </div>
     </div>
-
-    <!-- Create account modal -->
     <div v-if="isModalOpen" class="account-modal-backdrop" @click.self="closeModal">
       <div class="account-modal" role="dialog" aria-modal="true" aria-label="Create account">
         <h3 class="account-modal-title">Create account</h3>

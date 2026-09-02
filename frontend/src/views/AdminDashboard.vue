@@ -28,15 +28,12 @@
   const expanded = ref<Set<number>>(new Set())
 
   const toggle = (id: number) => {
-    // Reassigned rather than mutated so the template re-renders on change.
     const next = new Set(expanded.value)
     if (next.has(id)) next.delete(id)
     else next.add(id)
     expanded.value = next
   }
 
-  // Ids are only unique within a list, so a teacher and a student sharing an id
-  // would otherwise inherit each other's open state.
   watch(mode, () => {
     expanded.value = new Set()
   })
@@ -61,7 +58,6 @@
 <template>
   <PageLayout title="Admin Dashboard">
     <div class="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-6 sm:px-6 lg:px-8">
-      <!-- Quick actions -->
       <div class="grid gap-3 sm:grid-cols-2">
         <RouterLink to="/manage" class="group">
           <Card class="hover:border-primary/40 h-full transition-colors">
@@ -95,8 +91,6 @@
           </Card>
         </RouterLink>
       </div>
-
-      <!-- Controls -->
       <Card>
         <CardContent class="grid gap-4 py-4 sm:grid-cols-[14rem_1fr]">
           <div class="flex flex-col gap-2">
@@ -129,8 +123,6 @@
           </div>
         </CardContent>
       </Card>
-
-      <!-- States -->
       <Card v-if="isLoading">
         <CardContent class="text-muted-foreground flex items-center gap-2 py-10 text-sm">
           <Loader2 class="size-4 animate-spin" />

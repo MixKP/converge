@@ -15,8 +15,6 @@
 </script>
 
 <template>
-  <!-- Section tabs only. Booking lives on the dashboard, and the way back out
-       is the navbar's back link, which every page shares. -->
   <nav class="manage-nav" aria-label="Management navigation">
     <router-link
       v-for="tab in tabs"

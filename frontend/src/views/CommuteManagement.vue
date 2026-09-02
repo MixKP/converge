@@ -100,11 +100,7 @@
           Travel time in minutes applied between different branches. The smart booking engine uses
           it to pad conflicting bookings when a teacher must travel between branches.
         </p>
-
-        <!-- Loading State -->
         <div v-if="isLoading" class="manage-empty">Loading commute time...</div>
-
-        <!-- Content -->
         <div v-else-if="currentMinutes !== null" class="commute-card">
           <div class="commute-card-row">
             <div class="commute-card-info">
@@ -139,11 +135,7 @@
             </button>
           </div>
         </div>
-
-        <!-- Error State (no value loaded) -->
         <div v-else class="manage-empty">Unable to load commute time</div>
-
-        <!-- Branch Commute Matrix -->
         <div class="matrix-section">
           <h2 class="matrix-title">Commute Time Between Branches</h2>
           <p class="matrix-subtitle">

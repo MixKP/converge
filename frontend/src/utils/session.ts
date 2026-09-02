@@ -5,9 +5,6 @@ import { getValidated, removeItem, setItem } from './storage'
 
 export const AUTH_STORAGE_KEY = 'converge.auth'
 
-// Owned here rather than in the pinia store so that utils/api.ts can read the
-// token without importing the store, which would create an import cycle
-// (api -> store -> service -> api).
 const session = ref<AuthSession | null>(null)
 
 const isAuthSession = (value: unknown): value is AuthSession =>
@@ -24,7 +21,6 @@ export function getToken(): string | null {
 export function restoreSession(): AuthSession | null {
   const stored = getValidated<AuthSession>(AUTH_STORAGE_KEY, isAuthSession)
   session.value = stored
-  // Drop a corrupt or outdated entry so it is not re-parsed on every boot.
   if (!stored) removeItem(AUTH_STORAGE_KEY)
   return stored
 }

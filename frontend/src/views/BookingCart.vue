@@ -8,7 +8,7 @@
   const router = useRouter()
   const { cartItems, isConfirming, loadCart, removeCartItem, clearCart, confirmBookings } =
     useCart()
-  const { successMessage, errorMessage } = useNotification()
+  const { errorMessage } = useNotification()
 
   const showClearConfirm = ref(false)
 
@@ -103,7 +103,6 @@
       </div>
 
       <div v-else class="anim-fade-up flex flex-col gap-6">
-        <!-- Header with Clear All -->
         <div class="flex items-center justify-between border-b border-(--border-medium) pb-4">
           <div class="flex flex-col">
             <span class="text-base font-medium text-(--text-primary)"
@@ -119,8 +118,6 @@
             Clear All
           </button>
         </div>
-
-        <!-- Booking Cards -->
         <div class="flex flex-col gap-3">
           <div
             v-for="(item, index) in cartItems"
@@ -160,8 +157,6 @@
             </div>
           </div>
         </div>
-
-        <!-- Action Buttons -->
         <div class="flex gap-3 max-sm:flex-col">
           <button
             type="button"
@@ -203,8 +198,6 @@
           </button>
         </div>
       </div>
-
-      <!-- Clear All Confirmation Dialog -->
       <div
         v-if="showClearConfirm"
         class="anim-overlay-in fixed inset-0 z-200 flex items-center justify-center bg-[rgba(26,28,35,0.5)]"
@@ -242,44 +235,6 @@
             </button>
           </div>
         </div>
-      </div>
-
-      <!-- Toast Notifications -->
-      <div
-        v-if="successMessage"
-        class="anim-toast-in fixed right-8 bottom-8 z-100 flex items-center gap-2.5 rounded-md bg-(--accent-sage) px-5 py-3.5 font-[Inter,sans-serif] text-sm text-white shadow-(--shadow-elevated) max-sm:right-4 max-sm:left-4"
-      >
-        <svg class="h-4.5 w-4.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
-        {{ successMessage }}
-      </div>
-
-      <div
-        v-if="errorMessage"
-        class="anim-toast-in fixed right-8 bottom-8 z-100 flex items-center gap-2.5 rounded-md bg-(--accent-coral) px-5 py-3.5 font-[Inter,sans-serif] text-sm text-white shadow-(--shadow-elevated) max-sm:right-4 max-sm:left-4"
-      >
-        <svg class="h-4.5 w-4.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
-          />
-        </svg>
-        {{ errorMessage }}
-        <button
-          class="ml-2.5 flex h-5 w-5 cursor-pointer items-center justify-center border-none bg-transparent text-xl text-[rgba(255,255,255,0.8)]"
-          aria-label="Dismiss message"
-          @click="errorMessage = ''"
-        >
-          ×
-        </button>
       </div>
     </div>
   </PageLayout>
@@ -328,17 +283,6 @@
     }
   }
 
-  @keyframes cart-toast-in {
-    from {
-      opacity: 0;
-      transform: translateY(16px) scale(0.95);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
-  }
-
   .anim-fade-in {
     animation: cart-fade-in 0.4s ease-out;
   }
@@ -357,9 +301,5 @@
 
   .anim-dialog-in {
     animation: cart-dialog-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-
-  .anim-toast-in {
-    animation: cart-toast-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 </style>

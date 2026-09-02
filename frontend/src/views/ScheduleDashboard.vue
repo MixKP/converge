@@ -24,8 +24,6 @@
     isLoading.value = true
     loadError.value = ''
     try {
-      // Role-scoped server-side: an admin receives every booking, already
-      // carrying the teacher, student, subject and branch names.
       bookings.value = await bookingApi.list()
     } catch (err) {
       loadError.value = err instanceof Error ? err.message : 'Failed to load the schedule'
@@ -36,8 +34,6 @@
 
   onMounted(load)
 
-  // Options come from the bookings themselves, so a teacher or student with no
-  // classes in the current scope is never offered as a dead-end filter.
   const scoped = computed(() =>
     filterBookings(bookings.value, { scope: scope.value, teacherId: null, studentId: null })
   )
@@ -56,8 +52,6 @@
     groupByDay(visible.value).map((day) => ({ ...day, label: formatDate(day.items[0].start_time) }))
   )
 
-  // Switching scope can strip the selected person from the option list, which
-  // would otherwise leave an empty page with a filter the user cannot see.
   watch(teachers, (list) => {
     if (teacherId.value !== null && !list.some((t) => t.id === teacherId.value)) {
       teacherId.value = null

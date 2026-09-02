@@ -67,12 +67,9 @@
 <template>
   <PageLayout title="Converge" :show-cart="false">
     <div class="guest-root">
-      <!-- Mobile Layout (≤425px) -->
       <div v-if="isMobile" class="guest-mobile">
         <div class="guest-select-section">
-          <label
-            class="guest-label"
-          >
+          <label class="guest-label">
             <span class="h-1 w-1 rounded-full bg-(--text-muted)"></span>
             <span>SUBJECT</span>
           </label>
@@ -110,14 +107,9 @@
         </div>
 
         <div v-else class="guest-mobile-calendar">
-          <Calendar
-            :business-hours="businessHours"
-            constraint="businessHours"
-          />
+          <Calendar :business-hours="businessHours" constraint="businessHours" />
         </div>
       </div>
-
-      <!-- Tablet Layout (426px - 1023px) -->
       <div v-else-if="isTablet" class="guest-tablet">
         <div class="guest-select-section">
           <label class="guest-label">
@@ -158,14 +150,9 @@
         </div>
 
         <div v-else class="guest-tablet-calendar">
-          <Calendar
-            :business-hours="businessHours"
-            constraint="businessHours"
-          />
+          <Calendar :business-hours="businessHours" constraint="businessHours" />
         </div>
       </div>
-
-      <!-- Desktop Layout (≥1024px) -->
       <div v-else class="guest-desktop">
         <div class="guest-desktop-inner">
           <div class="guest-header">
@@ -204,10 +191,7 @@
                 :business-hours="businessHours"
                 constraint="businessHours"
               />
-              <CalendarDisabledOverlay
-                v-else
-                message="Select a subject to browse availability"
-              />
+              <CalendarDisabledOverlay v-else message="Select a subject to browse availability" />
             </div>
           </div>
         </div>
@@ -223,7 +207,6 @@
     overflow: hidden;
   }
 
-  /* --- Mobile --- */
   .guest-mobile {
     display: flex;
     flex-direction: column;
@@ -373,7 +356,6 @@
     border-top-width: 1px !important;
   }
 
-  /* --- Tablet --- */
   .guest-tablet {
     display: flex;
     flex-direction: column;
@@ -471,7 +453,6 @@
     font-size: 1em !important;
   }
 
-  /* --- Desktop --- */
   .guest-desktop {
     display: flex;
     justify-content: center;

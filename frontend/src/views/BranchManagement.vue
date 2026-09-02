@@ -68,14 +68,8 @@
         <p class="manage-section-subtitle">
           A capacity of 0 means unlimited concurrent bookings for that branch.
         </p>
-
-        <!-- Loading State -->
         <div v-if="isLoading" class="manage-empty">Loading branches...</div>
-
-        <!-- Empty State -->
         <div v-else-if="branches.length === 0" class="manage-empty">No branches found</div>
-
-        <!-- Mobile / Tablet Card List -->
         <div v-else-if="isMobile || isTablet" class="manage-card-list">
           <div v-for="branch in branches" :key="branch.id" class="manage-card">
             <div class="manage-card-header">
@@ -112,8 +106,6 @@
             </div>
           </div>
         </div>
-
-        <!-- Desktop Table -->
         <div v-else class="manage-table-wrap">
           <table class="manage-table">
             <thead>

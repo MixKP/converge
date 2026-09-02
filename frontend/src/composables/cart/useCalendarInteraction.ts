@@ -19,9 +19,7 @@ interface InteractionOptions {
   getAdditionalEvents: () => EventInput[]
   onUpdate: (events: EventInput[]) => void
   onEventClick: (info: EventClickArg) => void
-  /* selectConstraint only governs drag-select, so a plain click on the grid
-   * slipped past it and dropped a slot into greyed-out hours. The owner of the
-   * constraint supplies this so clicks are held to the same rule. */
+
   isSlotAllowed?: (start: Date, end: Date) => boolean
 }
 
@@ -267,11 +265,10 @@ export function useCalendarInteraction(options: InteractionOptions) {
   })
 
   return {
-    // template state
     selectedEventId,
     handleContainerClick,
     handleDeleteButtonClick,
-    // calendar option handlers
+
     handleDateSelect,
     handleSelectAllow,
     handleEventAllow,

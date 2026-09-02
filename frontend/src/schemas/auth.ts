@@ -1,7 +1,5 @@
 import { z } from 'zod'
 
-// Mirrors shared.Role on the backend. 'guest' exists in the Go enum but is never
-// issued by /login, so it is deliberately absent here.
 export const roleSchema = z.enum(['admin', 'student', 'parent'])
 
 export const userSchema = z.object({
@@ -25,15 +23,11 @@ export const authResponseSchema = z.object({
   user: userSchema,
 })
 
-// Persisted shape. Kept separate from authResponseSchema so a future change to
-// the wire format does not silently invalidate every stored session.
 export const authSessionSchema = z.object({
   token: z.string().min(1),
   user: userSchema,
 })
 
-// Backend limits: names are capped at 100 runes, and bcrypt silently truncates
-// anything past 72 bytes, so the password limit is measured in bytes not chars.
 const MAX_NAME_CHARS = 100
 const MAX_PASSWORD_BYTES = 72
 

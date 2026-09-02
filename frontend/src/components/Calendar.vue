@@ -21,8 +21,7 @@
     constraint?: string
     modelValue?: EventInput[]
     additionalEvents?: EventInput[]
-    // The toolbar carries the week title and the prev/next buttons together, so
-    // hiding it also removes week navigation.
+
     showHeader?: boolean
   }
 
@@ -37,8 +36,7 @@
   const emit = defineEmits<{
     'update:modelValue': [value: EventInput[]]
     'event-click': [info: EventClickArg]
-    // Lets a parent build events for exactly the week on screen, which is
-    // required when those events have to be reconciled against real bookings.
+
     'dates-set': [range: { start: Date; end: Date }]
   }>()
 
@@ -57,15 +55,11 @@
     return (hours || 0) * 60 + (mins || 0)
   }
 
-  /* Mirrors what `constraint="businessHours"` enforces for drags, so a click
-   * can be held to the same rule. A selection has to sit entirely inside one
-   * business-hours window — spanning two of them means crossing a gap the
-   * teacher is not available for. */
   const isWithinConstraint = (start: Date, end: Date): boolean => {
     if (props.constraint !== 'businessHours') return true
 
     const windows = props.businessHours
-    // No window list means nothing is bookable, not that everything is.
+
     if (!Array.isArray(windows)) return windows === true
 
     const startMinutes = start.getHours() * 60 + start.getMinutes()
@@ -149,12 +143,7 @@
     const timeRange = formatTimeRange(new Date(start), new Date(end))
     const p = arg.event.extendedProps
 
-    // Browse-mode blocks are read-only previews of who is free, so they carry a
-    // teacher label instead of a remove button.
     if (p?.isBrowse) {
-      // Who is free is the point of browse mode, and the grid position already
-      // conveys the time — so the name leads and the range is secondary. Both
-      // truncate, because overlapping windows make these columns very narrow.
       return {
         html: `
           <div class="custom-event-content browse-event-content">
@@ -243,14 +232,13 @@
 
   defineExpose({ setOption })
 </script>
+
 <template>
   <div
     class="calendar-container h-full overflow-x-hidden overflow-y-auto rounded-2xl border border-(--border-subtle) bg-(--paper-white) shadow-[0_4px_16px_rgba(45,74,62,0.06)] [-webkit-tap-highlight-color:transparent] **:[-webkit-tap-highlight-color:transparent] md:overflow-y-hidden"
     @click="handleContainerClick"
   >
     <FullCalendar ref="calendarRef" :options="calendarOptions" />
-
-    <!-- Mobile delete button (appears when event is selected on mobile) -->
     <Transition
       enter-active-class="transition-opacity duration-200"
       enter-from-class="opacity-0"
@@ -281,18 +269,12 @@
 </template>
 
 <style scoped>
-  /* FullCalendar renders its own DOM at runtime, so these overrides target its
-     internal elements via :deep() and must stay as CSS — they cannot be moved
-     onto utility classes in a template we don't own. */
-
   @media (max-width: 767px) {
-    /* Visual feedback during drag/resize on mobile */
     :deep(.fc-event.fc-event-selected) {
       opacity: 1;
       box-shadow: 0 0 0 3px var(--accent-sage);
     }
 
-    /* Make resize handles very visible on mobile when selected */
     :deep(.fc-event.fc-event-selected .fc-event-resizer) {
       width: 20px !important;
       height: 20px !important;
@@ -302,24 +284,18 @@
     }
   }
 
-  /* Show resize handles on selected events */
   :deep(.fc-event-selected .fc-event-resizer) {
     background: rgba(157, 180, 160, 0.4);
     width: 12px;
     height: 12px;
   }
 
-  /* Browse-mode blocks (v3): read-only, so they show a teacher label and a
-     pointer cursor rather than drag/resize affordances. */
   :deep(.browse-event) {
     cursor: pointer;
     border-width: 1px;
     border-style: solid;
   }
 
-  /* Overlapping windows can squeeze a column to a fraction of its width. The
-     global rules centre event text without capping it, so it spills out both
-     sides of the block; capping the width is what lets ellipsis take over. */
   :deep(.custom-event-content) {
     max-width: 100%;
   }
@@ -331,10 +307,6 @@
     white-space: nowrap;
   }
 
-  /* The global .custom-event-content centres with align-items, which makes a
-     flex column shrink-wrap its children to their content width — the box is
-     then never narrower than the text, so ellipsis never triggers and the
-     label spills out both sides. Stretching is what makes truncation work. */
   :deep(.browse-event-content) {
     display: flex;
     flex-direction: column;
@@ -345,7 +317,6 @@
     overflow: hidden;
   }
 
-  /* Mono is wide and these columns are narrow once windows overlap. */
   :deep(.fc-event.browse-event .fc-event-main) {
     padding: 4px 5px;
     text-align: left;
@@ -373,7 +344,6 @@
     opacity: 0.75;
   }
 
-  /* Per-slot remove button rendered by eventContent */
   :deep(.custom-event-content) {
     position: relative;
     height: 100%;
@@ -416,7 +386,6 @@
     outline-offset: 1px;
   }
 
-  /* Reveal on hover where hovering is possible, always on touch devices */
   @media (hover: hover) {
     :deep(.fc-event:hover .event-delete-btn),
     :deep(.fc-event-selected .event-delete-btn) {

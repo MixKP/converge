@@ -16,7 +16,12 @@ export function useSubmitAvailability() {
   const showConfirm = ref(false)
   const { successMessage, errorMessage, showSuccess, showError } = useNotification()
 
-  const { submitCount, setFieldValue, resetForm, handleSubmit: veeHandleSubmit } = useForm({
+  const {
+    submitCount,
+    setFieldValue,
+    resetForm,
+    handleSubmit: veeHandleSubmit,
+  } = useForm({
     validationSchema: toTypedSchema(availabilityFormSchema),
     initialValues: {
       teacher_id: teacherStore.selectedTeacherId,

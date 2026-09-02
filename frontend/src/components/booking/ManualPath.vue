@@ -39,8 +39,6 @@
 
   const { contextBlocker, contextComplete } = useBookingContext()
 
-  // Browse blocks are built per visible week so they can be reconciled against
-  // dated bookings, so the calendar has to say which week it is showing.
   const visibleRange = ref<VisibleRange | null>(null)
   const { browseEvents } = useBrowseEvents(() => visibleRange.value)
   const { addSlotToCart } = useCart()
@@ -52,9 +50,6 @@
   const isAddingToCart = ref(false)
   const pendingTeachers = ref<BrowseTeacher[] | null>(null)
 
-  /* Three honest states. The old page rendered a live-looking calendar whenever
-   * a subject was set, but only made it editable once a branch AND a teacher
-   * were chosen — so dragging in between silently did nothing. */
   const calendarState = computed<'locked' | 'browse' | 'editable'>(() => {
     if (!contextComplete.value) return 'locked'
     return selectedTeacherId.value === null ? 'browse' : 'editable'
@@ -68,10 +63,6 @@
     () => Array.isArray(businessHours.value) && businessHours.value.length > 0
   )
 
-  /* An empty businessHours while the fetch is still in flight looks identical
-   * to a teacher with none submitted. Reporting the second on a cold load was
-   * why the first teacher pick claimed no availability, then came right after
-   * a revisit warmed the cache. */
   const showsNoAvailability = computed(
     () => calendarState.value === 'editable' && isAvailabilityLoaded.value && !hasAvailability.value
   )
@@ -94,9 +85,6 @@
     showSuccess(`Now booking with ${teacher.name} — drag the calendar to select times`, 4000)
   }
 
-  /* Clicking a browse block promotes you into the editable state. The store's
-   * watcher on selectedTeacherId narrows businessHours to that teacher, so the
-   * calendar swaps from union shading to their hours with no extra work here. */
   const handleEventClick = (info: EventClickArg) => {
     const props = info.event.extendedProps
     if (!props?.isBrowse) return
@@ -177,9 +165,6 @@
           </Select>
         </div>
       </div>
-
-      <!-- Locked: the calendar is not mounted at all, so there is nothing that
-           looks draggable but isn't. -->
       <div
         v-if="calendarState === 'locked'"
         class="border-border flex min-h-[20rem] flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed"
@@ -204,8 +189,6 @@
         </div>
 
         <div class="relative">
-          <!-- Tall enough on desktop to show 08:00–19:00 without scrolling; the
-               grid used to open scrolled past 9am, hiding the block labels. -->
           <div class="border-border h-[30rem] overflow-hidden rounded-lg border lg:h-[44rem]">
             <Calendar
               :model-value="allEvents"
@@ -219,9 +202,6 @@
               @dates-set="visibleRange = $event"
             />
           </div>
-
-          <!-- Identical weekly windows collapse into one block, so a click on a
-               shared range has to disambiguate before selecting a teacher. -->
           <div
             v-if="pendingTeachers"
             class="bg-background/80 absolute inset-0 z-20 flex items-center justify-center rounded-lg p-4"

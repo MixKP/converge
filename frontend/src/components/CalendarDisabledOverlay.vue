@@ -3,13 +3,14 @@
     message: string
   }>()
 </script>
+
 <template>
   <div class="absolute inset-0 z-10 flex items-center justify-center bg-(--paper-white)/90">
     <div
-      class="bg-(--paper-white) px-6 py-3 rounded-sm shadow-card border border-(--border-strong) text-sm font-medium text-(--ink-primary) flex items-center gap-3"
+      class="shadow-card flex items-center gap-3 rounded-sm border border-(--border-strong) bg-(--paper-white) px-6 py-3 text-sm font-medium text-(--ink-primary)"
     >
       <svg
-        class="w-5 h-5 text-(--accent-terracotta)"
+        class="h-5 w-5 text-(--accent-terracotta)"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"

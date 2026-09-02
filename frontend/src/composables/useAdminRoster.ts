@@ -13,27 +13,23 @@ export interface RosterClass {
   endTime: string
   subject: string
   branch: string
-  /** Student in teacher mode, teacher in student mode. */
+
   counterpart: string
 }
 
 export interface RosterEntry {
   id: number
   name: string
-  /** Subjects the teacher teaches; empty for students. */
+
   subjects: string[]
   classes: RosterClass[]
 }
 
-/* An unparsable timestamp sorts last rather than throwing, so one malformed
- * booking cannot hide the rest of a person's schedule. */
 const timeOf = (iso: string): number => {
   const ms = new Date(iso).getTime()
   return Number.isNaN(ms) ? Number.POSITIVE_INFINITY : ms
 }
 
-// The name fields are omitempty server-side, so everything falls back to the id
-// rather than rendering a blank that cannot be told apart from another.
 const orFallback = (value: string | undefined, label: string, id: number): string =>
   value || `${label} #${id}`
 
@@ -49,10 +45,6 @@ export function useAdminRoster() {
   const mode = ref<RosterMode>('teachers')
   const search = ref('')
 
-  /* There is no endpoint returning a teacher's subjects, so the mapping is
-   * rebuilt by asking each subject who teaches it. The requests go out in
-   * parallel and the subject list is short, but it is a fan-out — if a
-   * teacher-subjects endpoint ever lands, this is the thing to replace. */
   const loadTeacherSubjects = async (list: Subject[]): Promise<Map<number, string[]>> => {
     const map = new Map<number, string[]>()
     const results = await Promise.all(
@@ -123,9 +115,6 @@ export function useAdminRoster() {
     return map
   }
 
-  /* Built from the full teacher and student lists rather than from the
-   * bookings, so somebody with no classes yet still appears — that absence is
-   * usually the thing an admin is looking for. */
   const allEntries = computed<RosterEntry[]>(() => {
     if (mode.value === 'teachers') {
       const byTeacher = groupBookings((b) => b.teacher_id)
@@ -150,8 +139,6 @@ export function useAdminRoster() {
       .sort((a, b) => a.name.localeCompare(b.name))
   })
 
-  // Teachers also match on what they teach, so "Physics" finds everyone who
-  // could take a physics booking.
   const entries = computed<RosterEntry[]>(() => {
     const term = search.value.trim().toLowerCase()
     if (!term) return allEntries.value

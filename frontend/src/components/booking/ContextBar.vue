@@ -36,8 +36,6 @@
   const subjectValue = useNumberSelect(selectedSubjectId)
   const branchValue = useNumberSelect(selectedBranchId)
 
-  /* The dropdown carries one entry that is an action rather than a student, so
-   * the sentinel is intercepted here instead of being written to the store. */
   const CREATE_STUDENT = '__create_student'
 
   const isCreatingStudent = ref(false)
@@ -72,8 +70,6 @@
     createError.value = ''
   }
 
-  /* A student here is a login account, so /register wants a password too. The
-   * new student is selected on success so the booking carries on uninterrupted. */
   const createStudent = async () => {
     createError.value = ''
     const parsed = registerRequestSchema.safeParse({
@@ -94,22 +90,15 @@
       isCreatingStudent.value = false
       showSuccess(`Student "${created.name}" created and selected`, 4000)
     } catch (err) {
-      // A duplicate username comes back as 409; keep it inline so the name can
-      // be corrected without losing what was typed.
       createError.value = err instanceof Error ? err.message : 'Failed to create the student'
     } finally {
       isSubmitting.value = false
     }
   }
 
-  // Starts collapsed so a pre-populated store (returning from the cart, say)
-  // doesn't reopen the bar; `expanded` forces it open while anything is missing.
   const isEditing = ref(false)
 
-  // Changing the subject clears the branch, so completing it again is the
-  // natural moment to give the vertical space back to the calendar.
   watch(contextComplete, (complete) => {
-    // Collapsing mid-create would discard whatever has been typed.
     if (complete && !isCreatingStudent.value) isEditing.value = false
   })
 
@@ -188,9 +177,6 @@
             </Select>
           </div>
         </div>
-
-        <!-- Inline rather than an overlay so the booking context stays visible
-             behind it and nothing already chosen is obscured. -->
         <form
           v-if="isCreatingStudent"
           class="border-border flex flex-col gap-3 rounded-lg border p-3"
