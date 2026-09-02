@@ -27,6 +27,7 @@
   const {
     events,
     businessHours,
+    isAvailabilityLoaded,
     allEvents,
     genderFilteredTeachers,
     isLoadingTeachers,
@@ -65,6 +66,18 @@
 
   const hasAvailability = computed(
     () => Array.isArray(businessHours.value) && businessHours.value.length > 0
+  )
+
+  /* An empty businessHours while the fetch is still in flight looks identical
+   * to a teacher with none submitted. Reporting the second on a cold load was
+   * why the first teacher pick claimed no availability, then came right after
+   * a revisit warmed the cache. */
+  const showsNoAvailability = computed(
+    () => calendarState.value === 'editable' && isAvailabilityLoaded.value && !hasAvailability.value
+  )
+
+  const isAwaitingAvailability = computed(
+    () => calendarState.value === 'editable' && !isAvailabilityLoaded.value
   )
 
   const canAddToBooking = computed(
@@ -241,7 +254,15 @@
         </div>
 
         <div
-          v-if="calendarState === 'editable' && !hasAvailability"
+          v-if="isAwaitingAvailability"
+          class="border-border text-muted-foreground flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+        >
+          <Loader2 class="size-4 animate-spin" />
+          Loading availability…
+        </div>
+
+        <div
+          v-else-if="showsNoAvailability"
           class="border-destructive/30 bg-destructive/5 text-destructive rounded-md border px-3 py-2 text-sm"
         >
           {{ selectedTeacher?.name ?? 'This teacher' }} has no availability submitted yet, so there

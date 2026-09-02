@@ -52,6 +52,36 @@
     () => props.businessHours
   )
 
+  const minutesOfDay = (time: string): number => {
+    const [hours, mins] = time.split(':').map(Number)
+    return (hours || 0) * 60 + (mins || 0)
+  }
+
+  /* Mirrors what `constraint="businessHours"` enforces for drags, so a click
+   * can be held to the same rule. A selection has to sit entirely inside one
+   * business-hours window — spanning two of them means crossing a gap the
+   * teacher is not available for. */
+  const isWithinConstraint = (start: Date, end: Date): boolean => {
+    if (props.constraint !== 'businessHours') return true
+
+    const windows = props.businessHours
+    // No window list means nothing is bookable, not that everything is.
+    if (!Array.isArray(windows)) return windows === true
+
+    const startMinutes = start.getHours() * 60 + start.getMinutes()
+    const endMinutes = end.getHours() * 60 + end.getMinutes()
+
+    return windows.some((window) => {
+      const days = window.daysOfWeek
+      if (Array.isArray(days) && !days.includes(start.getDay())) return false
+      if (!window.startTime || !window.endTime) return false
+      return (
+        startMinutes >= minutesOfDay(String(window.startTime)) &&
+        endMinutes <= minutesOfDay(String(window.endTime))
+      )
+    })
+  }
+
   const {
     selectedEventId,
     handleContainerClick,
@@ -74,6 +104,7 @@
     getAdditionalEvents: () => props.additionalEvents ?? [],
     onUpdate: (events) => emit('update:modelValue', events),
     onEventClick: (info) => emit('event-click', info),
+    isSlotAllowed: isWithinConstraint,
   })
 
   useCalendarEventSync(calendarRef, () => props.modelValue)

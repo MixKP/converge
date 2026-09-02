@@ -66,6 +66,9 @@ export const useBookingStore = defineStore('booking', () => {
   const events = ref<EventInput[]>([])
   const businessHours = ref<BusinessHoursInput>([])
   const availabilityCache = ref<Map<number, WeeklySlot[]>>(new Map())
+  /* Until this flips, an empty businessHours means "still fetching", not "this
+   * teacher has none" — the two are indistinguishable from the value alone. */
+  const isAvailabilityLoaded = ref(false)
   const suggestions = ref<BookingResponse | null>(null)
   const showDetailedResults = ref(false)
 
@@ -192,8 +195,7 @@ export const useBookingStore = defineStore('booking', () => {
     `${teacherId}-${date.getDay()}-${date.getHours()}:${date.getMinutes()}`
 
   const bookedSlotKeys = computed<Set<string>>(
-    () =>
-      new Set(confirmedBookings.value.map((b) => slotKey(b.teacher_id, new Date(b.start_time))))
+    () => new Set(confirmedBookings.value.map((b) => slotKey(b.teacher_id, new Date(b.start_time))))
   )
 
   const filteredSuggestionEvents = computed<EventInput[]>(() => {
@@ -327,6 +329,8 @@ export const useBookingStore = defineStore('booking', () => {
       availabilityCache.value = transformBackendAvailability(data)
     } catch (error) {
       showError(error, 'Failed to load availability')
+    } finally {
+      isAvailabilityLoaded.value = true
     }
   }
 
@@ -457,6 +461,7 @@ export const useBookingStore = defineStore('booking', () => {
     events,
     businessHours,
     availabilityCache,
+    isAvailabilityLoaded,
     suggestions,
     showDetailedResults,
     suggestionEvents,

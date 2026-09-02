@@ -24,6 +24,7 @@ export function useBooking() {
     isEvaluating: refs.isEvaluating,
     events: refs.events,
     businessHours: refs.businessHours,
+    isAvailabilityLoaded: refs.isAvailabilityLoaded,
     suggestions: refs.suggestions,
     showDetailedResults: refs.showDetailedResults,
     suggestionEvents: refs.suggestionEvents,

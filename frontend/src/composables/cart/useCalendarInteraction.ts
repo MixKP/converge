@@ -19,6 +19,10 @@ interface InteractionOptions {
   getAdditionalEvents: () => EventInput[]
   onUpdate: (events: EventInput[]) => void
   onEventClick: (info: EventClickArg) => void
+  /* selectConstraint only governs drag-select, so a plain click on the grid
+   * slipped past it and dropped a slot into greyed-out hours. The owner of the
+   * constraint supplies this so clicks are held to the same rule. */
+  isSlotAllowed?: (start: Date, end: Date) => boolean
 }
 
 const DOUBLE_CLICK_DELAY = 300
@@ -32,6 +36,7 @@ export function useCalendarInteraction(options: InteractionOptions) {
     getAdditionalEvents,
     onUpdate,
     onEventClick,
+    isSlotAllowed = () => true,
   } = options
 
   const overlapsWithCartEvent = (start: Date, end: Date): boolean => {
@@ -49,9 +54,7 @@ export function useCalendarInteraction(options: InteractionOptions) {
     return false
   }
 
-  const editableModelValue = (): EventInput[] =>
-    getModelValue().filter((e) => e.editable !== false)
-
+  const editableModelValue = (): EventInput[] => getModelValue().filter((e) => e.editable !== false)
 
   const handleDateSelect = (selectInfo: DateSelectArg) => {
     if (!isEditable()) return
@@ -64,6 +67,7 @@ export function useCalendarInteraction(options: InteractionOptions) {
   const handleSelectAllow = (selectInfo: { start: Date; end: Date }) => {
     if (!isSameDaySelection(selectInfo.start, selectInfo.end)) return false
     if (overlapsWithCartEvent(selectInfo.start, selectInfo.end)) return false
+    if (!isSlotAllowed(selectInfo.start, selectInfo.end)) return false
     return true
   }
 
@@ -82,10 +86,10 @@ export function useCalendarInteraction(options: InteractionOptions) {
     const endDate = new Date(clickDate)
     endDate.setHours(clickDate.getHours() + 1)
     if (overlapsWithCartEvent(clickDate, endDate)) return
+    if (!isSlotAllowed(clickDate, endDate)) return
 
     onUpdate([...editableModelValue(), createOneHourEvent(new Date(arg.dateStr))])
   }
-
 
   const lastDragTime = ref(0)
 
@@ -131,7 +135,6 @@ export function useCalendarInteraction(options: InteractionOptions) {
     lastDragTime.value = Date.now()
     handleEventChange()
   }
-
 
   const SELECTED_CLASS = 'fc-event-selected'
   const selectedEventId = ref<string | null>(null)
