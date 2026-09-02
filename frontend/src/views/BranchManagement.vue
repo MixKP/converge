@@ -43,7 +43,9 @@
       await branchApi.setCapacity(branch.id, capacity)
       branch.capacity = capacity
       drafts.value[branch.id] = String(capacity)
-      showSuccess(`Capacity for ${branch.name} updated to ${capacity === 0 ? 'unlimited' : capacity}`)
+      showSuccess(
+        `Capacity for ${branch.name} updated to ${capacity === 0 ? 'unlimited' : capacity}`
+      )
     } catch (err) {
       showError(err, 'Failed to update branch capacity')
     } finally {
@@ -53,7 +55,12 @@
 </script>
 
 <template>
-  <PageLayout title="Manage Branches" :show-cart="false">
+  <PageLayout
+    title="Manage Branches"
+    :show-cart="false"
+    back-to="/dashboard"
+    back-label="Dashboard"
+  >
     <div class="manage-root">
       <ManagementNav />
       <div class="manage-section">
@@ -66,20 +73,11 @@
         <div v-if="isLoading" class="manage-empty">Loading branches...</div>
 
         <!-- Empty State -->
-        <div v-else-if="branches.length === 0" class="manage-empty">
-          No branches found
-        </div>
+        <div v-else-if="branches.length === 0" class="manage-empty">No branches found</div>
 
         <!-- Mobile / Tablet Card List -->
-        <div
-          v-else-if="isMobile || isTablet"
-          class="manage-card-list"
-        >
-          <div
-            v-for="branch in branches"
-            :key="branch.id"
-            class="manage-card"
-          >
+        <div v-else-if="isMobile || isTablet" class="manage-card-list">
+          <div v-for="branch in branches" :key="branch.id" class="manage-card">
             <div class="manage-card-header">
               <div class="manage-card-name">{{ branch.name }}</div>
               <span
@@ -103,7 +101,9 @@
                 <button
                   type="button"
                   class="manage-btn manage-btn--primary"
-                  :disabled="savingId === branch.id || drafts[branch.id] === String(branch.capacity)"
+                  :disabled="
+                    savingId === branch.id || drafts[branch.id] === String(branch.capacity)
+                  "
                   @click="handleSave(branch)"
                 >
                   {{ savingId === branch.id ? 'Saving...' : 'Save' }}
@@ -124,15 +124,14 @@
               </tr>
             </thead>
             <tbody>
-              <tr
-                v-for="branch in branches"
-                :key="branch.id"
-              >
+              <tr v-for="branch in branches" :key="branch.id">
                 <td class="manage-cell-name">{{ branch.name }}</td>
                 <td>
                   <span
                     class="manage-badge"
-                    :class="branch.capacity === 0 ? 'manage-badge--unlimited' : 'manage-badge--capped'"
+                    :class="
+                      branch.capacity === 0 ? 'manage-badge--unlimited' : 'manage-badge--capped'
+                    "
                   >
                     {{ branch.capacity === 0 ? 'Unlimited' : `Max ${branch.capacity}` }}
                   </span>
@@ -150,7 +149,9 @@
                     <button
                       type="button"
                       class="manage-btn manage-btn--primary"
-                      :disabled="savingId === branch.id || drafts[branch.id] === String(branch.capacity)"
+                      :disabled="
+                        savingId === branch.id || drafts[branch.id] === String(branch.capacity)
+                      "
                       @click="handleSave(branch)"
                     >
                       {{ savingId === branch.id ? 'Saving...' : 'Save' }}

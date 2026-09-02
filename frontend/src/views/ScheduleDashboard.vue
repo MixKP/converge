@@ -106,7 +106,7 @@
 </script>
 
 <template>
-  <PageLayout title="Class Schedule" :show-cart="false">
+  <PageLayout title="Class Schedule" :show-cart="false" back-to="/dashboard" back-label="Dashboard">
     <div class="manage-root">
       <ManagementNav />
       <div class="manage-section">

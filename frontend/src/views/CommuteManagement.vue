@@ -44,9 +44,7 @@
 
     isMatrixLoading.value = true
     try {
-      const results = await Promise.all(
-        pairs.map(([s, d]) => commuteApi.getForBranches(s, d))
-      )
+      const results = await Promise.all(pairs.map(([s, d]) => commuteApi.getForBranches(s, d)))
       const matrix: Record<string, number> = {}
       results.forEach((res, i) => {
         const [s, d] = pairs[i]
@@ -93,7 +91,7 @@
 </script>
 
 <template>
-  <PageLayout title="Manage Commute" :show-cart="false">
+  <PageLayout title="Manage Commute" :show-cart="false" back-to="/dashboard" back-label="Dashboard">
     <div class="manage-root">
       <ManagementNav />
       <div class="manage-section">
@@ -113,9 +111,7 @@
               <div class="commute-card-label">Current Commute Time</div>
               <div class="commute-card-current">
                 {{ currentMinutes }}
-                <span class="commute-card-unit">
-                  minute{{ currentMinutes === 1 ? '' : 's' }}
-                </span>
+                <span class="commute-card-unit"> minute{{ currentMinutes === 1 ? '' : 's' }} </span>
               </div>
             </div>
           </div>
@@ -151,8 +147,8 @@
         <div class="matrix-section">
           <h2 class="matrix-title">Commute Time Between Branches</h2>
           <p class="matrix-subtitle">
-            Time in minutes from each branch (row) to each branch (column). Same-branch travel is
-            0. Cells without a custom value use the default commute time.
+            Time in minutes from each branch (row) to each branch (column). Same-branch travel is 0.
+            Cells without a custom value use the default commute time.
           </p>
 
           <div v-if="isMatrixLoading" class="manage-empty">Loading commute matrix...</div>

@@ -58,7 +58,12 @@
 </script>
 
 <template>
-  <PageLayout title="Manage Teachers" :show-cart="false">
+  <PageLayout
+    title="Manage Teachers"
+    :show-cart="false"
+    back-to="/dashboard"
+    back-label="Dashboard"
+  >
     <div class="manage-root">
       <ManagementNav />
       <!-- Add Teacher Form -->
@@ -112,14 +117,9 @@
       </div>
 
       <!-- Mobile / Tablet Card List -->
-      <div
-        v-if="isMobile || isTablet"
-        class="manage-section"
-      >
+      <div v-if="isMobile || isTablet" class="manage-section">
         <h2 class="manage-section-title">Teachers ({{ store.teachers.length }})</h2>
-        <div v-if="store.teachers.length === 0" class="manage-empty">
-          No teachers found
-        </div>
+        <div v-if="store.teachers.length === 0" class="manage-empty">No teachers found</div>
         <div v-else class="manage-card-list">
           <div
             v-for="teacher in store.teachers"
@@ -158,7 +158,9 @@
               <span class="manage-card-label">Status</span>
               <span
                 class="manage-badge"
-                :class="teacher.status === 'active' ? 'manage-badge--active' : 'manage-badge--deactivated'"
+                :class="
+                  teacher.status === 'active' ? 'manage-badge--active' : 'manage-badge--deactivated'
+                "
               >
                 {{ teacher.status }}
               </span>
@@ -170,9 +172,7 @@
       <!-- Desktop Table -->
       <div v-else class="manage-section">
         <h2 class="manage-section-title">Teachers ({{ store.teachers.length }})</h2>
-        <div v-if="store.teachers.length === 0" class="manage-empty">
-          No teachers found
-        </div>
+        <div v-if="store.teachers.length === 0" class="manage-empty">No teachers found</div>
         <div v-else class="manage-table-wrap">
           <table class="manage-table">
             <thead>
@@ -196,7 +196,9 @@
                   <select
                     class="manage-table-select"
                     :value="teacher.gender"
-                    @change="handleGenderChange(teacher.id, ($event.target as HTMLSelectElement).value)"
+                    @change="
+                      handleGenderChange(teacher.id, ($event.target as HTMLSelectElement).value)
+                    "
                   >
                     <option value="male">Male</option>
                     <option value="female">Female</option>
@@ -206,7 +208,11 @@
                 <td>
                   <span
                     class="manage-badge"
-                    :class="teacher.status === 'active' ? 'manage-badge--active' : 'manage-badge--deactivated'"
+                    :class="
+                      teacher.status === 'active'
+                        ? 'manage-badge--active'
+                        : 'manage-badge--deactivated'
+                    "
                   >
                     {{ teacher.status }}
                   </span>

@@ -1,7 +1,6 @@
 <script setup lang="ts">
   import { useRoute } from 'vue-router'
   import { computed } from 'vue'
-  import { CalendarPlus, ChevronLeft } from '@lucide/vue'
 
   const route = useRoute()
   const currentPath = computed(() => route.path)
@@ -16,14 +15,9 @@
 </script>
 
 <template>
+  <!-- Section tabs only. Booking lives on the dashboard, and the way back out
+       is the navbar's back link, which every page shares. -->
   <nav class="manage-nav" aria-label="Management navigation">
-    <!-- One edit here reaches all five management pages, which is why the way
-         back to the dashboard lives in the shared nav rather than per view. -->
-    <router-link to="/dashboard" class="manage-nav-back" aria-label="Dashboard">
-      <ChevronLeft class="manage-nav-action-icon" aria-hidden="true" />
-      Dashboard
-    </router-link>
-
     <router-link
       v-for="tab in tabs"
       :key="tab.path"
@@ -32,13 +26,6 @@
       :class="{ 'manage-nav-tab--active': currentPath === tab.path }"
     >
       {{ tab.label }}
-    </router-link>
-
-    <!-- Booking is a workflow rather than a management section, so it sits
-         apart from the tabs instead of becoming one that never activates. -->
-    <router-link to="/booking" class="manage-nav-action">
-      <CalendarPlus class="manage-nav-action-icon" aria-hidden="true" />
-      Book a session
     </router-link>
   </nav>
 </template>
@@ -80,68 +67,9 @@
     background: var(--primary-indigo);
   }
 
-  .manage-nav-back {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.125rem;
-    margin-right: 0.5rem;
-    padding: 0.5rem 0.75rem 0.5rem 0.5rem;
-    font-family: Inter, sans-serif;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--text-secondary);
-    text-decoration: none;
-    border: 1px solid var(--border-medium);
-    border-radius: 9999px;
-    transition: all 0.15s;
-  }
-
-  .manage-nav-back:hover {
-    color: var(--text-primary);
-    background: var(--bg-subtle);
-  }
-
-  .manage-nav-action {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
-    margin-left: auto;
-    padding: 0.5rem 1rem;
-    font-family: Inter, sans-serif;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: #fff;
-    text-decoration: none;
-    /* Deeper than the active tab's --primary-indigo so the two dark pills stay
-       distinguishable. --accent-sage was too light to carry white text — it
-       read as a disabled control. */
-    background: var(--primary-navy-deep);
-    border-radius: 9999px;
-    transition: all 0.15s;
-  }
-
-  .manage-nav-action:hover {
-    background: var(--primary-navy);
-  }
-
-  .manage-nav-action:focus-visible {
-    outline: 2px solid var(--primary-indigo);
-    outline-offset: 2px;
-  }
-
-  .manage-nav-action-icon {
-    width: 1rem;
-    height: 1rem;
-  }
-
   @media (max-width: 767px) {
     .manage-nav {
       padding: 1rem 1rem 0;
-    }
-
-    /* Wrapping to its own row beats being squeezed against the last tab. */
-    .manage-nav-action {
-      margin-left: 0;
     }
   }
 </style>

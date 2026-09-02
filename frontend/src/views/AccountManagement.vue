@@ -160,7 +160,12 @@
 </script>
 
 <template>
-  <PageLayout title="Manage Accounts" :show-cart="false">
+  <PageLayout
+    title="Manage Accounts"
+    :show-cart="false"
+    back-to="/dashboard"
+    back-label="Dashboard"
+  >
     <div class="manage-root">
       <ManagementNav />
       <div class="manage-section">
