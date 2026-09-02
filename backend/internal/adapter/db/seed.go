@@ -34,7 +34,6 @@ func Seed(database *sql.DB) error {
 		return err
 	}
 
-
 	subjectIDs, err := seedSubjects(database)
 	if err != nil {
 		return err
@@ -387,6 +386,69 @@ func bookingSeeds() []bookingSeed {
 	}
 }
 
+// commuteDemoSeed pins a class to a weekday rather than a day offset, so the
+// class always lands inside the teacher's weekly availability window no matter
+// which day the seed is run on.
+type commuteDemoSeed struct {
+	student string
+	teacher int
+	subject int
+	branch  int
+	weekday time.Weekday
+	hour    int
+}
+
+// commuteDemoSeeds exercises the commute blocking on the booking calendar. Each
+// class sits inside its teacher's availability, so selecting that teacher for a
+// *different* branch renders travel-time blocks either side of it.
+func commuteDemoSeeds() []commuteDemoSeed {
+	return []commuteDemoSeed{
+		// Alice (Physics) is available Tue 09:00-12:00 and is booked at Downtown.
+		// Book her at Main Campus and 10:30-11:00 plus 12:00-12:30 block out.
+		{"student1", 0, 1, 1, time.Tuesday, 11},
+		// Carol (Computer Science) is available Wed 13:00-17:00, booked at Westside.
+		{"student2", 2, 4, 2, time.Wednesday, 14},
+		// Bob (English) is booked at Main Campus on a Monday inside his 10:00-15:00
+		// window. Booking him at Main Campus again must produce no commute block.
+		{"student3", 1, 2, 0, time.Monday, 10},
+	}
+}
+
+// nextWeekdayOffset returns the day offset from `from` to the next occurrence of
+// `target`, always in the future so a demo class never lands in the past.
+func nextWeekdayOffset(from time.Time, target time.Weekday) int {
+	diff := (int(target) - int(from.Weekday()) + 7) % 7
+	if diff == 0 {
+		diff = 7
+	}
+	return diff
+}
+
+// withCommuteDemo resolves the weekday-pinned demo classes against today and
+// appends them. A demo class wins any (teacher, day, hour) clash with the static
+// timetable: the offsets move with the run date, so without this the seed would
+// fail validation on whichever weekday happened to collide.
+func withCommuteDemo(seeds []bookingSeed, midnight time.Time) []bookingSeed {
+	type key struct{ teacher, dayOffset, hour int }
+
+	demo := make([]bookingSeed, 0, len(commuteDemoSeeds()))
+	claimed := make(map[key]bool)
+	for _, d := range commuteDemoSeeds() {
+		offset := nextWeekdayOffset(midnight, d.weekday)
+		demo = append(demo, bookingSeed{d.student, d.teacher, d.subject, d.branch, offset, d.hour})
+		claimed[key{d.teacher, offset, d.hour}] = true
+	}
+
+	merged := make([]bookingSeed, 0, len(seeds)+len(demo))
+	for _, s := range seeds {
+		if claimed[key{s.teacher, s.dayOffset, s.hour}] {
+			continue
+		}
+		merged = append(merged, s)
+	}
+	return append(merged, demo...)
+}
+
 // validateBookingSeeds rejects a timetable that books one teacher twice in the
 // same hour. Every seeded class is exactly one hour on the hour, so an
 // identical (teacher, day, hour) is the only way they can overlap. Catching it
@@ -425,7 +487,7 @@ func seedBookings(database *sql.DB, userIDs map[string]int, teacherIDs, subjectI
 	now := time.Now().In(loc)
 	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 
-	seeds := bookingSeeds()
+	seeds := withCommuteDemo(bookingSeeds(), midnight)
 	if err := validateBookingSeeds(seeds); err != nil {
 		return 0, err
 	}

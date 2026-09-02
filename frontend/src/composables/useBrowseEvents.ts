@@ -2,6 +2,7 @@ import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useBookingStore } from '../stores/bookingStore'
 import { useCartStore } from '../stores/cartStore'
+import { subtractSpans, type Span } from '../utils/intervals'
 import type { EventInput } from '@fullcalendar/core'
 
 export interface BrowseTeacher {
@@ -31,35 +32,6 @@ const normalizeTime = (value: string): string => {
   return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`
 }
 
-interface Interval {
-  start: number
-  end: number
-}
-
-const subtractBusy = (base: Interval, busy: Interval[]): Interval[] => {
-  let remaining: Interval[] = [base]
-
-  for (const block of busy) {
-    const next: Interval[] = []
-    for (const piece of remaining) {
-      const disjoint = block.end <= piece.start || block.start >= piece.end
-      if (disjoint) {
-        next.push(piece)
-        continue
-      }
-      if (block.start > piece.start) {
-        next.push({ start: piece.start, end: block.start })
-      }
-      if (block.end < piece.end) {
-        next.push({ start: block.end, end: piece.end })
-      }
-    }
-    remaining = next
-  }
-
-  return remaining.filter((piece) => piece.end - piece.start >= MIN_REMAINDER_MS)
-}
-
 const atTimeOnDate = (date: Date, time: string): Date => {
   const [hours, minutes] = time.split(':').map(Number)
   const result = new Date(date)
@@ -73,8 +45,8 @@ export function useBrowseEvents(getRange: () => VisibleRange | null) {
   const { availabilityCache, genderFilteredTeachers, confirmedBookings } = storeToRefs(store)
   const { cartItems } = storeToRefs(cartStore)
 
-  const busyByTeacher = computed<Map<number, Interval[]>>(() => {
-    const map = new Map<number, Interval[]>()
+  const busyByTeacher = computed<Map<number, Span[]>>(() => {
+    const map = new Map<number, Span[]>()
 
     const add = (teacherId: number, startTime: string, endTime: string) => {
       const start = new Date(startTime).getTime()
@@ -120,10 +92,10 @@ export function useBrowseEvents(getRange: () => VisibleRange | null) {
             const occurrenceEnd = atTimeOnDate(cursor, endTime)
 
             if (occurrenceEnd > occurrenceStart) {
-              const free = subtractBusy(
+              const free = subtractSpans(
                 { start: occurrenceStart.getTime(), end: occurrenceEnd.getTime() },
                 busy
-              )
+              ).filter((piece) => piece.end - piece.start >= MIN_REMAINDER_MS)
 
               for (const piece of free) {
                 const key = `${piece.start}-${piece.end}`

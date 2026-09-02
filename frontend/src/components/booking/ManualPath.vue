@@ -1,6 +1,6 @@
 <script setup lang="ts">
-  import { ref, computed, watch } from 'vue'
-  import { CalendarOff, Eye, Loader2, X } from '@lucide/vue'
+  import { ref, computed, watch, onMounted } from 'vue'
+  import { CalendarOff, Car, Eye, Loader2, X } from '@lucide/vue'
   import { useBooking } from '../../composables/useBooking'
   import { useBookingContext } from '../../composables/useBookingContext'
   import {
@@ -9,6 +9,8 @@
     type VisibleRange,
   } from '../../composables/useBrowseEvents'
   import { useCart } from '../../composables/useCart'
+  import { useCommute } from '../../composables/useCommute'
+  import { useCommuteBlocks } from '../../composables/useCommuteBlocks'
   import { useNotification } from '../../composables/useNotification'
   import { useNumberSelect, useEnumSelect, NONE } from '../../composables/useSelectProxy'
   import Calendar from '../Calendar.vue'
@@ -42,6 +44,8 @@
   const visibleRange = ref<VisibleRange | null>(null)
   const { browseEvents } = useBrowseEvents(() => visibleRange.value)
   const { addSlotToCart } = useCart()
+  const { loadCommuteMinutes } = useCommute()
+  const { commuteEvents } = useCommuteBlocks()
   const { showSuccess } = useNotification()
 
   const teacherValue = useNumberSelect(selectedTeacherId)
@@ -96,6 +100,8 @@
     }
     pendingTeachers.value = teachers
   }
+
+  onMounted(loadCommuteMinutes)
 
   const addToBooking = () => {
     const teacher = selectedTeacher.value
@@ -192,7 +198,7 @@
           <div class="border-border h-[30rem] overflow-hidden rounded-lg border lg:h-[44rem]">
             <Calendar
               :model-value="allEvents"
-              :additional-events="calendarState === 'browse' ? browseEvents : []"
+              :additional-events="calendarState === 'browse' ? browseEvents : commuteEvents"
               :editable="calendarState === 'editable'"
               :show-header="false"
               :business-hours="businessHours"
@@ -242,7 +248,17 @@
         </div>
 
         <div
-          v-else-if="showsNoAvailability"
+          v-if="calendarState === 'editable' && commuteEvents.length > 0"
+          class="border-border bg-muted/40 text-muted-foreground flex items-center gap-2 rounded-md border px-3 py-2 text-xs"
+        >
+          <Car class="size-4 shrink-0" />
+          <span>
+            Dashed blocks are travel time to or from another branch. They cannot be booked.
+          </span>
+        </div>
+
+        <div
+          v-if="showsNoAvailability"
           class="border-destructive/30 bg-destructive/5 text-destructive rounded-md border px-3 py-2 text-sm"
         >
           {{ selectedTeacher?.name ?? 'This teacher' }} has no availability submitted yet, so there

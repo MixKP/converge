@@ -1,7 +1,9 @@
 package db
 
 import (
+	"slices"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -62,4 +64,47 @@ func TestValidateBookingSeedsRejectsDoubleBooking(t *testing.T) {
 		{student: "student2", teacher: 1, dayOffset: 1, hour: 9},
 		{student: "student3", teacher: 0, dayOffset: 1, hour: 10},
 	}))
+}
+
+// withCommuteDemo resolves weekday-pinned classes against the run date, so the
+// merged timetable is different on every day of the week. Any one of those days
+// producing a double-booking would fail the whole seed, so all seven are checked.
+func TestWithCommuteDemoIsValidOnEveryWeekday(t *testing.T) {
+	base := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC) // a Sunday
+	require.Equal(t, time.Sunday, base.Weekday())
+
+	for i := range 7 {
+		day := base.AddDate(0, 0, i)
+		merged := withCommuteDemo(bookingSeeds(), day)
+
+		require.NoErrorf(t, validateBookingSeeds(merged),
+			"merged timetable double-books a teacher when seeded on %s", day.Weekday())
+
+		for _, demo := range commuteDemoSeeds() {
+			offset := nextWeekdayOffset(day, demo.weekday)
+			landsOn := day.AddDate(0, 0, offset).Weekday()
+			assert.Equalf(t, demo.weekday, landsOn,
+				"demo class for %s resolved to %s when seeded on %s",
+				demo.student, landsOn, day.Weekday())
+
+			assert.Truef(t, slices.ContainsFunc(merged, func(s bookingSeed) bool {
+				return s.teacher == demo.teacher && s.dayOffset == offset && s.hour == demo.hour
+			}), "demo class for teacher %d is missing when seeded on %s", demo.teacher, day.Weekday())
+		}
+	}
+}
+
+// A demo class must always be in the future, never today, so it cannot land in
+// an hour that has already passed.
+func TestNextWeekdayOffsetAlwaysMovesForward(t *testing.T) {
+	base := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	for i := range 7 {
+		day := base.AddDate(0, 0, i)
+		for wd := time.Sunday; wd <= time.Saturday; wd++ {
+			offset := nextWeekdayOffset(day, wd)
+			assert.GreaterOrEqual(t, offset, 1)
+			assert.LessOrEqual(t, offset, 7)
+			assert.Equal(t, wd, day.AddDate(0, 0, offset).Weekday())
+		}
+	}
 }

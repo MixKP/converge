@@ -143,6 +143,16 @@
     const timeRange = formatTimeRange(new Date(start), new Date(end))
     const p = arg.event.extendedProps
 
+    if (p?.isCommute) {
+      return {
+        html: `
+          <div class="custom-event-content commute-event-content">
+            <div class="commute-event-label">${escapeHtml(String(p.commuteLabel ?? 'Commute'))}</div>
+          </div>
+        `,
+      }
+    }
+
     if (p?.isBrowse) {
       return {
         html: `
@@ -288,6 +298,36 @@
     background: rgba(157, 180, 160, 0.4);
     width: 12px;
     height: 12px;
+  }
+
+  :deep(.commute-event) {
+    border-width: 1px;
+    border-style: dashed;
+    cursor: not-allowed;
+  }
+
+  :deep(.commute-event-content) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  :deep(.commute-event-label) {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: 'Inter', sans-serif;
+  }
+
+  :deep(.fc-event.commute-event .fc-event-main) {
+    padding: 2px 4px;
   }
 
   :deep(.browse-event) {

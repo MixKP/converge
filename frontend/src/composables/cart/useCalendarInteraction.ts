@@ -37,17 +37,20 @@ export function useCalendarInteraction(options: InteractionOptions) {
     isSlotAllowed = () => true,
   } = options
 
-  const overlapsWithCartEvent = (start: Date, end: Date): boolean => {
+  const overlapsBlockingEvent = (start: Date, end: Date): boolean => {
     const allEvents = [...getModelValue(), ...getAdditionalEvents()]
-    const cartEvents = allEvents.filter((e) => e.extendedProps?.isCartItem === true)
-    for (const cartEvent of cartEvents) {
-      if (!cartEvent.start || !cartEvent.end) continue
+    const blocking = allEvents.filter((e) => {
+      const p = e.extendedProps
+      return p?.isCartItem === true || p?.isBooked === true || p?.isCommute === true
+    })
+    for (const event of blocking) {
+      if (!event.start || !event.end) continue
 
-      const cartStart = new Date(cartEvent.start as Date)
-      const cartEnd = new Date(cartEvent.end as Date)
-      if (!isValidDate(cartStart) || !isValidDate(cartEnd)) continue
+      const blockStart = new Date(event.start as Date)
+      const blockEnd = new Date(event.end as Date)
+      if (!isValidDate(blockStart) || !isValidDate(blockEnd)) continue
 
-      if (rangesOverlap(start, end, cartStart, cartEnd)) return true
+      if (rangesOverlap(start, end, blockStart, blockEnd)) return true
     }
     return false
   }
@@ -56,7 +59,7 @@ export function useCalendarInteraction(options: InteractionOptions) {
 
   const handleDateSelect = (selectInfo: DateSelectArg) => {
     if (!isEditable()) return
-    if (overlapsWithCartEvent(selectInfo.start, selectInfo.end)) return
+    if (overlapsBlockingEvent(selectInfo.start, selectInfo.end)) return
 
     selectInfo.view.calendar.unselect()
     onUpdate([...editableModelValue(), createEvent(selectInfo.start, selectInfo.end)])
@@ -64,7 +67,7 @@ export function useCalendarInteraction(options: InteractionOptions) {
 
   const handleSelectAllow = (selectInfo: { start: Date; end: Date }) => {
     if (!isSameDaySelection(selectInfo.start, selectInfo.end)) return false
-    if (overlapsWithCartEvent(selectInfo.start, selectInfo.end)) return false
+    if (overlapsBlockingEvent(selectInfo.start, selectInfo.end)) return false
     if (!isSlotAllowed(selectInfo.start, selectInfo.end)) return false
     return true
   }
@@ -73,7 +76,7 @@ export function useCalendarInteraction(options: InteractionOptions) {
     const { start, end } = dropInfo
     if (!start || !end) return false
     if (!isSameDay(start, end)) return false
-    if (overlapsWithCartEvent(start, end)) return false
+    if (overlapsBlockingEvent(start, end)) return false
     return true
   }
 
@@ -83,7 +86,7 @@ export function useCalendarInteraction(options: InteractionOptions) {
     const clickDate = new Date(arg.dateStr)
     const endDate = new Date(clickDate)
     endDate.setHours(clickDate.getHours() + 1)
-    if (overlapsWithCartEvent(clickDate, endDate)) return
+    if (overlapsBlockingEvent(clickDate, endDate)) return
     if (!isSlotAllowed(clickDate, endDate)) return
 
     onUpdate([...editableModelValue(), createOneHourEvent(new Date(arg.dateStr))])
