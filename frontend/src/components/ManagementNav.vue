@@ -1,7 +1,7 @@
 <script setup lang="ts">
   import { useRoute } from 'vue-router'
   import { computed } from 'vue'
-  import { CalendarPlus } from '@lucide/vue'
+  import { CalendarPlus, ChevronLeft } from '@lucide/vue'
 
   const route = useRoute()
   const currentPath = computed(() => route.path)
@@ -17,6 +17,13 @@
 
 <template>
   <nav class="manage-nav" aria-label="Management navigation">
+    <!-- One edit here reaches all five management pages, which is why the way
+         back to the dashboard lives in the shared nav rather than per view. -->
+    <router-link to="/dashboard" class="manage-nav-back" aria-label="Dashboard">
+      <ChevronLeft class="manage-nav-action-icon" aria-hidden="true" />
+      Dashboard
+    </router-link>
+
     <router-link
       v-for="tab in tabs"
       :key="tab.path"
@@ -71,6 +78,27 @@
   .manage-nav-tab--active:hover {
     color: #fff;
     background: var(--primary-indigo);
+  }
+
+  .manage-nav-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.125rem;
+    margin-right: 0.5rem;
+    padding: 0.5rem 0.75rem 0.5rem 0.5rem;
+    font-family: Inter, sans-serif;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-decoration: none;
+    border: 1px solid var(--border-medium);
+    border-radius: 9999px;
+    transition: all 0.15s;
+  }
+
+  .manage-nav-back:hover {
+    color: var(--text-primary);
+    background: var(--bg-subtle);
   }
 
   .manage-nav-action {

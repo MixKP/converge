@@ -2,7 +2,9 @@ import type { Role } from '../types'
 
 export const LOGIN_PATH = '/login'
 export const GUEST_PATH = '/'
-export const ADMIN_HOME = '/manage'
+// The dashboard is the admin hub, so it is where a sign-in lands and where a
+// blocked navigation falls back to. Point this back at '/manage' to undo that.
+export const ADMIN_HOME = '/dashboard'
 export const MY_CLASSES_PATH = '/my-classes'
 
 // Type aliases, not interfaces: vue-router's RouteMeta carries an index

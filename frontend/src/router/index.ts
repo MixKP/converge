@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import GuestView from '../views/GuestView.vue'
 import LoginView from '../views/LoginView.vue'
 import SubmitAvailability from '../views/SubmitAvailability.vue'
+import AdminDashboard from '../views/AdminDashboard.vue'
 import BookingView from '../views/BookingView.vue'
 import BookingConfirm from '../views/BookingCart.vue'
 import TeacherManagement from '../views/TeacherManagement.vue'
@@ -49,6 +50,12 @@ const router = createRouter({
       path: '/form',
       name: 'submit-availability',
       component: SubmitAvailability,
+      meta: adminOnly,
+    },
+    {
+      path: '/dashboard',
+      name: 'admin-dashboard',
+      component: AdminDashboard,
       meta: adminOnly,
     },
     {
