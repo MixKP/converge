@@ -19,6 +19,13 @@ import (
 type mockBranchService struct {
 	branches        []branch.Branch
 	getErr          error
+	addBranchResult *branch.Branch
+	addBranchErr    error
+	addBranchArgs   struct {
+		name     string
+		capacity int
+	}
+	addBranchCalled bool
 	setCapacityErr  error
 	setCapacityArgs struct {
 		branchID, capacity int
@@ -28,6 +35,13 @@ type mockBranchService struct {
 
 func (m *mockBranchService) GetBranches(ctx context.Context) ([]branch.Branch, error) {
 	return m.branches, m.getErr
+}
+
+func (m *mockBranchService) AddBranch(ctx context.Context, name string, capacity int) (*branch.Branch, error) {
+	m.addBranchCalled = true
+	m.addBranchArgs.name = name
+	m.addBranchArgs.capacity = capacity
+	return m.addBranchResult, m.addBranchErr
 }
 
 func (m *mockBranchService) SetCapacity(ctx context.Context, branchID, capacity int) error {
@@ -69,6 +83,94 @@ func TestBranchHandler_GetBranches_Error(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestBranchHandler_CreateBranch(t *testing.T) {
+	tests := []struct {
+		name         string
+		body         string
+		mock         *mockBranchService
+		wantStatus   int
+		wantCalled   bool
+		wantName     string
+		wantCapacity int
+	}{
+		{
+			name:         "success",
+			body:         `{"name": "Riverside", "capacity": 20}`,
+			mock:         &mockBranchService{addBranchResult: &branch.Branch{ID: 3, Name: "Riverside", Capacity: 20}},
+			wantStatus:   http.StatusCreated,
+			wantCalled:   true,
+			wantName:     "Riverside",
+			wantCapacity: 20,
+		},
+		{
+			name:         "capacity omitted defaults to zero",
+			body:         `{"name": "Riverside"}`,
+			mock:         &mockBranchService{addBranchResult: &branch.Branch{ID: 3, Name: "Riverside", Capacity: 0}},
+			wantStatus:   http.StatusCreated,
+			wantCalled:   true,
+			wantName:     "Riverside",
+			wantCapacity: 0,
+		},
+		{
+			name:       "name omitted",
+			body:       `{"capacity": 20}`,
+			mock:       &mockBranchService{},
+			wantStatus: http.StatusBadRequest,
+			wantCalled: false,
+		},
+		{
+			name:         "duplicate name",
+			body:         `{"name": "Main Campus", "capacity": 20}`,
+			mock:         &mockBranchService{addBranchErr: &shared.ConflictError{Msg: `branch "Main Campus" already exists`}},
+			wantStatus:   http.StatusConflict,
+			wantCalled:   true,
+			wantName:     "Main Campus",
+			wantCapacity: 20,
+		},
+		{
+			name:         "negative capacity",
+			body:         `{"name": "Riverside", "capacity": -1}`,
+			mock:         &mockBranchService{addBranchErr: &shared.ValidationError{Msg: "capacity must not be negative"}},
+			wantStatus:   http.StatusBadRequest,
+			wantCalled:   true,
+			wantName:     "Riverside",
+			wantCapacity: -1,
+		},
+		{
+			name:         "service error",
+			body:         `{"name": "Riverside", "capacity": 20}`,
+			mock:         &mockBranchService{addBranchErr: assert.AnError},
+			wantStatus:   http.StatusInternalServerError,
+			wantCalled:   true,
+			wantName:     "Riverside",
+			wantCapacity: 20,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler := NewBranchHandler(tt.mock, slog.Default())
+
+			req := httptest.NewRequest(http.MethodPost, "/api/branches", strings.NewReader(tt.body))
+			req.Header.Set("Content-Type", "application/json")
+
+			gin.SetMode(gin.TestMode)
+			r := gin.Default()
+			r.POST("/api/branches", handler.CreateBranch)
+
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.wantStatus, w.Code)
+			assert.Equal(t, tt.wantCalled, tt.mock.addBranchCalled)
+			if tt.wantCalled {
+				assert.Equal(t, tt.wantName, tt.mock.addBranchArgs.name)
+				assert.Equal(t, tt.wantCapacity, tt.mock.addBranchArgs.capacity)
+			}
+		})
+	}
 }
 
 func TestBranchHandler_UpdateBranchCapacity(t *testing.T) {

@@ -5,5 +5,6 @@ import "context"
 type BranchStore interface {
 	GetBranches(ctx context.Context) ([]Branch, error)
 	GetBranchByID(ctx context.Context, branchID int) (*Branch, error)
+	AddBranch(ctx context.Context, name string, capacity int) (*Branch, error)
 	SetCapacity(ctx context.Context, branchID, capacity int) error
 }

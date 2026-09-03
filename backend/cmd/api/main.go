@@ -183,6 +183,7 @@ func main() {
 	admin.PATCH("/teachers/:id/status", availHandler.UpdateTeacherStatus)
 	admin.PATCH("/teachers/:id/gender", availHandler.UpdateTeacherGender)
 	admin.GET("/branches", branchHandler.GetBranches)
+	admin.POST("/branches", branchHandler.CreateBranch)
 	admin.PATCH("/branches/:id/capacity", branchHandler.UpdateBranchCapacity)
 	admin.GET("/commute", commuteHandler.GetCommute)
 	admin.PATCH("/commute", commuteHandler.UpdateCommute)

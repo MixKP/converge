@@ -22,6 +22,10 @@ func (s *stubBranchStore) GetBranchByID(ctx context.Context, branchID int) (*bra
 	return s.branch, nil
 }
 
+func (s *stubBranchStore) AddBranch(ctx context.Context, name string, capacity int) (*branch.Branch, error) {
+	return s.branch, nil
+}
+
 func (s *stubBranchStore) SetCapacity(ctx context.Context, branchID, capacity int) error {
 	return nil
 }

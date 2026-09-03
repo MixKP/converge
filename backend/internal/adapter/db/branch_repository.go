@@ -48,6 +48,24 @@ func (r *BranchRepo) GetBranchByID(ctx context.Context, branchID int) (*branch.B
 	return &b, nil
 }
 
+func (r *BranchRepo) AddBranch(ctx context.Context, name string, capacity int) (*branch.Branch, error) {
+	row := r.DB.QueryRowContext(ctx,
+		`INSERT INTO branches (name, capacity) VALUES ($1, $2) RETURNING id, name, capacity`,
+		name, capacity)
+
+	var b branch.Branch
+	if err := row.Scan(&b.ID, &b.Name, &b.Capacity); err != nil {
+		if confErr := uniqueViolationError(err, fmt.Sprintf("branch %q already exists", name)); confErr != nil {
+			return nil, confErr
+		}
+		if valErr := checkViolationError(err, "capacity must not be negative"); valErr != nil {
+			return nil, valErr
+		}
+		return nil, fmt.Errorf("add branch: %w", err)
+	}
+	return &b, nil
+}
+
 func (r *BranchRepo) SetCapacity(ctx context.Context, branchID, capacity int) error {
 	return execUpdateOne(ctx, r.DB,
 		`UPDATE branches SET capacity = $1 WHERE id = $2`, []any{capacity, branchID},
