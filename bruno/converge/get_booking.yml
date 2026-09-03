@@ -1,7 +1,7 @@
 info:
   name: get_booking
   type: http
-  seq: 12
+  seq: 25
 
 http:
   method: POST
@@ -9,7 +9,9 @@ http:
   body:
     type: json
     data: '{"subject_id":5,"branch_id":1,"preferred_slots":[{"day_of_week":2,"start":"09:00","end":"12:00"}],"duration_minutes":60}'
-  auth: inherit
+  auth:
+    type: bearer
+    token: "{{token}}"
 
 settings:
   encodeUrl: true

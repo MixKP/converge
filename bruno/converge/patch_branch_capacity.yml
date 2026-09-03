@@ -1,0 +1,23 @@
+info:
+  name: patch_branch_capacity
+  type: http
+  seq: 14
+
+http:
+  method: PATCH
+  url: http://localhost:8080/api/branches/1/capacity
+  body:
+    type: json
+    data: |-
+      {
+          "capacity": 30
+        }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

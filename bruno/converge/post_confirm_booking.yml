@@ -1,7 +1,7 @@
 info:
   name: post_confirm_booking
   type: http
-  seq: 9
+  seq: 30
 
 http:
   method: POST
@@ -17,7 +17,9 @@ http:
           "end_time": "2026-06-08T10:00:00Z",
           "student_id": 3
         }
-  auth: inherit
+  auth:
+    type: bearer
+    token: "{{token}}"
 
 settings:
   encodeUrl: true

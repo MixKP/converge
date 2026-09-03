@@ -1,0 +1,24 @@
+info:
+  name: get_commute_between_branches
+  type: http
+  seq: 16
+
+http:
+  method: GET
+  url: http://localhost:8080/api/commute?source_branch=1&destination_branch=2
+  params:
+    - name: source_branch
+      value: "1"
+      type: query
+    - name: destination_branch
+      value: "2"
+      type: query
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

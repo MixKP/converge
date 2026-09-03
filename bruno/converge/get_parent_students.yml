@@ -1,11 +1,11 @@
 info:
-  name: get_confirm_bookings
+  name: get_parent_students
   type: http
-  seq: 31
+  seq: 22
 
 http:
   method: GET
-  url: http://localhost:8080/api/bookings
+  url: http://localhost:8080/api/parents/1/students
   auth:
     type: bearer
     token: "{{token}}"

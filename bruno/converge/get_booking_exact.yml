@@ -1,7 +1,7 @@
 info:
   name: get_booking_exact
   type: http
-  seq: 8
+  seq: 26
 
 http:
   method: POST
@@ -17,7 +17,9 @@ http:
           ],
           "duration_minutes": 60
       }
-  auth: inherit
+  auth:
+    type: bearer
+    token: "{{token}}"
 
 settings:
   encodeUrl: true

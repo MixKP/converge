@@ -3,11 +3,15 @@ package branch
 import (
 	"context"
 	"log/slog"
+	"strings"
 
 	"github.com/RinZ5/converge/backend/internal/shared"
 )
 
 type ValidationError = shared.ValidationError
+type ConflictError = shared.ConflictError
+
+const maxBranchNameChars = 100
 
 type Service struct {
 	store  BranchStore
@@ -16,6 +20,23 @@ type Service struct {
 
 func NewService(store BranchStore, logger *slog.Logger) *Service {
 	return &Service{store: store, logger: logger}
+}
+
+func (s *Service) AddBranch(ctx context.Context, name string, capacity int) (*Branch, error) {
+	name = strings.TrimSpace(name)
+	if err := shared.ValidateAll(name,
+		shared.NonEmpty("name", func(n string) string { return n }),
+		shared.MaxRunes("name", maxBranchNameChars, func(n string) string { return n }),
+	); err != nil {
+		return nil, err
+	}
+	// capacity 0 means unlimited/unenforced, so only negatives are rejected.
+	if err := shared.ValidateAll(capacity,
+		shared.NonNegativeInt("capacity", func(c int) int { return c }),
+	); err != nil {
+		return nil, err
+	}
+	return s.store.CreateBranch(ctx, name, capacity)
 }
 
 func (s *Service) GetBranches(ctx context.Context) ([]Branch, error) {

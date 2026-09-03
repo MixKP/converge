@@ -1,0 +1,23 @@
+info:
+  name: post_parent_student
+  type: http
+  seq: 23
+
+http:
+  method: POST
+  url: http://localhost:8080/api/parents/1/students
+  body:
+    type: json
+    data: |-
+      {
+          "student_id": 3
+        }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

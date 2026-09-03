@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 	"testing"
 
 	"github.com/RinZ5/converge/backend/internal/shared"
@@ -13,6 +14,14 @@ import (
 
 type mockStore struct {
 	mock.Mock
+}
+
+func (m *mockStore) CreateBranch(ctx context.Context, name string, capacity int) (*Branch, error) {
+	args := m.Called(ctx, name, capacity)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*Branch), args.Error(1)
 }
 
 func (m *mockStore) GetBranches(ctx context.Context) ([]Branch, error) {
@@ -141,4 +150,85 @@ func TestBranchService_GetCapacity_InvalidBranchID_Rejected(t *testing.T) {
 	var valErr *shared.ValidationError
 	assert.ErrorAs(t, err, &valErr)
 	store.AssertNotCalled(t, "GetBranchByID", mock.Anything, mock.Anything)
+}
+
+func TestBranchService_AddBranch_Success(t *testing.T) {
+	store := new(mockStore)
+	svc := NewService(store, slog.Default())
+
+	created := &Branch{ID: 1, Name: "Siam", Capacity: 30}
+	store.On("CreateBranch", mock.Anything, "Siam", 30).Return(created, nil)
+
+	b, err := svc.AddBranch(context.Background(), "Siam", 30)
+	assert.NoError(t, err)
+	assert.Equal(t, created, b)
+	store.AssertExpectations(t)
+}
+
+func TestBranchService_AddBranch_ZeroCapacity_Allowed(t *testing.T) {
+	store := new(mockStore)
+	svc := NewService(store, slog.Default())
+
+	store.On("CreateBranch", mock.Anything, "Siam", 0).Return(&Branch{ID: 1, Name: "Siam"}, nil)
+
+	_, err := svc.AddBranch(context.Background(), "Siam", 0)
+	assert.NoError(t, err)
+	store.AssertExpectations(t)
+}
+
+func TestBranchService_AddBranch_TrimsName(t *testing.T) {
+	store := new(mockStore)
+	svc := NewService(store, slog.Default())
+
+	store.On("CreateBranch", mock.Anything, "Siam", 0).Return(&Branch{ID: 1, Name: "Siam"}, nil)
+
+	_, err := svc.AddBranch(context.Background(), "  Siam  ", 0)
+	assert.NoError(t, err)
+	store.AssertExpectations(t)
+}
+
+func TestBranchService_AddBranch_BlankName_Rejected(t *testing.T) {
+	store := new(mockStore)
+	svc := NewService(store, slog.Default())
+
+	_, err := svc.AddBranch(context.Background(), "   ", 0)
+
+	var valErr *shared.ValidationError
+	assert.ErrorAs(t, err, &valErr)
+	store.AssertNotCalled(t, "CreateBranch", mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestBranchService_AddBranch_NameTooLong_Rejected(t *testing.T) {
+	store := new(mockStore)
+	svc := NewService(store, slog.Default())
+
+	_, err := svc.AddBranch(context.Background(), strings.Repeat("a", maxBranchNameChars+1), 0)
+
+	var valErr *shared.ValidationError
+	assert.ErrorAs(t, err, &valErr)
+	store.AssertNotCalled(t, "CreateBranch", mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestBranchService_AddBranch_NegativeCapacity_Rejected(t *testing.T) {
+	store := new(mockStore)
+	svc := NewService(store, slog.Default())
+
+	_, err := svc.AddBranch(context.Background(), "Siam", -1)
+
+	var valErr *shared.ValidationError
+	assert.ErrorAs(t, err, &valErr)
+	store.AssertNotCalled(t, "CreateBranch", mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestBranchService_AddBranch_DuplicateName_Propagates(t *testing.T) {
+	store := new(mockStore)
+	svc := NewService(store, slog.Default())
+
+	store.On("CreateBranch", mock.Anything, "Siam", 0).
+		Return(nil, &shared.ConflictError{Msg: `branch name "Siam" already exists`})
+
+	_, err := svc.AddBranch(context.Background(), "Siam", 0)
+
+	var confErr *shared.ConflictError
+	assert.ErrorAs(t, err, &confErr)
 }

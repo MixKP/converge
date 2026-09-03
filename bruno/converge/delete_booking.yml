@@ -1,12 +1,14 @@
 info:
   name: delete_booking
   type: http
-  seq: 11
+  seq: 32
 
 http:
   method: DELETE
   url: http://localhost:8080/api/bookings/1
-  auth: inherit
+  auth:
+    type: bearer
+    token: "{{token}}"
 
 settings:
   encodeUrl: true

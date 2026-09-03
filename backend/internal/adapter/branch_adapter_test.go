@@ -14,6 +14,10 @@ type stubBranchStore struct {
 	branch   *branch.Branch
 }
 
+func (s *stubBranchStore) CreateBranch(ctx context.Context, name string, capacity int) (*branch.Branch, error) {
+	return &branch.Branch{Name: name, Capacity: capacity}, nil
+}
+
 func (s *stubBranchStore) GetBranches(ctx context.Context) ([]branch.Branch, error) {
 	return s.branches, nil
 }

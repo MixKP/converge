@@ -1,7 +1,7 @@
 info:
   name: get_booking_multiple
   type: http
-  seq: 7
+  seq: 27
 
 http:
   method: POST
@@ -18,7 +18,9 @@ http:
           ],
           "duration_minutes": 60
         }
-  auth: inherit
+  auth:
+    type: bearer
+    token: "{{token}}"
 
 settings:
   encodeUrl: true

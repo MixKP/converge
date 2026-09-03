@@ -1,7 +1,7 @@
 info:
   name: get_booking_multiple_missing_duration
   type: http
-  seq: 8
+  seq: 28
 
 http:
   method: POST
@@ -17,7 +17,9 @@ http:
             {"day_of_week": 4, "start": "12:00", "end": "14:00"}
           ]
         }
-  auth: inherit
+  auth:
+    type: bearer
+    token: "{{token}}"
 
 settings:
   encodeUrl: true

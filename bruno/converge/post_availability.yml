@@ -1,0 +1,27 @@
+info:
+  name: post_availability
+  type: http
+  seq: 8
+
+http:
+  method: POST
+  url: http://localhost:8080/api/availability
+  body:
+    type: json
+    data: |-
+      {
+          "teacher_id": 1,
+          "weekly": [
+            {"day_of_week": 1, "start": "09:00", "end": "12:00"},
+            {"day_of_week": 3, "start": "13:00", "end": "16:00"}
+          ]
+        }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

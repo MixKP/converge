@@ -1,11 +1,18 @@
 info:
-  name: get_branches
+  name: post_branch
   type: http
-  seq: 12
+  seq: 13
 
 http:
-  method: GET
+  method: POST
   url: http://localhost:8080/api/branches
+  body:
+    type: json
+    data: |-
+      {
+          "name": "Siam",
+          "capacity": 30
+        }
   auth:
     type: bearer
     token: "{{token}}"

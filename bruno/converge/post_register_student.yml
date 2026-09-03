@@ -1,0 +1,25 @@
+info:
+  name: post_register_student
+  type: http
+  seq: 18
+
+http:
+  method: POST
+  url: http://localhost:8080/api/register
+  body:
+    type: json
+    data: |-
+      {
+          "name": "student01",
+          "password": "P@ssw0rd",
+          "role": "student"
+        }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

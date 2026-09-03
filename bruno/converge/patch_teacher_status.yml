@@ -1,0 +1,23 @@
+info:
+  name: patch_teacher_status
+  type: http
+  seq: 10
+
+http:
+  method: PATCH
+  url: http://localhost:8080/api/teachers/1/status
+  body:
+    type: json
+    data: |-
+      {
+          "status": "deactivated"
+        }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

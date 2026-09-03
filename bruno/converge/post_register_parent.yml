@@ -1,0 +1,26 @@
+info:
+  name: post_register_parent
+  type: http
+  seq: 19
+
+http:
+  method: POST
+  url: http://localhost:8080/api/register
+  body:
+    type: json
+    data: |-
+      {
+          "name": "parent01",
+          "password": "P@ssw0rd",
+          "role": "parent",
+          "student_ids": [3]
+        }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

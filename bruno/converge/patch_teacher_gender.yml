@@ -1,0 +1,23 @@
+info:
+  name: patch_teacher_gender
+  type: http
+  seq: 11
+
+http:
+  method: PATCH
+  url: http://localhost:8080/api/teachers/1/gender
+  body:
+    type: json
+    data: |-
+      {
+          "gender": "female"
+        }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

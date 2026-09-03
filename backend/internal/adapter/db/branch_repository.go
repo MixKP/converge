@@ -17,6 +17,24 @@ func NewBranchRepository(database *sql.DB) *BranchRepo {
 	return &BranchRepo{DB: database}
 }
 
+func (r *BranchRepo) CreateBranch(ctx context.Context, name string, capacity int) (*branch.Branch, error) {
+	row := r.DB.QueryRowContext(ctx, `
+		INSERT INTO branches (name, capacity) VALUES ($1, $2)
+		RETURNING id, name, capacity`, name, capacity)
+
+	var b branch.Branch
+	if err := row.Scan(&b.ID, &b.Name, &b.Capacity); err != nil {
+		if confErr := uniqueViolationError(err, fmt.Sprintf("branch name %q already exists", name)); confErr != nil {
+			return nil, confErr
+		}
+		if valErr := checkViolationError(err, "capacity must not be negative"); valErr != nil {
+			return nil, valErr
+		}
+		return nil, fmt.Errorf("create branch: %w", err)
+	}
+	return &b, nil
+}
+
 func (r *BranchRepo) GetBranches(ctx context.Context) ([]branch.Branch, error) {
 	rows, err := r.DB.QueryContext(ctx, `SELECT id, name, capacity FROM branches ORDER BY id`)
 	if err != nil {

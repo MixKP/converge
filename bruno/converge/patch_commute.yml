@@ -1,0 +1,23 @@
+info:
+  name: patch_commute
+  type: http
+  seq: 17
+
+http:
+  method: PATCH
+  url: http://localhost:8080/api/commute
+  body:
+    type: json
+    data: |-
+      {
+          "commute_time": 30
+        }
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

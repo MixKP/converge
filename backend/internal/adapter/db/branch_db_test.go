@@ -12,6 +12,53 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestBranchRepoCreateBranch_Success(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBranchRepository(db)
+
+	b, err := repo.CreateBranch(context.Background(), "Siam", 30)
+	require.NoError(t, err)
+	assert.NotZero(t, b.ID)
+	assert.Equal(t, "Siam", b.Name)
+	assert.Equal(t, 30, b.Capacity)
+
+	stored, err := repo.GetBranchByID(context.Background(), b.ID)
+	require.NoError(t, err)
+	assert.Equal(t, *b, *stored)
+}
+
+func TestBranchRepoCreateBranch_ZeroCapacity_Allowed(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBranchRepository(db)
+
+	b, err := repo.CreateBranch(context.Background(), "Siam", 0)
+	require.NoError(t, err)
+	assert.Equal(t, 0, b.Capacity)
+}
+
+func TestBranchRepoCreateBranch_DuplicateName_ReturnsConflict(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBranchRepository(db)
+
+	_, err := repo.CreateBranch(context.Background(), "Siam", 30)
+	require.NoError(t, err)
+
+	_, err = repo.CreateBranch(context.Background(), "Siam", 10)
+	require.Error(t, err)
+	var confErr *shared.ConflictError
+	assert.True(t, errors.As(err, &confErr))
+}
+
+func TestBranchRepoCreateBranch_Negative_ReturnsValidationError(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBranchRepository(db)
+
+	_, err := repo.CreateBranch(context.Background(), "Siam", -1)
+	require.Error(t, err)
+	var valErr *shared.ValidationError
+	assert.True(t, errors.As(err, &valErr))
+}
+
 func TestBranchRepoGetBranches(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewBranchRepository(db)

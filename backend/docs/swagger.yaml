@@ -12,6 +12,17 @@ definitions:
         example: Siam
         type: string
     type: object
+  branch.CreateBranchRequest:
+    properties:
+      capacity:
+        example: 30
+        type: integer
+      name:
+        example: Siam
+        type: string
+    required:
+    - name
+    type: object
   branch.UpdateCapacityRequest:
     properties:
       capacity:
@@ -594,6 +605,50 @@ paths:
       security:
       - BearerAuth: []
       summary: List branches
+      tags:
+      - branches
+    post:
+      consumes:
+      - application/json
+      description: Admin-only. Creates a branch with a unique name and a capacity.
+        Capacity is optional and defaults to 0, which means unlimited/unenforced.
+      parameters:
+      - description: New branch payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/branch.CreateBranchRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/branch.Branch'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Add a branch
       tags:
       - branches
   /branches/{id}/capacity:

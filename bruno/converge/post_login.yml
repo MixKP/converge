@@ -1,0 +1,28 @@
+info:
+  name: post_login
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: http://localhost:8080/api/login
+  body:
+    type: json
+    data: |-
+      {
+          "name": "admin",
+          "password": "REPLACE_WITH_ADMIN_PASSWORD"
+        }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        bru.setVar("token", res.body.token);
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

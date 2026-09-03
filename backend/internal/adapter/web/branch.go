@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 )
 
 type branchService interface {
+	AddBranch(ctx context.Context, name string, capacity int) (*branch.Branch, error)
 	GetBranches(ctx context.Context) ([]branch.Branch, error)
 	SetCapacity(ctx context.Context, branchID, capacity int) error
 }
@@ -23,6 +25,51 @@ type BranchHandler struct {
 
 func NewBranchHandler(svc branchService, logger *slog.Logger) *BranchHandler {
 	return &BranchHandler{svc: svc, logger: logger}
+}
+
+// CreateBranch godoc
+// @Summary      Add a branch
+// @Description  Admin-only. Creates a branch with a unique name and a capacity. Capacity is optional and defaults to 0, which means unlimited/unenforced.
+// @Tags         branches
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body  branch.CreateBranchRequest  true  "New branch payload"
+// @Success      201  {object}  branch.Branch
+// @Failure      400  {object}  scheduling.ErrorResponse
+// @Failure      401  {object}  scheduling.ErrorResponse
+// @Failure      403  {object}  scheduling.ErrorResponse
+// @Failure      409  {object}  scheduling.ErrorResponse
+// @Failure      500  {object}  scheduling.ErrorResponse
+// @Router       /branches [post]
+func (h *BranchHandler) CreateBranch(c *gin.Context) {
+	var req branch.CreateBranchRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	newBranch, err := h.svc.AddBranch(c.Request.Context(), req.Name, req.Capacity.Or(0))
+	if err != nil {
+		var confErr *branch.ConflictError
+		var valErr *branch.ValidationError
+		switch {
+		case errors.As(err, &confErr):
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		case errors.As(err, &valErr):
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		default:
+			h.logger.Error("request failed",
+				"request_id", requestID(c),
+				"op", "CreateBranch",
+				"error", err,
+			)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to add branch"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusCreated, newBranch)
 }
 
 // GetBranches godoc
