@@ -18,10 +18,6 @@ type BranchCapacityAdapter struct {
 }
 
 func NewBranchCapacityAdapter(src BranchCapacitySource) *BranchCapacityAdapter {
-	// Reject a nil source, including a typed nil (e.g. a nil *branch.Service
-	// boxed in a non-nil interface). Otherwise the wrapper would produce a
-	// non-nil BranchCapacityCheck whose calls panic at runtime, and CLPEngine's
-	// own `branchCapacity == nil` guard would not catch it.
 	if src == nil {
 		panic("adapter: NewBranchCapacityAdapter requires a non-nil BranchCapacitySource")
 	}
