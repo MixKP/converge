@@ -1,6 +1,18 @@
 /* Must stay first: `@import 'tailwindcss'` expands inline, so any @import after
  * it lands mid-stylesheet and gets dropped as an invalid late @import. */
-@import 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600;700&display=swap';
+/* Self-hosted via @fontsource — same families/weights the Google Fonts URL used to
+ * request, but pinned in package-lock.json and served from our own origin. */
+@import '@fontsource/inter/300.css';
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+@import '@fontsource/jetbrains-mono/600.css';
+@import '@fontsource/instrument-sans/400.css';
+@import '@fontsource/instrument-sans/500.css';
+@import '@fontsource/instrument-sans/600.css';
+@import '@fontsource/instrument-sans/700.css';
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
