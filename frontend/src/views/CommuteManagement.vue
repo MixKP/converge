@@ -4,8 +4,6 @@
   import PageLayout from '../components/PageLayout.vue'
   import ManagementNav from '../components/ManagementNav.vue'
   import { commuteApi } from '../services/commuteApi'
-  import { branchApi } from '../services/branchApi'
-  import type { Branch } from '../types'
 
   const { showSuccess, showError } = useNotification()
 
@@ -14,55 +12,18 @@
   const isSaving = ref(false)
   const isLoading = ref(false)
 
-  const branches = ref<Branch[]>([])
-  const commuteMatrix = ref<Record<string, number>>({})
-  const isMatrixLoading = ref(false)
-
   onMounted(async () => {
     isLoading.value = true
     try {
-      const [data, branchData] = await Promise.all([commuteApi.get(), branchApi.getAll()])
+      const data = await commuteApi.get()
       currentMinutes.value = data.commute_time
       draft.value = String(data.commute_time)
-      branches.value = branchData.filter((b) => b.status === 'active')
     } catch (err) {
       showError(err, 'Failed to load commute time')
     } finally {
       isLoading.value = false
     }
-    fetchMatrix()
   })
-
-  const fetchMatrix = async () => {
-    const pairs: Array<[number, number]> = []
-    for (const src of branches.value) {
-      for (const dest of branches.value) {
-        if (src.id !== dest.id) pairs.push([src.id, dest.id])
-      }
-    }
-    if (pairs.length === 0) return
-
-    isMatrixLoading.value = true
-    try {
-      const results = await Promise.all(pairs.map(([s, d]) => commuteApi.getForBranches(s, d)))
-      const matrix: Record<string, number> = {}
-      results.forEach((res, i) => {
-        const [s, d] = pairs[i]
-        matrix[`${s}:${d}`] = res.commute_time
-      })
-      commuteMatrix.value = matrix
-    } catch (err) {
-      showError(err, 'Failed to load commute times between branches')
-    } finally {
-      isMatrixLoading.value = false
-    }
-  }
-
-  const commuteBetween = (srcId: number, destId: number): number | null => {
-    if (srcId === destId) return 0
-    const value = commuteMatrix.value[`${srcId}:${destId}`]
-    return typeof value === 'number' ? value : null
-  }
 
   const isDirty = () =>
     currentMinutes.value !== null && String(draft.value) !== String(currentMinutes.value)
@@ -136,52 +97,6 @@
           </div>
         </div>
         <div v-else class="manage-empty">Unable to load commute time</div>
-        <div class="matrix-section">
-          <h2 class="matrix-title">Commute Time Between Branches</h2>
-          <p class="matrix-subtitle">
-            Time in minutes from each branch (row) to each branch (column). Same-branch travel is 0.
-            Cells without a custom value use the default commute time.
-          </p>
-
-          <div v-if="isMatrixLoading" class="manage-empty">Loading commute matrix...</div>
-          <div v-else-if="branches.length === 0" class="manage-empty">No branches found</div>
-          <div v-else class="matrix-table-wrap">
-            <table class="matrix-table">
-              <thead>
-                <tr>
-                  <th class="matrix-corner">From \\ To</th>
-                  <th v-for="dest in branches" :key="`h-${dest.id}`" class="matrix-header-cell">
-                    {{ dest.name }}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="src in branches" :key="`r-${src.id}`">
-                  <th class="matrix-row-label">{{ src.name }}</th>
-                  <td
-                    v-for="dest in branches"
-                    :key="`c-${src.id}-${dest.id}`"
-                    class="matrix-cell"
-                    :class="{
-                      'matrix-cell--zero': src.id === dest.id,
-                      'matrix-cell--default':
-                        src.id !== dest.id && commuteBetween(src.id, dest.id) === currentMinutes,
-                      'matrix-cell--custom':
-                        src.id !== dest.id &&
-                        commuteBetween(src.id, dest.id) !== null &&
-                        commuteBetween(src.id, dest.id) !== currentMinutes,
-                    }"
-                  >
-                    <template v-if="commuteBetween(src.id, dest.id) !== null">
-                      {{ commuteBetween(src.id, dest.id) }}m
-                    </template>
-                    <template v-else>—</template>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
       </div>
     </div>
   </PageLayout>
@@ -334,90 +249,6 @@
   .commute-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
-  }
-
-  .matrix-section {
-    margin-top: 1.5rem;
-  }
-
-  .matrix-title {
-    margin: 0 0 0.25rem;
-    font-family: 'Instrument Sans', sans-serif;
-    font-size: 1.125rem;
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-
-  .matrix-subtitle {
-    margin: 0 0 1rem;
-    font-family: Inter, sans-serif;
-    font-size: 0.8125rem;
-    color: var(--text-secondary);
-  }
-
-  .matrix-table-wrap {
-    overflow-x: auto;
-    border-radius: 0.75rem;
-    border: 1px solid var(--border-subtle);
-    background: var(--bg-card);
-  }
-
-  .matrix-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-family: Inter, sans-serif;
-    font-size: 0.8125rem;
-  }
-
-  .matrix-table th,
-  .matrix-table td {
-    padding: 0.625rem 0.75rem;
-    text-align: center;
-    white-space: nowrap;
-    border-bottom: 1px solid var(--border-subtle);
-  }
-
-  .matrix-table tbody tr:last-child th,
-  .matrix-table tbody tr:last-child td {
-    border-bottom: none;
-  }
-
-  .matrix-corner,
-  .matrix-header-cell {
-    font-size: 0.6875rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    background: var(--bg-subtle);
-  }
-
-  .matrix-header-cell {
-    text-align: center;
-  }
-
-  .matrix-row-label {
-    text-align: left;
-    font-weight: 500;
-    color: var(--text-primary);
-  }
-
-  .matrix-cell {
-    color: var(--text-primary);
-  }
-
-  .matrix-cell--zero {
-    color: var(--text-muted);
-  }
-
-  .matrix-cell--default {
-    background: var(--bg-subtle);
-  }
-
-  .matrix-cell--custom {
-    background: rgba(157, 180, 160, 0.15);
-    font-weight: 600;
-    color: var(--accent-sage);
   }
 
   @media (max-width: 767px) {
