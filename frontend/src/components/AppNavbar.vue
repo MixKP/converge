@@ -1,7 +1,7 @@
 <script setup lang="ts">
   import { computed, onMounted } from 'vue'
   import { useRouter } from 'vue-router'
-  import { ChevronLeft } from '@lucide/vue'
+  import { ChevronLeft, ShoppingCart } from '@lucide/vue'
   import { useCart } from '../composables/useCart'
   import { useAuthStore } from '../stores/authStore'
 
@@ -58,13 +58,7 @@
           aria-label="View cart"
           @click="goToCart"
         >
-          <svg class="navbar-cart-icon" viewBox="0 0 24 24" fill="currentColor">
-            <path
-              d="m21,5H3c-.55,0-1,.45-1,1v3.55c0,.48.33.89.8.98.69.14,1.2.76,1.2,1.47s-.5,1.33-1.2,1.47c-.47.09-.8.5-.8.98v3.55c0,.55.45,1,1,1h18c.55,0,1-.45,1-1v-3.55c0-.48-.33-.89-.8-.98-.69-.14-1.2-.76-1.2-1.47s.5-1.33,1.2-1.47c.47-.09.8-.5.8-.98v-3.55c0-.55-.45-1-1-1Zm-1,3.84c-1.2.57-2,1.79-2,3.16s.8,2.59,2,3.16v1.84h-4v-2h-1v2H4v-1.84c1.2-.57,2-1.79,2-3.16s-.8-2.59-2-3.16v-1.84h11v1h1v-1h4v1.84Z"
-            />
-            <path d="M15 9H16V11H15z" />
-            <path d="M15 12H16V14H15z" />
-          </svg>
+          <ShoppingCart class="navbar-cart-icon" aria-hidden="true" />
           <span v-if="cartCount > 0" class="navbar-cart-badge">{{
             cartCount > 9 ? '9+' : cartCount
           }}</span>
