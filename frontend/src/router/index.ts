@@ -78,12 +78,6 @@ const router = createRouter({
       meta: adminOnly,
     },
     {
-      path: '/manage/schedule',
-      name: 'schedule-dashboard',
-      component: () => import('../views/ScheduleDashboard.vue'),
-      meta: adminOnly,
-    },
-    {
       path: '/manage/accounts',
       name: 'account-management',
       component: () => import('../views/AccountManagement.vue'),

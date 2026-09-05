@@ -10,7 +10,6 @@
     { label: 'Branches', path: '/manage/branches' },
     { label: 'Commute', path: '/manage/commute' },
     { label: 'Accounts', path: '/manage/accounts' },
-    { label: 'Schedule', path: '/manage/schedule' },
   ]
 </script>
 
