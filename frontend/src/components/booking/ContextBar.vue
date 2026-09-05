@@ -4,7 +4,6 @@
   import { useBooking } from '../../composables/useBooking'
   import { useBookingContext } from '../../composables/useBookingContext'
   import { useNumberSelect } from '../../composables/useSelectProxy'
-  import { Badge } from '@/components/ui/badge'
   import { Button } from '@/components/ui/button'
   import { Card, CardContent } from '@/components/ui/card'
   import { Label } from '@/components/ui/label'
@@ -48,9 +47,9 @@
 </script>
 
 <template>
-  <Card>
+  <Card v-if="expanded">
     <CardContent class="py-4">
-      <div v-if="expanded" class="flex flex-col gap-4">
+      <div class="flex flex-col gap-4">
         <div class="grid gap-4 sm:grid-cols-3">
           <div class="flex flex-col gap-2">
             <Label for="v3-student">Student</Label>
@@ -114,16 +113,25 @@
           <Button variant="ghost" size="sm" @click="isEditing = false">Done</Button>
         </div>
       </div>
-
-      <div v-else class="flex flex-wrap items-center gap-2">
-        <Badge v-for="chip in chips" :key="chip.label" variant="secondary" class="font-normal">
-          <span class="text-muted-foreground mr-1">{{ chip.label }}:</span>{{ chip.value }}
-        </Badge>
-        <Button variant="ghost" size="sm" class="ml-auto" @click="isEditing = true">
-          <Pencil class="size-3.5" />
-          Change
-        </Button>
-      </div>
     </CardContent>
   </Card>
+
+  <div v-else class="flex flex-wrap items-center gap-x-2 gap-y-1 px-1 text-xs">
+    <template v-for="(chip, index) in chips" :key="chip.label">
+      <span v-if="index > 0" class="text-muted-foreground/40" aria-hidden="true">·</span>
+      <span class="text-muted-foreground">
+        {{ chip.label }}:
+        <span class="text-foreground font-medium">{{ chip.value }}</span>
+      </span>
+    </template>
+    <Button
+      variant="ghost"
+      size="sm"
+      class="text-muted-foreground ml-auto h-6 gap-1 px-2 text-xs"
+      @click="isEditing = true"
+    >
+      <Pencil class="size-3" />
+      Change
+    </Button>
+  </div>
 </template>
