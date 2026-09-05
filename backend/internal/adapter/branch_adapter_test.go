@@ -30,6 +30,10 @@ func (s *stubBranchStore) SetCapacity(ctx context.Context, branchID, capacity in
 	return nil
 }
 
+func (s *stubBranchStore) SetStatus(ctx context.Context, branchID int, status string) error {
+	return nil
+}
+
 func TestBranchCapacityAdapter_GetCapacity_Success(t *testing.T) {
 	store := &stubBranchStore{branch: &branch.Branch{ID: 1, Name: "Siam", Capacity: 3}}
 	svc := branch.NewService(store, slog.Default())

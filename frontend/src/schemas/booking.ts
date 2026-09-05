@@ -8,6 +8,7 @@ export const branchSchema = z.object({
   id: z.number(),
   name: z.string(),
   capacity: z.number().int().min(0),
+  status: z.enum(['active', 'deactivated']),
 })
 
 export const bookingRequestSchema = z.object({

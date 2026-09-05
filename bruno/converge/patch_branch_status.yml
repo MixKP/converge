@@ -1,0 +1,21 @@
+info:
+  name: patch_branch_status
+  type: http
+  seq: 16
+
+http:
+  method: PATCH
+  url: http://localhost:8080/api/branches/1/status
+  body:
+    type: json
+    data: |-
+      {
+          "status": "deactivated"
+        }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -155,11 +155,15 @@ func (r *BookingRepo) CreateBooking(ctx context.Context, req scheduling.ConfirmB
 	}
 
 	var capacity int
-	if err := tx.QueryRowContext(ctx, `SELECT capacity FROM branches WHERE id = $1`, req.BranchID).Scan(&capacity); err != nil {
+	var branchStatus string
+	if err := tx.QueryRowContext(ctx, `SELECT capacity, status FROM branches WHERE id = $1`, req.BranchID).Scan(&capacity, &branchStatus); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, &shared.NotFoundError{Msg: fmt.Sprintf("branch %d not found", req.BranchID)}
 		}
 		return nil, err
+	}
+	if branchStatus != "active" {
+		return nil, &shared.ValidationError{Msg: fmt.Sprintf("branch %d is deactivated", req.BranchID)}
 	}
 
 	if capacity > 0 {

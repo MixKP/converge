@@ -64,3 +64,12 @@ func (s *Service) SetCapacity(ctx context.Context, branchID, capacity int) error
 	}
 	return s.store.SetCapacity(ctx, branchID, capacity)
 }
+
+func (s *Service) SetStatus(ctx context.Context, branchID int, status string) error {
+	if err := shared.ValidateAll(branchID,
+		shared.PositiveInt("branch_id", func(id int) int { return id }),
+	); err != nil {
+		return err
+	}
+	return s.store.SetStatus(ctx, branchID, status)
+}

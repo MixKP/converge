@@ -24,7 +24,7 @@
       const [data, branchData] = await Promise.all([commuteApi.get(), branchApi.getAll()])
       currentMinutes.value = data.commute_time
       draft.value = String(data.commute_time)
-      branches.value = branchData
+      branches.value = branchData.filter((b) => b.status === 'active')
     } catch (err) {
       showError(err, 'Failed to load commute time')
     } finally {

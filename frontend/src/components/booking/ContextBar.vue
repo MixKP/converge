@@ -23,6 +23,7 @@
   const {
     subjects,
     branches,
+    activeBranches,
     students,
     selectedStudentId,
     selectedSubjectId,
@@ -170,7 +171,11 @@
                 />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem v-for="branch in branches" :key="branch.id" :value="String(branch.id)">
+                <SelectItem
+                  v-for="branch in activeBranches"
+                  :key="branch.id"
+                  :value="String(branch.id)"
+                >
                   {{ branch.name }}
                 </SelectItem>
               </SelectContent>

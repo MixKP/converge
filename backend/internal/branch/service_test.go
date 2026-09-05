@@ -33,6 +33,11 @@ func (m *mockStore) SetCapacity(ctx context.Context, branchID, capacity int) err
 	return args.Error(0)
 }
 
+func (m *mockStore) SetStatus(ctx context.Context, branchID int, status string) error {
+	args := m.Called(ctx, branchID, status)
+	return args.Error(0)
+}
+
 func (m *mockStore) AddBranch(ctx context.Context, name string, capacity int) (*Branch, error) {
 	args := m.Called(ctx, name, capacity)
 	if args.Get(0) == nil {
@@ -207,4 +212,26 @@ func TestBranchService_GetCapacity_InvalidBranchID_Rejected(t *testing.T) {
 	var valErr *shared.ValidationError
 	assert.ErrorAs(t, err, &valErr)
 	store.AssertNotCalled(t, "GetBranchByID", mock.Anything, mock.Anything)
+}
+
+func TestBranchService_SetStatus_Success(t *testing.T) {
+	store := new(mockStore)
+	svc := NewService(store, slog.Default())
+
+	store.On("SetStatus", mock.Anything, 1, "deactivated").Return(nil)
+
+	err := svc.SetStatus(context.Background(), 1, "deactivated")
+	assert.NoError(t, err)
+	store.AssertExpectations(t)
+}
+
+func TestBranchService_SetStatus_InvalidBranchID_Rejected(t *testing.T) {
+	store := new(mockStore)
+	svc := NewService(store, slog.Default())
+
+	err := svc.SetStatus(context.Background(), 0, "deactivated")
+
+	var valErr *shared.ValidationError
+	assert.ErrorAs(t, err, &valErr)
+	store.AssertNotCalled(t, "SetStatus", mock.Anything, mock.Anything, mock.Anything)
 }

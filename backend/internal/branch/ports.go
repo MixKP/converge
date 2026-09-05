@@ -7,4 +7,5 @@ type BranchStore interface {
 	GetBranchByID(ctx context.Context, branchID int) (*Branch, error)
 	AddBranch(ctx context.Context, name string, capacity int) (*Branch, error)
 	SetCapacity(ctx context.Context, branchID, capacity int) error
+	SetStatus(ctx context.Context, branchID int, status string) error
 }

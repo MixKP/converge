@@ -185,6 +185,7 @@ func main() {
 	admin.GET("/branches", branchHandler.GetBranches)
 	admin.POST("/branches", branchHandler.CreateBranch)
 	admin.PATCH("/branches/:id/capacity", branchHandler.UpdateBranchCapacity)
+	admin.PATCH("/branches/:id/status", branchHandler.UpdateBranchStatus)
 	admin.GET("/commute", commuteHandler.GetCommute)
 	admin.PATCH("/commute", commuteHandler.UpdateCommute)
 	admin.POST("/bookings", bookingHandler.CreateBooking)

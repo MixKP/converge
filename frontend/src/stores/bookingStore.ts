@@ -33,6 +33,8 @@ export const useBookingStore = defineStore('booking', () => {
   const students = ref<AuthUser[]>([])
   const filteredTeachers = ref<Teacher[]>([])
 
+  const activeBranches = computed(() => branches.value.filter((b) => b.status === 'active'))
+
   const selectedStudentId = ref<number | null>(null)
   const selectedSubjectId = ref<number | null>(null)
   const selectedBranchId = ref<number | null>(null)
@@ -316,6 +318,7 @@ export const useBookingStore = defineStore('booking', () => {
   return {
     subjects,
     branches,
+    activeBranches,
     students,
     filteredTeachers,
     genderFilteredTeachers,

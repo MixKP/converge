@@ -464,3 +464,34 @@ func TestBookingRepoFindExactMatch_ConflictExcludes(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, match)
 }
+
+func TestBookingRepoCreateBooking_RejectsDeactivatedBranch(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBookingRepository(db)
+	teacherID, branchID, subjectID := seedBookingParents(t, db)
+	studentID := seedStudent(t, db, "Jane Doe")
+
+	_, err := db.Exec(`UPDATE branches SET status = 'deactivated' WHERE id = $1`, branchID)
+	require.NoError(t, err)
+
+	req := scheduling.ConfirmBookingRequest{
+		TeacherID: teacherID,
+		BranchID:  branchID,
+		SubjectID: subjectID,
+		StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+		StudentID: studentID,
+	}
+
+	_, err = repo.CreateBooking(context.Background(), req)
+	require.Error(t, err)
+	var valErr *shared.ValidationError
+	assert.ErrorAs(t, err, &valErr)
+
+	_, err = db.Exec(`UPDATE branches SET status = 'active' WHERE id = $1`, branchID)
+	require.NoError(t, err)
+
+	booking, err := repo.CreateBooking(context.Background(), req)
+	require.NoError(t, err)
+	assert.Equal(t, branchID, booking.BranchID)
+}

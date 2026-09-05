@@ -8,6 +8,7 @@ export function useBooking() {
   return {
     subjects: refs.subjects,
     branches: refs.branches,
+    activeBranches: refs.activeBranches,
     students: refs.students,
     filteredTeachers: refs.filteredTeachers,
     genderFilteredTeachers: refs.genderFilteredTeachers,

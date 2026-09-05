@@ -31,6 +31,12 @@ type mockBranchService struct {
 		branchID, capacity int
 	}
 	setCapacityCalled bool
+	setStatusErr      error
+	setStatusArgs     struct {
+		branchID int
+		status   string
+	}
+	setStatusCalled bool
 }
 
 func (m *mockBranchService) GetBranches(ctx context.Context) ([]branch.Branch, error) {
@@ -49,6 +55,13 @@ func (m *mockBranchService) SetCapacity(ctx context.Context, branchID, capacity 
 	m.setCapacityArgs.branchID = branchID
 	m.setCapacityArgs.capacity = capacity
 	return m.setCapacityErr
+}
+
+func (m *mockBranchService) SetStatus(ctx context.Context, branchID int, status string) error {
+	m.setStatusCalled = true
+	m.setStatusArgs.branchID = branchID
+	m.setStatusArgs.status = status
+	return m.setStatusErr
 }
 
 func TestBranchHandler_GetBranches_Success(t *testing.T) {
@@ -272,6 +285,102 @@ func TestBranchHandler_UpdateBranchCapacity(t *testing.T) {
 			assert.Equal(t, tt.wantCalled, tt.mock.setCapacityCalled)
 			if tt.wantCalled {
 				assert.Equal(t, tt.wantCapacity, tt.mock.setCapacityArgs.capacity)
+			}
+		})
+	}
+}
+
+func TestBranchHandler_UpdateBranchStatus(t *testing.T) {
+	tests := []struct {
+		name       string
+		path       string
+		body       string
+		mock       *mockBranchService
+		wantStatus int
+		wantCalled bool
+		wantValue  string
+	}{
+		{
+			name:       "deactivate success",
+			path:       "/api/branches/1/status",
+			body:       `{"status": "deactivated"}`,
+			mock:       &mockBranchService{},
+			wantStatus: http.StatusOK,
+			wantCalled: true,
+			wantValue:  "deactivated",
+		},
+		{
+			name:       "reactivate success",
+			path:       "/api/branches/1/status",
+			body:       `{"status": "active"}`,
+			mock:       &mockBranchService{},
+			wantStatus: http.StatusOK,
+			wantCalled: true,
+			wantValue:  "active",
+		},
+		{
+			name:       "invalid id",
+			path:       "/api/branches/abc/status",
+			body:       `{"status": "deactivated"}`,
+			mock:       &mockBranchService{},
+			wantStatus: http.StatusBadRequest,
+			wantCalled: false,
+		},
+		{
+			name:       "status omitted",
+			path:       "/api/branches/1/status",
+			body:       `{}`,
+			mock:       &mockBranchService{},
+			wantStatus: http.StatusBadRequest,
+			wantCalled: false,
+		},
+		{
+			name:       "unknown status rejected by store",
+			path:       "/api/branches/1/status",
+			body:       `{"status": "archived"}`,
+			mock:       &mockBranchService{setStatusErr: &shared.ValidationError{Msg: "invalid status"}},
+			wantStatus: http.StatusBadRequest,
+			wantCalled: true,
+			wantValue:  "archived",
+		},
+		{
+			name:       "not found",
+			path:       "/api/branches/99/status",
+			body:       `{"status": "deactivated"}`,
+			mock:       &mockBranchService{setStatusErr: &shared.NotFoundError{Msg: "branch 99 not found"}},
+			wantStatus: http.StatusNotFound,
+			wantCalled: true,
+			wantValue:  "deactivated",
+		},
+		{
+			name:       "service error",
+			path:       "/api/branches/1/status",
+			body:       `{"status": "deactivated"}`,
+			mock:       &mockBranchService{setStatusErr: assert.AnError},
+			wantStatus: http.StatusInternalServerError,
+			wantCalled: true,
+			wantValue:  "deactivated",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler := NewBranchHandler(tt.mock, slog.Default())
+
+			req := httptest.NewRequest(http.MethodPatch, tt.path, strings.NewReader(tt.body))
+			req.Header.Set("Content-Type", "application/json")
+
+			gin.SetMode(gin.TestMode)
+			r := gin.Default()
+			r.PATCH("/api/branches/:id/status", handler.UpdateBranchStatus)
+
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.wantStatus, w.Code)
+			assert.Equal(t, tt.wantCalled, tt.mock.setStatusCalled)
+			if tt.wantCalled {
+				assert.Equal(t, tt.wantValue, tt.mock.setStatusArgs.status)
 			}
 		})
 	}

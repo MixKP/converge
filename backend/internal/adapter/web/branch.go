@@ -17,6 +17,7 @@ type branchService interface {
 	GetBranches(ctx context.Context) ([]branch.Branch, error)
 	AddBranch(ctx context.Context, name string, capacity int) (*branch.Branch, error)
 	SetCapacity(ctx context.Context, branchID, capacity int) error
+	SetStatus(ctx context.Context, branchID int, status string) error
 }
 
 type BranchHandler struct {
@@ -139,4 +140,41 @@ func (h *BranchHandler) UpdateBranchCapacity(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Branch capacity updated successfully"})
+}
+
+// UpdateBranchStatus godoc
+// @Summary      Toggle branch active/deactivated status
+// @Description  Sets a branch's status to active or deactivated. Deactivated branches stay listed for history but cannot take new bookings.
+// @Tags         branches
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path  int                         true  "Branch ID"
+// @Param        body  body  branch.UpdateStatusRequest  true  "New status"
+// @Success      200  {object}  scheduling.MessageResponse
+// @Failure      400  {object}  scheduling.ErrorResponse
+// @Failure      401  {object}  scheduling.ErrorResponse
+// @Failure      403  {object}  scheduling.ErrorResponse
+// @Failure      404  {object}  scheduling.ErrorResponse
+// @Failure      500  {object}  scheduling.ErrorResponse
+// @Router       /branches/{id}/status [patch]
+func (h *BranchHandler) UpdateBranchStatus(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid branch id"})
+		return
+	}
+
+	var req branch.UpdateStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.svc.SetStatus(c.Request.Context(), id, req.Status); err != nil {
+		respondFieldUpdateErr(c, h.logger, err, "UpdateBranchStatus/SetStatus", "branch", id, "failed to update branch status")
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Branch status updated successfully"})
 }

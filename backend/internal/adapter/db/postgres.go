@@ -97,7 +97,8 @@ func AutoMigrate(database *sql.DB) error {
 		`CREATE TABLE IF NOT EXISTS branches (
 			id SERIAL PRIMARY KEY,
 			name VARCHAR(100) NOT NULL UNIQUE,
-			capacity INTEGER NOT NULL DEFAULT 0 CHECK (capacity >= 0)
+			capacity INTEGER NOT NULL DEFAULT 0 CHECK (capacity >= 0),
+			status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active','deactivated'))
 		)`,
 
 		`CREATE EXTENSION IF NOT EXISTS btree_gist;`,
@@ -122,6 +123,17 @@ func AutoMigrate(database *sql.DB) error {
 				  AND conname = 'branches_capacity_check'
 			) THEN
 				ALTER TABLE branches ADD CONSTRAINT branches_capacity_check CHECK (capacity >= 0);
+			END IF;
+		END $$;`,
+		`ALTER TABLE branches ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'active'`,
+		`DO $$
+		BEGIN
+			IF NOT EXISTS (
+				SELECT 1 FROM pg_constraint
+				WHERE conrelid = 'branches'::regclass
+				  AND conname = 'branches_status_check'
+			) THEN
+				ALTER TABLE branches ADD CONSTRAINT branches_status_check CHECK (status IN ('active','deactivated'));
 			END IF;
 		END $$;`,
 		`ALTER TABLE teachers ADD COLUMN IF NOT EXISTS gender VARCHAR(20) CHECK (gender IN ('male','female','lgbtq+'))`,

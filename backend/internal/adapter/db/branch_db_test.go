@@ -142,3 +142,44 @@ func TestBranchRepoSetCapacity_NotFound(t *testing.T) {
 	var notFoundErr *shared.NotFoundError
 	assert.True(t, errors.As(err, &notFoundErr))
 }
+
+func TestBranchRepoSetStatus(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBranchRepository(db)
+
+	_, err := db.Exec(`INSERT INTO branches (id, name, capacity) VALUES (1, 'Main Campus', 30)`)
+	require.NoError(t, err)
+
+	b, err := repo.GetBranchByID(context.Background(), 1)
+	require.NoError(t, err)
+	assert.Equal(t, "active", b.Status)
+
+	require.NoError(t, repo.SetStatus(context.Background(), 1, "deactivated"))
+
+	b, err = repo.GetBranchByID(context.Background(), 1)
+	require.NoError(t, err)
+	assert.Equal(t, "deactivated", b.Status)
+
+	branches, err := repo.GetBranches(context.Background())
+	require.NoError(t, err)
+	assert.Len(t, branches, 1)
+	assert.Equal(t, "deactivated", branches[0].Status)
+}
+
+func TestBranchRepoSetStatus_Invalid(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBranchRepository(db)
+
+	_, err := db.Exec(`INSERT INTO branches (id, name, capacity) VALUES (1, 'Main Campus', 30)`)
+	require.NoError(t, err)
+
+	err = repo.SetStatus(context.Background(), 1, "archived")
+	require.Error(t, err)
+	var valErr *shared.ValidationError
+	assert.ErrorAs(t, err, &valErr)
+
+	err = repo.SetStatus(context.Background(), 99, "deactivated")
+	require.Error(t, err)
+	var notFoundErr *shared.NotFoundError
+	assert.ErrorAs(t, err, &notFoundErr)
+}
