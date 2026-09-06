@@ -130,12 +130,6 @@ func (r *BookingRepo) FindBookingsByBranch(ctx context.Context, branchID int, st
 	return scanOverlappingBookings(rows)
 }
 
-// CreateBooking enforces branch capacity atomically when a branch has one
-// configured: it takes a per-branch advisory lock, counts overlapping
-// bookings, and inserts within a single transaction, so concurrent confirms
-// for the same branch cannot both pass the capacity check before either has
-// committed. Branches with no capacity configured (capacity <= 0) skip the
-// lock entirely, since there is nothing to serialize against.
 func (r *BookingRepo) CreateBooking(ctx context.Context, req scheduling.ConfirmBookingRequest) (*scheduling.Booking, error) {
 	tx, err := r.DB.BeginTx(ctx, nil)
 	if err != nil {
@@ -164,6 +158,36 @@ func (r *BookingRepo) CreateBooking(ctx context.Context, req scheduling.ConfirmB
 	}
 	if branchStatus != "active" {
 		return nil, &shared.ValidationError{Msg: fmt.Sprintf("branch %d is deactivated", req.BranchID)}
+	}
+
+	if _, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(1, $1::int)`, req.TeacherID); err != nil {
+		return nil, err
+	}
+
+	var commuteMinutes int
+	if err := tx.QueryRowContext(ctx, `SELECT commute_minutes FROM commute_config WHERE id = 1 FOR SHARE`).Scan(&commuteMinutes); err != nil {
+		return nil, err
+	}
+	if commuteMinutes > 0 {
+		var commuteConflict bool
+		if err := tx.QueryRowContext(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM bookings
+				WHERE teacher_id = $1
+				  AND branch_id <> $2
+				  AND tstzrange(
+					start_time - ($5::int * interval '1 minute'),
+					end_time + ($5::int * interval '1 minute'),
+					'[)'
+				  ) && tstzrange($3, $4, '[)')
+			)`,
+			req.TeacherID, req.BranchID, req.StartTime, req.EndTime, commuteMinutes,
+		).Scan(&commuteConflict); err != nil {
+			return nil, err
+		}
+		if commuteConflict {
+			return nil, scheduling.ErrCommuteConflict
+		}
 	}
 
 	if capacity > 0 {

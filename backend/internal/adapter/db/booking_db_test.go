@@ -113,6 +113,72 @@ func TestBookingRepoCreateBooking(t *testing.T) {
 	assert.ErrorIs(t, err, scheduling.ErrBookingConflict)
 }
 
+func TestBookingRepoCreateBooking_CommuteBoundaryAndConcurrentConflict(t *testing.T) {
+	db := setupTestDB(t)
+	db.SetMaxOpenConns(10)
+	repo := NewBookingRepository(db)
+	teacherID, branchAID, subjectID := seedBookingParents(t, db)
+	studentID := seedStudent(t, db, "Commute Student")
+
+	var branchBID int
+	require.NoError(t, db.QueryRow(`INSERT INTO branches (id, name) VALUES (2, 'Second Branch') RETURNING id`).Scan(&branchBID))
+
+	dayOne := time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC)
+	_, err := repo.CreateBooking(context.Background(), scheduling.ConfirmBookingRequest{
+		TeacherID: teacherID, BranchID: branchAID, SubjectID: subjectID,
+		StartTime: dayOne, EndTime: dayOne.Add(time.Hour), StudentID: studentID,
+	})
+	require.NoError(t, err)
+	_, err = repo.CreateBooking(context.Background(), scheduling.ConfirmBookingRequest{
+		TeacherID: teacherID, BranchID: branchBID, SubjectID: subjectID,
+		StartTime: dayOne.Add(90 * time.Minute), EndTime: dayOne.Add(150 * time.Minute), StudentID: studentID,
+	})
+	require.NoError(t, err, "an exact 30-minute commute gap should be accepted")
+
+	dayTwo := time.Date(2026, 6, 2, 9, 0, 0, 0, time.UTC)
+	requests := []scheduling.ConfirmBookingRequest{
+		{
+			TeacherID: teacherID, BranchID: branchAID, SubjectID: subjectID,
+			StartTime: dayTwo, EndTime: dayTwo.Add(time.Hour), StudentID: studentID,
+		},
+		{
+			TeacherID: teacherID, BranchID: branchBID, SubjectID: subjectID,
+			StartTime: dayTwo.Add(75 * time.Minute), EndTime: dayTwo.Add(135 * time.Minute), StudentID: studentID,
+		},
+	}
+
+	var wg sync.WaitGroup
+	errs := make([]error, len(requests))
+	for i := range requests {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			_, errs[i] = repo.CreateBooking(context.Background(), requests[i])
+		}(i)
+	}
+	wg.Wait()
+
+	successCount, commuteErrCount := 0, 0
+	for _, err := range errs {
+		switch {
+		case err == nil:
+			successCount++
+		case errors.Is(err, scheduling.ErrCommuteConflict):
+			commuteErrCount++
+		}
+	}
+	assert.Equal(t, 1, successCount)
+	assert.Equal(t, 1, commuteErrCount)
+
+	var count int
+	require.NoError(t, db.QueryRow(`
+		SELECT COUNT(*) FROM bookings
+		WHERE teacher_id = $1 AND start_time >= $2 AND start_time < $3`,
+		teacherID, dayTwo, dayTwo.Add(24*time.Hour),
+	).Scan(&count))
+	assert.Equal(t, 1, count)
+}
+
 func TestBookingRepoCreateBooking_RejectsNonStudent(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewBookingRepository(db)

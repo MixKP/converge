@@ -7,6 +7,7 @@ import (
 )
 
 var ErrBookingConflict = errors.New("booking conflict: teacher already has a booking in this time range")
+var ErrCommuteConflict = errors.New("teacher does not have enough commute time between branches")
 var ErrBranchCapacityExceeded = errors.New("branch has no capacity remaining for this time range")
 
 type ValidationError = shared.ValidationError
