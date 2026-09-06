@@ -75,7 +75,7 @@ func TestWithCommuteDemoIsValidOnEveryWeekday(t *testing.T) {
 
 	for i := range 7 {
 		day := base.AddDate(0, 0, i)
-		merged := withCommuteDemo(bookingSeeds(), day)
+		merged := withBookingDemos(bookingSeeds(), day)
 
 		require.NoErrorf(t, validateBookingSeeds(merged),
 			"merged timetable double-books a teacher when seeded on %s", day.Weekday())
@@ -91,6 +91,34 @@ func TestWithCommuteDemoIsValidOnEveryWeekday(t *testing.T) {
 				return s.teacher == demo.teacher && s.dayOffset == offset && s.hour == demo.hour
 			}), "demo class for teacher %d is missing when seeded on %s", demo.teacher, day.Weekday())
 		}
+	}
+}
+
+func TestCapacityDemoSeedsFillTheLimitedBranch(t *testing.T) {
+	seeds := capacityDemoSeeds()
+	require.Len(t, seeds, capacityDemoCapacity)
+
+	for _, seed := range seeds {
+		assert.Equal(t, capacityDemoBranch, seed.branch)
+		assert.Equal(t, time.Tuesday, seed.weekday)
+		assert.Equal(t, 11, seed.hour)
+	}
+	assert.NotEqual(t, seeds[0].teacher, seeds[1].teacher)
+
+	base := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	for i := range 7 {
+		day := base.AddDate(0, 0, i)
+		offset := nextWeekdayOffset(day, time.Tuesday)
+		merged := withBookingDemos(bookingSeeds(), day)
+		fullSlotCount := 0
+		for _, seed := range merged {
+			if seed.branch == capacityDemoBranch && seed.dayOffset == offset && seed.hour == 11 {
+				fullSlotCount++
+			}
+		}
+
+		assert.Equalf(t, capacityDemoCapacity, fullSlotCount,
+			"capacity demo branch is not full when seeded on %s", day.Weekday())
 	}
 }
 

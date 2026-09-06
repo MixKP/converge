@@ -161,21 +161,25 @@ func seedDemoUsers(database *sql.DB) (map[string]int, error) {
 }
 
 func seedBranches(database *sql.DB) ([]int, error) {
-	branches := []string{
-		"Main Campus",
-		"Downtown",
-		"Westside",
-		"Online",
+	branches := []struct {
+		name     string
+		capacity int
+	}{
+		{"Main Campus", -1},
+		{"Downtown", -1},
+		{"Westside", -1},
+		{"Online", -1},
+		{"Capacity Demo Branch", capacityDemoCapacity},
 	}
 
 	ids := make([]int, 0, len(branches))
-	for _, name := range branches {
+	for _, branch := range branches {
 		var id int
 		err := database.QueryRow(
-			`INSERT INTO branches (name) VALUES ($1) RETURNING id`, name,
+			`INSERT INTO branches (name, capacity) VALUES ($1, $2) RETURNING id`, branch.name, branch.capacity,
 		).Scan(&id)
 		if err != nil {
-			return nil, fmt.Errorf("insert branch %q: %w", name, err)
+			return nil, fmt.Errorf("insert branch %q: %w", branch.name, err)
 		}
 		ids = append(ids, id)
 	}
@@ -331,7 +335,7 @@ type bookingSeed struct {
 // availability window (Alice 09-12, Bob 10-15, Carol 13-17, David 08-10,
 // Eva 09-14), though the day offsets are not aligned to those weekdays.
 // Subjects: Mathematics=0, Physics=1, English=2, History=3, CS=4, Art=5.
-// Branches: Main Campus=0, Downtown=1, Westside=2, Online=3.
+// Branches: Main Campus=0, Downtown=1, Westside=2, Online=3, Capacity Demo=4.
 func bookingSeeds() []bookingSeed {
 	return []bookingSeed{
 		// Past
@@ -414,6 +418,21 @@ func commuteDemoSeeds() []commuteDemoSeed {
 	}
 }
 
+const (
+	capacityDemoBranch   = 4
+	capacityDemoCapacity = 2
+)
+
+// capacityDemoSeeds fills the limited-capacity demo branch at one future
+// timeslot. Bob and Eva are both available on Tuesdays at 11:00, so selecting
+// the branch lets the booking UI demonstrate its non-blocking capacity warning.
+func capacityDemoSeeds() []commuteDemoSeed {
+	return []commuteDemoSeed{
+		{"student1", 1, 2, capacityDemoBranch, time.Tuesday, 11},
+		{"student2", 4, 2, capacityDemoBranch, time.Tuesday, 11},
+	}
+}
+
 // nextWeekdayOffset returns the day offset from `from` to the next occurrence of
 // `target`, always in the future so a demo class never lands in the past.
 func nextWeekdayOffset(from time.Time, target time.Weekday) int {
@@ -424,16 +443,16 @@ func nextWeekdayOffset(from time.Time, target time.Weekday) int {
 	return diff
 }
 
-// withCommuteDemo resolves the weekday-pinned demo classes against today and
+// withBookingDemos resolves the weekday-pinned demo classes against today and
 // appends them. A demo class wins any (teacher, day, hour) clash with the static
 // timetable: the offsets move with the run date, so without this the seed would
 // fail validation on whichever weekday happened to collide.
-func withCommuteDemo(seeds []bookingSeed, midnight time.Time) []bookingSeed {
+func withBookingDemos(seeds []bookingSeed, midnight time.Time) []bookingSeed {
 	type key struct{ teacher, dayOffset, hour int }
 
-	demo := make([]bookingSeed, 0, len(commuteDemoSeeds()))
+	demo := make([]bookingSeed, 0, len(commuteDemoSeeds())+len(capacityDemoSeeds()))
 	claimed := make(map[key]bool)
-	for _, d := range commuteDemoSeeds() {
+	for _, d := range append(commuteDemoSeeds(), capacityDemoSeeds()...) {
 		offset := nextWeekdayOffset(midnight, d.weekday)
 		demo = append(demo, bookingSeed{d.student, d.teacher, d.subject, d.branch, offset, d.hour})
 		claimed[key{d.teacher, offset, d.hour}] = true
@@ -487,7 +506,7 @@ func seedBookings(database *sql.DB, userIDs map[string]int, teacherIDs, subjectI
 	now := time.Now().In(loc)
 	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 
-	seeds := withCommuteDemo(bookingSeeds(), midnight)
+	seeds := withBookingDemos(bookingSeeds(), midnight)
 	if err := validateBookingSeeds(seeds); err != nil {
 		return 0, err
 	}

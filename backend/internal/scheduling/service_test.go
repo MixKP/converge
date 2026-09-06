@@ -27,11 +27,6 @@ func (m *mockStore) FindConflictingBookings(ctx context.Context, teacherID int, 
 	return args.Get(0).([]Booking), args.Error(1)
 }
 
-func (m *mockStore) FindBookingsByBranch(ctx context.Context, branchID int, startTime, endTime time.Time) ([]Booking, error) {
-	args := m.Called(ctx, branchID, startTime, endTime)
-	return args.Get(0).([]Booking), args.Error(1)
-}
-
 func (m *mockStore) CreateBooking(ctx context.Context, req ConfirmBookingRequest) (*Booking, error) {
 	args := m.Called(ctx, req)
 	if args.Get(0) == nil {
@@ -316,26 +311,6 @@ func TestSchedulingService_Confirm_Success(t *testing.T) {
 	assert.Equal(t, 10, result.ID)
 	assert.Equal(t, "John Doe", result.StudentName)
 	store.AssertExpectations(t)
-}
-
-func TestSchedulingService_Confirm_BranchCapacityExceeded_ReturnsConflict(t *testing.T) {
-	store := new(mockStore)
-	svc := NewSchedulingService(store, store, new(mockEngine))
-
-	req := ConfirmBookingRequest{
-		TeacherID: 1,
-		BranchID:  1,
-		SubjectID: 1,
-		StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
-		EndTime:   time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
-		StudentID: 3,
-	}
-	store.On("CreateBooking", mock.Anything, req).Return(nil, ErrBranchCapacityExceeded)
-
-	_, err := svc.Confirm(context.Background(), req)
-
-	var confErr *ConflictError
-	assert.ErrorAs(t, err, &confErr)
 }
 
 func TestSchedulingService_Confirm_MissingFields(t *testing.T) {

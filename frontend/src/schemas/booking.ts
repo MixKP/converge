@@ -7,7 +7,10 @@ const genderSchema = z.enum(['male', 'female', 'lgbtq+'])
 export const branchSchema = z.object({
   id: z.number(),
   name: z.string(),
-  capacity: z.number().int().min(0),
+  capacity: z
+    .number()
+    .int()
+    .refine((capacity) => capacity === -1 || capacity > 0),
   status: z.enum(['active', 'deactivated']),
 })
 
@@ -43,7 +46,6 @@ export const bookingAlternativeSchema = z.object({
   end_time: z.string(),
   score: z.number(),
   reasons: z.array(z.string()),
-  room_available: z.boolean().optional(),
   commute_minutes: z.number().optional(),
 })
 

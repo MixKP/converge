@@ -10,25 +10,20 @@ import (
 )
 
 type CLPEngine struct {
-	bookingStore   BookingStore
-	teacherRoster  TeacherRoster
-	scorer         Scorer
-	commute        CommuteProvider
-	branchCapacity BranchCapacityCheck
-	logger         *slog.Logger
+	bookingStore  BookingStore
+	teacherRoster TeacherRoster
+	scorer        Scorer
+	commute       CommuteProvider
+	logger        *slog.Logger
 }
 
-func NewCLPEngine(bookingStore BookingStore, teacherRoster TeacherRoster, scorer Scorer, commute CommuteProvider, branchCapacity BranchCapacityCheck, logger *slog.Logger) *CLPEngine {
-	if branchCapacity == nil {
-		panic("scheduling: NewCLPEngine requires a non-nil BranchCapacityCheck; pass a no-op implementation if capacity should not be enforced")
-	}
+func NewCLPEngine(bookingStore BookingStore, teacherRoster TeacherRoster, scorer Scorer, commute CommuteProvider, logger *slog.Logger) *CLPEngine {
 	return &CLPEngine{
-		bookingStore:   bookingStore,
-		teacherRoster:  teacherRoster,
-		scorer:         scorer,
-		commute:        commute,
-		branchCapacity: branchCapacity,
-		logger:         logger,
+		bookingStore:  bookingStore,
+		teacherRoster: teacherRoster,
+		scorer:        scorer,
+		commute:       commute,
+		logger:        logger,
 	}
 }
 
@@ -112,43 +107,6 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req BookingRequ
 		prefetched[t.ID] = prefetchedTeacherData{slots: slots, conflicts: conflicts}
 	}
 
-	branchCapacity := 0
-	branchOverlapByOffset := make(map[timeWindow]int, len(offsets))
-	capacity, capErr := e.branchCapacity.GetCapacity(ctx, req.BranchID)
-	if capErr != nil {
-		e.logger.Warn("branch capacity lookup failed, skipping capacity enforcement",
-			"request_id", shared.RequestIDFromContext(ctx),
-			"op", "CLPEngine.FindAlternativesForSlot",
-			"branch_id", req.BranchID,
-			"error", capErr,
-		)
-	} else {
-		branchCapacity = capacity
-	}
-
-	if branchCapacity > 0 {
-		branchBookings, bookErr := e.bookingStore.FindBookingsByBranch(ctx, req.BranchID, conflictStart, conflictEnd)
-		if bookErr != nil {
-			e.logger.Warn("branch bookings lookup failed, skipping capacity enforcement",
-				"request_id", shared.RequestIDFromContext(ctx),
-				"op", "CLPEngine.FindAlternativesForSlot",
-				"branch_id", req.BranchID,
-				"error", bookErr,
-			)
-			branchCapacity = 0
-		} else {
-			for _, o := range offsets {
-				count := 0
-				for _, b := range branchBookings {
-					if overlaps(o.start, o.end, b.StartTime, b.EndTime) {
-						count++
-					}
-				}
-				branchOverlapByOffset[o] = count
-			}
-		}
-	}
-
 	teacherDomain := make([]any, len(teachers))
 	for i, t := range teachers {
 		teacherDomain[i] = t
@@ -179,9 +137,6 @@ func (e *CLPEngine) FindAlternativesForSlot(ctx context.Context, req BookingRequ
 			}
 		}
 
-		if branchCapacity > 0 && branchOverlapByOffset[o] >= branchCapacity {
-			return false, nil
-		}
 		return true, nil
 	})
 

@@ -14,8 +14,8 @@ type UpdateCapacityRequest struct {
 }
 
 type CreateBranchRequest struct {
-	Name     string `json:"name"     binding:"required" example:"Siam"`
-	Capacity int    `json:"capacity" example:"30"`
+	Name     string             `json:"name"     binding:"required" example:"Siam"`
+	Capacity shared.Option[int] `json:"capacity" swaggertype:"integer" example:"30"`
 }
 
 type UpdateStatusRequest struct {

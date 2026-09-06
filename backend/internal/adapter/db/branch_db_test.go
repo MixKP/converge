@@ -82,11 +82,11 @@ func TestBranchRepoAddBranch_DuplicateName_ReturnsConflictError(t *testing.T) {
 	assert.True(t, errors.As(err, &confErr))
 }
 
-func TestBranchRepoAddBranch_NegativeCapacity_ReturnsValidationError(t *testing.T) {
+func TestBranchRepoAddBranch_ZeroCapacity_ReturnsValidationError(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewBranchRepository(db)
 
-	_, err := repo.AddBranch(context.Background(), "Riverside", -1)
+	_, err := repo.AddBranch(context.Background(), "Riverside", 0)
 	require.Error(t, err)
 	var valErr *shared.ValidationError
 	assert.True(t, errors.As(err, &valErr))
@@ -106,28 +106,28 @@ func TestBranchRepoSetCapacity_Success(t *testing.T) {
 	assert.Equal(t, 25, b.Capacity)
 }
 
-func TestBranchRepoSetCapacity_Zero_Allowed(t *testing.T) {
+func TestBranchRepoSetCapacity_Unlimited_Allowed(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewBranchRepository(db)
 
 	_, err := db.Exec(`INSERT INTO branches (id, name, capacity) VALUES (1, 'Main Campus', 10)`)
 	require.NoError(t, err)
 
-	require.NoError(t, repo.SetCapacity(context.Background(), 1, 0))
+	require.NoError(t, repo.SetCapacity(context.Background(), 1, -1))
 
 	b, err := repo.GetBranchByID(context.Background(), 1)
 	require.NoError(t, err)
-	assert.Equal(t, 0, b.Capacity)
+	assert.Equal(t, -1, b.Capacity)
 }
 
-func TestBranchRepoSetCapacity_Negative_ReturnsValidationError(t *testing.T) {
+func TestBranchRepoSetCapacity_Zero_ReturnsValidationError(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewBranchRepository(db)
 
 	_, err := db.Exec(`INSERT INTO branches (id, name, capacity) VALUES (1, 'Main Campus', 10)`)
 	require.NoError(t, err)
 
-	err = repo.SetCapacity(context.Background(), 1, -1)
+	err = repo.SetCapacity(context.Background(), 1, 0)
 	require.Error(t, err)
 	var valErr *shared.ValidationError
 	assert.True(t, errors.As(err, &valErr))

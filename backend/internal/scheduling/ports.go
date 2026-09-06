@@ -12,7 +12,6 @@ import (
 type BookingStore interface {
 	FindExactMatch(ctx context.Context, subjectID, branchID int, slot shared.WeeklySlot, durationMinutes int, teacherID shared.Option[int], gender string) (*BookingMatch, error)
 	FindConflictingBookings(ctx context.Context, teacherID int, startTime, endTime time.Time) ([]Booking, error)
-	FindBookingsByBranch(ctx context.Context, branchID int, startTime, endTime time.Time) ([]Booking, error)
 	CreateBooking(ctx context.Context, req ConfirmBookingRequest) (*Booking, error)
 	DeleteBooking(ctx context.Context, bookingID int) error
 	FindAllBookings(ctx context.Context) ([]Booking, error)
@@ -30,10 +29,6 @@ type ReferenceStore interface {
 
 type CommuteProvider interface {
 	DefaultCommute(ctx context.Context) (time.Duration, error)
-}
-
-type BranchCapacityCheck interface {
-	GetCapacity(ctx context.Context, branchID int) (int, error)
 }
 
 // ---- Domain port ----

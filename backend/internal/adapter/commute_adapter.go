@@ -9,7 +9,7 @@ import (
 // CommuteConfigSource is the inbound port the commute domain exposes for the
 // configured commute time. *commute.Service satisfies it structurally; the
 // adapter depends on this port rather than the concrete service, so data flows
-// domain → port → adapter (mirrors BranchCapacitySource).
+// domain → port → adapter.
 type CommuteConfigSource interface {
 	Minutes(ctx context.Context) (int, error)
 }

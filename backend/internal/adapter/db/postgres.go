@@ -97,7 +97,7 @@ func AutoMigrate(database *sql.DB) error {
 		`CREATE TABLE IF NOT EXISTS branches (
 			id SERIAL PRIMARY KEY,
 			name VARCHAR(100) NOT NULL UNIQUE,
-			capacity INTEGER NOT NULL DEFAULT 0 CHECK (capacity >= 0),
+			capacity INTEGER NOT NULL DEFAULT -1 CHECK (capacity = -1 OR capacity > 0),
 			status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active','deactivated'))
 		)`,
 
@@ -114,17 +114,11 @@ func AutoMigrate(database *sql.DB) error {
 			CHECK (start_time < end_time),
 			EXCLUDE USING gist (teacher_id WITH =, tstzrange(start_time, end_time) WITH &&)
 		)`,
-		`ALTER TABLE branches ADD COLUMN IF NOT EXISTS capacity INTEGER NOT NULL DEFAULT 0`,
-		`DO $$
-		BEGIN
-			IF NOT EXISTS (
-				SELECT 1 FROM pg_constraint
-				WHERE conrelid = 'branches'::regclass
-				  AND conname = 'branches_capacity_check'
-			) THEN
-				ALTER TABLE branches ADD CONSTRAINT branches_capacity_check CHECK (capacity >= 0);
-			END IF;
-		END $$;`,
+		`ALTER TABLE branches ADD COLUMN IF NOT EXISTS capacity INTEGER NOT NULL DEFAULT -1`,
+		`ALTER TABLE branches ALTER COLUMN capacity SET DEFAULT -1`,
+		`ALTER TABLE branches DROP CONSTRAINT IF EXISTS branches_capacity_check`,
+		`UPDATE branches SET capacity = -1 WHERE capacity = 0`,
+		`ALTER TABLE branches ADD CONSTRAINT branches_capacity_check CHECK (capacity = -1 OR capacity > 0)`,
 		`ALTER TABLE branches ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'active'`,
 		`DO $$
 		BEGIN

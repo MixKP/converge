@@ -11,6 +11,7 @@
   import { useCart } from '../../composables/useCart'
   import { useCommute } from '../../composables/useCommute'
   import { useCommuteBlocks } from '../../composables/useCommuteBlocks'
+  import { useBranchCapacity } from '../../composables/useBranchCapacity'
   import { useNotification } from '../../composables/useNotification'
   import { useNumberSelect, useEnumSelect, NONE } from '../../composables/useSelectProxy'
   import Calendar from '../Calendar.vue'
@@ -46,6 +47,7 @@
   const { addSlotToCart } = useCart()
   const { loadCommuteMinutes } = useCommute()
   const { commuteEvents } = useCommuteBlocks()
+  const { capacityEvents, hasCapacityWarnings } = useBranchCapacity()
   const { showSuccess } = useNotification()
 
   const teacherValue = useNumberSelect(selectedTeacherId)
@@ -78,6 +80,11 @@
   const canAddToBooking = computed(
     () => calendarState.value === 'editable' && events.value.length > 0 && !isAddingToCart.value
   )
+
+  const additionalEvents = computed(() => [
+    ...(calendarState.value === 'browse' ? browseEvents.value : commuteEvents.value),
+    ...capacityEvents.value,
+  ])
 
   watch(calendarState, (state) => {
     if (state !== 'browse') pendingTeachers.value = null
@@ -194,11 +201,24 @@
           </span>
         </div>
 
+        <div
+          v-if="hasCapacityWarnings"
+          class="text-foreground flex items-center gap-2 rounded-md border border-[var(--accent-coral)]/40 bg-[var(--accent-coral)]/10 px-3 py-2 text-xs"
+        >
+          <span
+            class="size-2 shrink-0 rounded-full bg-[var(--accent-coral)]"
+            aria-hidden="true"
+          ></span>
+          <span>
+            At-capacity times are shaded. Booking is allowed, but another room may be required.
+          </span>
+        </div>
+
         <div class="relative">
           <div class="border-border h-[30rem] overflow-hidden rounded-lg border lg:h-[44rem]">
             <Calendar
               :model-value="allEvents"
-              :additional-events="calendarState === 'browse' ? browseEvents : commuteEvents"
+              :additional-events="additionalEvents"
               :editable="calendarState === 'editable'"
               :show-header="false"
               :business-hours="businessHours"

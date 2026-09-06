@@ -56,7 +56,7 @@ func (h *BranchHandler) GetBranches(c *gin.Context) {
 
 // CreateBranch godoc
 // @Summary      Create a branch
-// @Description  Adds a new branch with a name and optional capacity (0 means unlimited/unenforced)
+// @Description  Adds a new branch with a name and capacity (-1 means unlimited)
 // @Tags         branches
 // @Accept       json
 // @Produce      json
@@ -76,7 +76,12 @@ func (h *BranchHandler) CreateBranch(c *gin.Context) {
 		return
 	}
 
-	newBranch, err := h.svc.AddBranch(c.Request.Context(), req.Name, req.Capacity)
+	capacity := -1
+	if requested, ok := req.Capacity.Value(); ok {
+		capacity = requested
+	}
+
+	newBranch, err := h.svc.AddBranch(c.Request.Context(), req.Name, capacity)
 	if err != nil {
 		var confErr *shared.ConflictError
 		var valErr *shared.ValidationError
@@ -101,7 +106,7 @@ func (h *BranchHandler) CreateBranch(c *gin.Context) {
 
 // UpdateBranchCapacity godoc
 // @Summary      Update a branch's capacity
-// @Description  Sets how many bookings a branch can hold concurrently. 0 means unlimited/unenforced.
+// @Description  Sets how many concurrent classes a branch can hold. -1 means unlimited.
 // @Tags         branches
 // @Accept       json
 // @Produce      json

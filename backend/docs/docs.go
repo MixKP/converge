@@ -394,7 +394,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Adds a new branch with a name and optional capacity (0 means unlimited/unenforced)",
+                "description": "Adds a new branch with a name and capacity (-1 means unlimited)",
                 "consumes": [
                     "application/json"
                 ],
@@ -463,7 +463,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Sets how many bookings a branch can hold concurrently. 0 means unlimited/unenforced.",
+                "description": "Sets how many concurrent classes a branch can hold. -1 means unlimited.",
                 "consumes": [
                     "application/json"
                 ],

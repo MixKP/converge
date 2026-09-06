@@ -104,7 +104,10 @@ export function useCalendarInteraction(options: InteractionOptions) {
         (e) =>
           !e.extendedProps?.isCartItem &&
           !e.extendedProps?.isBooked &&
-          !e.extendedProps?.isSuggestion
+          !e.extendedProps?.isSuggestion &&
+          !e.extendedProps?.isCommute &&
+          !e.extendedProps?.isBrowse &&
+          !e.extendedProps?.isCapacityWarning
       )
       .map((e) => ({ id: e.id, start: e.start!, end: e.end!, title: e.title }))
   }

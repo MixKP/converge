@@ -58,7 +58,7 @@ func (r *BranchRepo) AddBranch(ctx context.Context, name string, capacity int) (
 		if confErr := uniqueViolationError(err, fmt.Sprintf("branch %q already exists", name)); confErr != nil {
 			return nil, confErr
 		}
-		if valErr := checkViolationError(err, "capacity must not be negative"); valErr != nil {
+		if valErr := checkViolationError(err, "capacity must be -1 for unlimited or a positive integer"); valErr != nil {
 			return nil, valErr
 		}
 		return nil, fmt.Errorf("add branch: %w", err)
@@ -69,7 +69,7 @@ func (r *BranchRepo) AddBranch(ctx context.Context, name string, capacity int) (
 func (r *BranchRepo) SetCapacity(ctx context.Context, branchID, capacity int) error {
 	return execUpdateOne(ctx, r.DB,
 		`UPDATE branches SET capacity = $1 WHERE id = $2`, []any{capacity, branchID},
-		"capacity must not be negative", fmt.Sprintf("branch %d not found", branchID), "set branch capacity")
+		"capacity must be -1 for unlimited or a positive integer", fmt.Sprintf("branch %d not found", branchID), "set branch capacity")
 }
 
 func (r *BranchRepo) SetStatus(ctx context.Context, branchID int, status string) error {

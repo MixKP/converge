@@ -162,28 +162,6 @@ ALGORITHM FindAlternativesForSlot
         prefetched[t.ID] ← ⟨slots, conflicts⟩
     END FOR
 
-    capacity ← 0
-    occupancy ← empty map from offset to integer
-    ⟨c, err⟩ ← GetCapacity(request.BranchID)
-    IF err ≠ NIL THEN
-        WARN "capacity lookup failed"          // degrade, do not fail: capacity
-    ELSE                                       // stays 0 ⇒ C3 is not enforced
-        capacity ← c
-    END IF
-
-    IF capacity > 0 THEN
-        ⟨branchBookings, err⟩ ← BookingsByBranch(request.BranchID, fetchFrom, fetchTo)
-        IF err ≠ NIL THEN
-            WARN "branch bookings lookup failed"
-            capacity ← 0                       // skip enforcement
-        ELSE
-            FOR EACH o IN offsets DO
-                occupancy[o] ← COUNT of b IN branchBookings
-                                WHERE Overlaps(o, ⟨b.Start, b.End⟩)
-            END FOR
-        END IF
-    END IF
-
     ── 4. Declare the model ─────────────────────────────────────
     model.AddVariable("teacher", teachers)
     model.AddVariable("offset",  offsets)
@@ -210,11 +188,6 @@ ALGORITHM FindAlternativesForSlot
                 RETURN ⟨FALSE, NIL⟩
             END IF
         END FOR
-
-        // C3 — the branch must have a room free for that window
-        IF capacity > 0 AND occupancy[offset] ≥ capacity THEN
-            RETURN ⟨FALSE, NIL⟩
-        END IF
 
         RETURN ⟨TRUE, NIL⟩
     END FUNCTION )

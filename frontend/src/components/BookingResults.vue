@@ -3,6 +3,7 @@
   import type { BookingResponse } from '../types'
   import type { CartItem } from '../types/booking'
   import { rangesOverlap } from '../utils/dateValidation'
+  import { useBranchCapacity } from '../composables/useBranchCapacity'
 
   interface Props {
     suggestions: BookingResponse | null
@@ -25,6 +26,7 @@
   }>()
 
   const bookedKeys = ref<Set<string>>(new Set())
+  const { isAtCapacity } = useBranchCapacity()
 
   const matchedCount = computed(() => {
     if (!props.suggestions) return 0
@@ -183,6 +185,14 @@
             >
               {{ slotResult.exact_match.reasons.join(' • ') }}
             </p>
+            <p
+              v-if="
+                isAtCapacity(slotResult.exact_match.start_time, slotResult.exact_match.end_time)
+              "
+              class="match-reasons"
+            >
+              At branch capacity — arrange another room.
+            </p>
           </div>
           <button
             type="button"
@@ -235,12 +245,8 @@
             <div class="alternative-content">
               <div class="alternative-header">
                 <span class="alternative-name">{{ alt.teacher_name }}</span>
-                <span
-                  v-if="alt.room_available !== undefined"
-                  class="badge"
-                  :class="alt.room_available ? 'badge-success' : 'badge-error'"
-                >
-                  {{ alt.room_available ? 'Room' : 'No Room' }}
+                <span v-if="isAtCapacity(alt.start_time, alt.end_time)" class="badge badge-error">
+                  At capacity — arrange another room
                 </span>
                 <span v-if="alt.commute_minutes !== undefined" class="badge badge-info">
                   {{ alt.commute_minutes }}m commute
@@ -618,11 +624,6 @@
     padding: 0.125rem 0.5rem;
     border-radius: 999px;
     font-family: 'JetBrains Mono', monospace;
-  }
-
-  .badge-success {
-    background: var(--accent-sage);
-    color: white;
   }
 
   .badge-error {

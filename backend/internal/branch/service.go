@@ -28,26 +28,10 @@ func (s *Service) AddBranch(ctx context.Context, name string, capacity int) (*Br
 	); err != nil {
 		return nil, err
 	}
-	// capacity 0 means unlimited/unenforced, so only negatives are rejected.
-	if err := shared.ValidateAll(capacity,
-		shared.NonNegativeInt("capacity", func(c int) int { return c }),
-	); err != nil {
+	if err := validateCapacity(capacity); err != nil {
 		return nil, err
 	}
 	return s.store.AddBranch(ctx, name, capacity)
-}
-
-func (s *Service) GetCapacity(ctx context.Context, branchID int) (int, error) {
-	if err := shared.ValidateAll(branchID,
-		shared.PositiveInt("branch_id", func(id int) int { return id }),
-	); err != nil {
-		return 0, err
-	}
-	b, err := s.store.GetBranchByID(ctx, branchID)
-	if err != nil {
-		return 0, err
-	}
-	return b.Capacity, nil
 }
 
 func (s *Service) SetCapacity(ctx context.Context, branchID, capacity int) error {
@@ -56,13 +40,17 @@ func (s *Service) SetCapacity(ctx context.Context, branchID, capacity int) error
 	); err != nil {
 		return err
 	}
-	// capacity 0 means unlimited/unenforced, so only negatives are rejected.
-	if err := shared.ValidateAll(capacity,
-		shared.NonNegativeInt("capacity", func(c int) int { return c }),
-	); err != nil {
+	if err := validateCapacity(capacity); err != nil {
 		return err
 	}
 	return s.store.SetCapacity(ctx, branchID, capacity)
+}
+
+func validateCapacity(capacity int) error {
+	if capacity == -1 || capacity > 0 {
+		return nil
+	}
+	return &ValidationError{Msg: "capacity must be -1 for unlimited or a positive integer"}
 }
 
 func (s *Service) SetStatus(ctx context.Context, branchID int, status string) error {

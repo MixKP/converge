@@ -12,12 +12,14 @@
 
   const branches = ref<Branch[]>([])
   const drafts = ref<Record<number, string>>({})
+  const unlimitedDrafts = ref<Record<number, boolean>>({})
   const savingId = ref<number | null>(null)
   const togglingId = ref<number | null>(null)
   const isLoading = ref(false)
 
   const newName = ref('')
-  const newCapacity = ref('0')
+  const newCapacity = ref('1')
+  const newUnlimited = ref(true)
   const isCreating = ref(false)
 
   onMounted(async () => {
@@ -25,7 +27,8 @@
     try {
       branches.value = await branchApi.getAll()
       branches.value.forEach((b) => {
-        drafts.value[b.id] = String(b.capacity)
+        unlimitedDrafts.value[b.id] = b.capacity === -1
+        drafts.value[b.id] = b.capacity === -1 ? '1' : String(b.capacity)
       })
     } catch (err) {
       showError(err, 'Failed to load branches')
@@ -38,10 +41,9 @@
     const name = newName.value.trim()
     if (name === '') return
 
-    const raw = String(newCapacity.value ?? '').trim()
-    const capacity = raw === '' ? 0 : Number(raw)
-    if (!Number.isInteger(capacity) || capacity < 0) {
-      showError(null, 'Capacity must be a whole number of 0 or more')
+    const capacity = newUnlimited.value ? -1 : Number(String(newCapacity.value ?? '').trim())
+    if (capacity !== -1 && (!Number.isInteger(capacity) || capacity < 1)) {
+      showError(null, 'Capacity must be a whole number of 1 or more')
       return
     }
 
@@ -49,9 +51,11 @@
     try {
       const created = await branchApi.create(name, capacity)
       branches.value.push(created)
-      drafts.value[created.id] = String(created.capacity)
+      unlimitedDrafts.value[created.id] = created.capacity === -1
+      drafts.value[created.id] = created.capacity === -1 ? '1' : String(created.capacity)
       newName.value = ''
-      newCapacity.value = '0'
+      newCapacity.value = '1'
+      newUnlimited.value = true
       showSuccess(`Branch ${created.name} created successfully`)
     } catch (err) {
       showError(err, 'Failed to create branch')
@@ -79,11 +83,11 @@
   }
 
   const handleSave = async (branch: Branch) => {
-    const raw = String(drafts.value[branch.id] ?? '').trim()
-    if (raw === '') return
-    const capacity = Number(raw)
-    if (!Number.isInteger(capacity) || capacity < 0) {
-      showError(null, 'Capacity must be a whole number of 0 or more')
+    const capacity = unlimitedDrafts.value[branch.id]
+      ? -1
+      : Number(String(drafts.value[branch.id] ?? '').trim())
+    if (capacity !== -1 && (!Number.isInteger(capacity) || capacity < 1)) {
+      showError(null, 'Capacity must be a whole number of 1 or more')
       return
     }
 
@@ -91,9 +95,9 @@
     try {
       await branchApi.setCapacity(branch.id, capacity)
       branch.capacity = capacity
-      drafts.value[branch.id] = String(capacity)
+      drafts.value[branch.id] = capacity === -1 ? '1' : String(capacity)
       showSuccess(
-        `Capacity for ${branch.name} updated to ${capacity === 0 ? 'unlimited' : capacity}`
+        `Capacity for ${branch.name} updated to ${capacity === -1 ? 'unlimited' : capacity}`
       )
     } catch (err) {
       showError(err, 'Failed to update branch capacity')
@@ -101,6 +105,9 @@
       savingId.value = null
     }
   }
+
+  const capacityUnchanged = (branch: Branch): boolean =>
+    branch.capacity === (unlimitedDrafts.value[branch.id] ? -1 : Number(drafts.value[branch.id]))
 </script>
 
 <template>
@@ -128,15 +135,27 @@
             </div>
             <div class="manage-form-field manage-form-field--capacity">
               <label class="manage-label">Capacity</label>
-              <input
-                v-model="newCapacity"
-                type="number"
-                min="0"
-                step="1"
-                class="manage-input"
-                placeholder="0"
-                @keyup.enter="handleCreate"
-              />
+              <div class="manage-capacity-editor">
+                <select
+                  v-model="newUnlimited"
+                  class="manage-input manage-capacity-mode"
+                  aria-label="Capacity mode"
+                >
+                  <option :value="true">Unlimited</option>
+                  <option :value="false">Limited</option>
+                </select>
+                <input
+                  v-if="!newUnlimited"
+                  v-model="newCapacity"
+                  type="number"
+                  min="1"
+                  step="1"
+                  class="manage-input manage-capacity-limit"
+                  placeholder="1"
+                  aria-label="Capacity limit"
+                  @keyup.enter="handleCreate"
+                />
+              </div>
             </div>
             <div class="manage-form-field manage-form-field--action">
               <button
@@ -154,7 +173,7 @@
       <div class="manage-section">
         <h2 class="manage-section-title">Branch Capacity</h2>
         <p class="manage-section-subtitle">
-          A capacity of 0 means unlimited concurrent bookings for that branch. Removed branches keep
+          Capacity warnings are informational and do not prevent booking. Removed branches keep
           their booking history but cannot take new bookings.
         </p>
         <div v-if="isLoading" class="manage-empty">Loading branches...</div>
@@ -170,9 +189,9 @@
               <div class="manage-card-name">{{ branch.name }}</div>
               <span
                 class="manage-badge"
-                :class="branch.capacity === 0 ? 'manage-badge--unlimited' : 'manage-badge--capped'"
+                :class="branch.capacity === -1 ? 'manage-badge--unlimited' : 'manage-badge--capped'"
               >
-                {{ branch.capacity === 0 ? 'Unlimited' : `Max ${branch.capacity}` }}
+                {{ branch.capacity === -1 ? 'Unlimited' : `Max ${branch.capacity}` }}
               </span>
             </div>
             <div class="manage-card-row">
@@ -189,10 +208,19 @@
             <div class="manage-card-row">
               <span class="manage-card-label">Capacity</span>
               <div class="manage-card-actions">
+                <select
+                  v-model="unlimitedDrafts[branch.id]"
+                  class="manage-capacity-input manage-capacity-mode"
+                  :aria-label="`Capacity mode for ${branch.name}`"
+                >
+                  <option :value="true">Unlimited</option>
+                  <option :value="false">Limited</option>
+                </select>
                 <input
+                  v-if="!unlimitedDrafts[branch.id]"
                   v-model="drafts[branch.id]"
                   type="number"
-                  min="0"
+                  min="1"
                   step="1"
                   class="manage-capacity-input"
                   :aria-label="`Capacity for ${branch.name}`"
@@ -200,9 +228,7 @@
                 <button
                   type="button"
                   class="manage-btn manage-btn--primary"
-                  :disabled="
-                    savingId === branch.id || drafts[branch.id] === String(branch.capacity)
-                  "
+                  :disabled="savingId === branch.id || capacityUnchanged(branch)"
                   @click="handleSave(branch)"
                 >
                   {{ savingId === branch.id ? 'Saving...' : 'Save' }}
@@ -232,10 +258,10 @@
                   <span
                     class="manage-badge"
                     :class="
-                      branch.capacity === 0 ? 'manage-badge--unlimited' : 'manage-badge--capped'
+                      branch.capacity === -1 ? 'manage-badge--unlimited' : 'manage-badge--capped'
                     "
                   >
-                    {{ branch.capacity === 0 ? 'Unlimited' : `Max ${branch.capacity}` }}
+                    {{ branch.capacity === -1 ? 'Unlimited' : `Max ${branch.capacity}` }}
                   </span>
                 </td>
                 <td>
@@ -250,10 +276,19 @@
                 </td>
                 <td>
                   <div class="manage-table-actions">
+                    <select
+                      v-model="unlimitedDrafts[branch.id]"
+                      class="manage-capacity-input manage-capacity-mode"
+                      :aria-label="`Capacity mode for ${branch.name}`"
+                    >
+                      <option :value="true">Unlimited</option>
+                      <option :value="false">Limited</option>
+                    </select>
                     <input
+                      v-if="!unlimitedDrafts[branch.id]"
                       v-model="drafts[branch.id]"
                       type="number"
-                      min="0"
+                      min="1"
                       step="1"
                       class="manage-capacity-input"
                       :aria-label="`Capacity for ${branch.name}`"
@@ -261,9 +296,7 @@
                     <button
                       type="button"
                       class="manage-btn manage-btn--primary"
-                      :disabled="
-                        savingId === branch.id || drafts[branch.id] === String(branch.capacity)
-                      "
+                      :disabled="savingId === branch.id || capacityUnchanged(branch)"
                       @click="handleSave(branch)"
                     >
                       {{ savingId === branch.id ? 'Saving...' : 'Save' }}
@@ -329,7 +362,7 @@
   }
 
   .manage-form-field--capacity {
-    flex: 0 0 8rem;
+    flex: 0 0 15rem;
   }
 
   .manage-form-field--action {
@@ -471,6 +504,21 @@
     display: flex;
     gap: 0.5rem;
     align-items: center;
+  }
+
+  .manage-capacity-editor {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .manage-capacity-mode {
+    width: 7.5rem;
+    cursor: pointer;
+  }
+
+  .manage-capacity-limit {
+    width: 6rem;
   }
 
   .manage-capacity-input {

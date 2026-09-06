@@ -209,7 +209,7 @@ func TestBookingRepoCreateBooking_RejectsNonStudent(t *testing.T) {
 	assert.ErrorAs(t, err, &valErr)
 }
 
-func TestBookingRepoCreateBooking_BranchCapacityExceeded(t *testing.T) {
+func TestBookingRepoCreateBooking_BranchCapacityIsInformational(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewBookingRepository(db)
 	teacherAID, teacherBID, branchID, subjectID := seedCappedBranchWithTwoTeachers(t, db, 1)
@@ -228,57 +228,11 @@ func TestBookingRepoCreateBooking_BranchCapacityExceeded(t *testing.T) {
 		TeacherID: teacherBID, BranchID: branchID, SubjectID: subjectID,
 		StartTime: start, EndTime: end, StudentID: studentID,
 	})
-	require.Error(t, err)
-	assert.ErrorIs(t, err, scheduling.ErrBranchCapacityExceeded)
-}
-
-// TestBookingRepoCreateBooking_BranchCapacityConcurrent_OnlyOneWins is the
-// direct proof that branch capacity is enforced atomically: without the
-// per-branch advisory lock in CreateBooking, two concurrent confirms against
-// a capacity-1 branch could both read "0 overlapping" before either commits
-// and both succeed, exceeding capacity. This fires them concurrently for
-// real and asserts exactly one wins.
-func TestBookingRepoCreateBooking_BranchCapacityConcurrent_OnlyOneWins(t *testing.T) {
-	db := setupTestDB(t)
-	db.SetMaxOpenConns(10)
-	repo := NewBookingRepository(db)
-	teacherAID, teacherBID, branchID, subjectID := seedCappedBranchWithTwoTeachers(t, db, 1)
-	studentID := seedStudent(t, db, "Concurrent Student")
-
-	start := time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC)
-	end := time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)
-	teacherIDs := []int{teacherAID, teacherBID}
-
-	var wg sync.WaitGroup
-	errs := make([]error, 2)
-	for i := range 2 {
-		wg.Add(1)
-		go func(i int) {
-			defer wg.Done()
-			_, err := repo.CreateBooking(context.Background(), scheduling.ConfirmBookingRequest{
-				TeacherID: teacherIDs[i], BranchID: branchID, SubjectID: subjectID,
-				StartTime: start, EndTime: end, StudentID: studentID,
-			})
-			errs[i] = err
-		}(i)
-	}
-	wg.Wait()
-
-	successCount, capacityErrCount := 0, 0
-	for _, err := range errs {
-		switch {
-		case err == nil:
-			successCount++
-		case errors.Is(err, scheduling.ErrBranchCapacityExceeded):
-			capacityErrCount++
-		}
-	}
-	assert.Equal(t, 1, successCount, "exactly one of the two concurrent bookings should succeed")
-	assert.Equal(t, 1, capacityErrCount, "exactly one of the two concurrent bookings should be rejected for capacity")
+	require.NoError(t, err)
 
 	var count int
 	require.NoError(t, db.QueryRow(`SELECT COUNT(*) FROM bookings WHERE branch_id = $1`, branchID).Scan(&count))
-	assert.Equal(t, 1, count, "only one row should actually be committed to the branch")
+	assert.Equal(t, 2, count)
 }
 
 func TestBookingRepoFindConflictingBookings(t *testing.T) {
@@ -308,38 +262,6 @@ func TestBookingRepoFindConflictingBookings(t *testing.T) {
 		time.Date(2026, 6, 1, 15, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	assert.Empty(t, noConflicts)
-}
-
-func TestBookingRepoFindBookingsByBranch(t *testing.T) {
-	db := setupTestDB(t)
-	repo := NewBookingRepository(db)
-	teacherID, branchID, subjectID := seedBookingParents(t, db)
-
-	var secondTeacherID int
-	require.NoError(t, db.QueryRow(`INSERT INTO teachers (id, name, email, gender, status) VALUES (2, 'Teacher B', 'b@test.com', 'female', 'active') RETURNING id`).Scan(&secondTeacherID))
-	studentID := seedStudent(t, db, "Student")
-
-	_, err := db.Exec(`
-		INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time, student_id)
-		VALUES ($1, $2, $3, '2026-06-01T09:00:00Z', '2026-06-01T10:00:00Z', $4)`, teacherID, branchID, subjectID, studentID)
-	require.NoError(t, err)
-
-	_, err = db.Exec(`
-		INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time, student_id)
-		VALUES ($1, $2, $3, '2026-06-01T09:30:00Z', '2026-06-01T10:30:00Z', $4)`, secondTeacherID, branchID, subjectID, studentID)
-	require.NoError(t, err)
-
-	overlapping, err := repo.FindBookingsByBranch(context.Background(), branchID,
-		time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
-		time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC))
-	require.NoError(t, err)
-	assert.Len(t, overlapping, 2, "should count bookings from different teachers at the same branch")
-
-	noOverlap, err := repo.FindBookingsByBranch(context.Background(), branchID,
-		time.Date(2026, 6, 1, 14, 0, 0, 0, time.UTC),
-		time.Date(2026, 6, 1, 15, 0, 0, 0, time.UTC))
-	require.NoError(t, err)
-	assert.Empty(t, noOverlap)
 }
 
 func TestBookingRepoDeleteBooking(t *testing.T) {

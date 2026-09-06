@@ -139,10 +139,9 @@ func main() {
 	commuteConfigRepo := db.NewCommuteConfigRepository(database)
 	commuteSvc := commute.NewService(commuteConfigRepo, logger)
 	commuteAdapter := adapter.NewCommuteAdapter(commuteSvc)
-	branchCapacityAdapter := adapter.NewBranchCapacityAdapter(branchSvc)
 
 	scorer := scheduling.NewWeightedScorer()
-	clpEngine := scheduling.NewCLPEngine(bookingRepo, teacherRoster, scorer, commuteAdapter, branchCapacityAdapter, logger)
+	clpEngine := scheduling.NewCLPEngine(bookingRepo, teacherRoster, scorer, commuteAdapter, logger)
 
 	schedulingSvc := scheduling.NewSchedulingService(bookingRepo, availRepo, clpEngine)
 

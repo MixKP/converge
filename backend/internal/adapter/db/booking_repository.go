@@ -116,20 +116,6 @@ func (r *BookingRepo) FindConflictingBookings(ctx context.Context, teacherID int
 	return scanOverlappingBookings(rows)
 }
 
-func (r *BookingRepo) FindBookingsByBranch(ctx context.Context, branchID int, startTime, endTime time.Time) ([]scheduling.Booking, error) {
-	rows, err := r.DB.QueryContext(ctx, `
-		SELECT id, teacher_id, branch_id, subject_id, start_time, end_time
-		FROM bookings
-		WHERE branch_id = $1
-		  AND tstzrange(start_time, end_time) && tstzrange($2, $3)`,
-		branchID, startTime, endTime)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	return scanOverlappingBookings(rows)
-}
-
 func (r *BookingRepo) CreateBooking(ctx context.Context, req scheduling.ConfirmBookingRequest) (*scheduling.Booking, error) {
 	tx, err := r.DB.BeginTx(ctx, nil)
 	if err != nil {
@@ -148,9 +134,8 @@ func (r *BookingRepo) CreateBooking(ctx context.Context, req scheduling.ConfirmB
 		return nil, &shared.ValidationError{Msg: fmt.Sprintf("user %d is not a student", req.StudentID)}
 	}
 
-	var capacity int
 	var branchStatus string
-	if err := tx.QueryRowContext(ctx, `SELECT capacity, status FROM branches WHERE id = $1`, req.BranchID).Scan(&capacity, &branchStatus); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT status FROM branches WHERE id = $1`, req.BranchID).Scan(&branchStatus); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, &shared.NotFoundError{Msg: fmt.Sprintf("branch %d not found", req.BranchID)}
 		}
@@ -187,25 +172,6 @@ func (r *BookingRepo) CreateBooking(ctx context.Context, req scheduling.ConfirmB
 		}
 		if commuteConflict {
 			return nil, scheduling.ErrCommuteConflict
-		}
-	}
-
-	if capacity > 0 {
-		if _, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock($1::bigint)`, req.BranchID); err != nil {
-			return nil, err
-		}
-
-		var overlapping int
-		if err := tx.QueryRowContext(ctx, `
-			SELECT COUNT(*) FROM bookings
-			WHERE branch_id = $1
-			  AND tstzrange(start_time, end_time) && tstzrange($2, $3)`,
-			req.BranchID, req.StartTime, req.EndTime,
-		).Scan(&overlapping); err != nil {
-			return nil, err
-		}
-		if overlapping >= capacity {
-			return nil, scheduling.ErrBranchCapacityExceeded
 		}
 	}
 

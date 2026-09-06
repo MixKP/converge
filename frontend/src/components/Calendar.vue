@@ -306,6 +306,24 @@
     cursor: not-allowed;
   }
 
+  :deep(.fc-timegrid-col-bg:has(.capacity-event)) {
+    z-index: 4;
+    pointer-events: none;
+  }
+
+  :deep(.fc-bg-event.capacity-event) {
+    opacity: 1;
+    background: repeating-linear-gradient(
+      135deg,
+      rgba(232, 165, 152, 0.72) 0,
+      rgba(232, 165, 152, 0.72) 7px,
+      rgba(245, 199, 191, 0.72) 7px,
+      rgba(245, 199, 191, 0.72) 14px
+    ) !important;
+    border-top: 1px solid rgba(193, 104, 87, 0.9);
+    border-bottom: 1px solid rgba(193, 104, 87, 0.9);
+  }
+
   :deep(.commute-event-content) {
     display: flex;
     align-items: center;

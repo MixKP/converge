@@ -2,7 +2,6 @@ package scheduling
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"testing"
 	"time"
@@ -27,11 +26,6 @@ func (m *mockCLPBookingStore) FindExactMatch(ctx context.Context, subjectID, bra
 
 func (m *mockCLPBookingStore) FindConflictingBookings(ctx context.Context, teacherID int, startTime, endTime time.Time) ([]Booking, error) {
 	args := m.Called(ctx, teacherID, startTime, endTime)
-	return args.Get(0).([]Booking), args.Error(1)
-}
-
-func (m *mockCLPBookingStore) FindBookingsByBranch(ctx context.Context, branchID int, startTime, endTime time.Time) ([]Booking, error) {
-	args := m.Called(ctx, branchID, startTime, endTime)
 	return args.Get(0).([]Booking), args.Error(1)
 }
 
@@ -81,23 +75,6 @@ func (m *mockCLPScorer) Score(ctx context.Context, candidate ScorableCandidate) 
 	return args.Get(0).(ScoreResult)
 }
 
-type mockCLPBranchCapacity struct {
-	mock.Mock
-}
-
-func (m *mockCLPBranchCapacity) GetCapacity(ctx context.Context, branchID int) (int, error) {
-	args := m.Called(ctx, branchID)
-	return args.Int(0), args.Error(1)
-}
-
-// zeroBranchCapacity is a no-op BranchCapacityCheck for tests that don't
-// exercise branch-capacity behavior; capacity=0 means "unenforced".
-type zeroBranchCapacity struct{}
-
-func (zeroBranchCapacity) GetCapacity(ctx context.Context, branchID int) (int, error) {
-	return 0, nil
-}
-
 func clpSlot(day int, start, end string) shared.WeeklySlot {
 	return shared.WeeklySlot{DayOfWeek: day, Start: shared.TimeHHMM(start), End: shared.TimeHHMM(end)}
 }
@@ -106,7 +83,7 @@ func TestCLPEngine_Alternatives_NoTeachers(t *testing.T) {
 	bStore := new(mockCLPBookingStore)
 	tRoster := new(mockCLPTeacherRoster)
 	scorer := new(mockCLPScorer)
-	engine := NewCLPEngine(bStore, tRoster, scorer, nil, zeroBranchCapacity{}, slog.Default())
+	engine := NewCLPEngine(bStore, tRoster, scorer, nil, slog.Default())
 
 	tRoster.On("TeachersBySubject", mock.Anything, 1).Return([]TeacherInfo{}, nil)
 
@@ -115,31 +92,13 @@ func TestCLPEngine_Alternatives_NoTeachers(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Empty(t, result)
-}
-
-func TestCLPEngine_Alternatives_NoTeachers_SkipsBranchCapacityLookup(t *testing.T) {
-	bStore := new(mockCLPBookingStore)
-	tRoster := new(mockCLPTeacherRoster)
-	scorer := new(mockCLPScorer)
-	branchCap := new(mockCLPBranchCapacity)
-	engine := NewCLPEngine(bStore, tRoster, scorer, nil, branchCap, slog.Default())
-
-	tRoster.On("TeachersBySubject", mock.Anything, 1).Return([]TeacherInfo{}, nil)
-
-	req := bookingReq(1, 1, clpSlot(0, "09:00", "10:00"), 60)
-	result, err := engine.FindAlternativesForSlot(context.Background(), req, req.PreferredSlots[0])
-
-	assert.NoError(t, err)
-	assert.Empty(t, result)
-	branchCap.AssertNotCalled(t, "GetCapacity", mock.Anything, mock.Anything)
-	bStore.AssertNotCalled(t, "FindBookingsByBranch", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestCLPEngine_Alternatives_ConflictPruned(t *testing.T) {
 	bStore := new(mockCLPBookingStore)
 	tRoster := new(mockCLPTeacherRoster)
 	scorer := new(mockCLPScorer)
-	engine := NewCLPEngine(bStore, tRoster, scorer, nil, zeroBranchCapacity{}, slog.Default())
+	engine := NewCLPEngine(bStore, tRoster, scorer, nil, slog.Default())
 
 	teacher := TeacherInfo{ID: 1, Name: "Alice", Gender: "female"}
 	tRoster.On("TeachersBySubject", mock.Anything, 1).Return([]TeacherInfo{teacher}, nil)
@@ -166,7 +125,7 @@ func TestCLPEngine_Alternatives_NoConflict(t *testing.T) {
 	bStore := new(mockCLPBookingStore)
 	tRoster := new(mockCLPTeacherRoster)
 	scorer := new(mockCLPScorer)
-	engine := NewCLPEngine(bStore, tRoster, scorer, nil, zeroBranchCapacity{}, slog.Default())
+	engine := NewCLPEngine(bStore, tRoster, scorer, nil, slog.Default())
 
 	teacher := TeacherInfo{ID: 1, Name: "Alice", Gender: "female"}
 	tRoster.On("TeachersBySubject", mock.Anything, 1).Return([]TeacherInfo{teacher}, nil)
@@ -193,7 +152,7 @@ func TestCLPEngine_Alternatives_Top3ByScore(t *testing.T) {
 	bStore := new(mockCLPBookingStore)
 	tRoster := new(mockCLPTeacherRoster)
 	scorer := new(mockCLPScorer)
-	engine := NewCLPEngine(bStore, tRoster, scorer, nil, zeroBranchCapacity{}, slog.Default())
+	engine := NewCLPEngine(bStore, tRoster, scorer, nil, slog.Default())
 
 	teachers := []TeacherInfo{
 		{ID: 1, Name: "Alice", Gender: "female"},
@@ -233,7 +192,7 @@ func TestCLPEngine_Alternatives_RequiredGender_ExcludesMismatch(t *testing.T) {
 	bStore := new(mockCLPBookingStore)
 	tRoster := new(mockCLPTeacherRoster)
 	scorer := new(mockCLPScorer)
-	engine := NewCLPEngine(bStore, tRoster, scorer, nil, zeroBranchCapacity{}, slog.Default())
+	engine := NewCLPEngine(bStore, tRoster, scorer, nil, slog.Default())
 
 	teachers := []TeacherInfo{
 		{ID: 1, Name: "Alice", Gender: "male"},
@@ -268,8 +227,7 @@ func TestCLPEngine_Alternatives_RequiredGender_NoMatch_ReturnsEmpty(t *testing.T
 	bStore := new(mockCLPBookingStore)
 	tRoster := new(mockCLPTeacherRoster)
 	scorer := new(mockCLPScorer)
-	branchCap := new(mockCLPBranchCapacity)
-	engine := NewCLPEngine(bStore, tRoster, scorer, nil, branchCap, slog.Default())
+	engine := NewCLPEngine(bStore, tRoster, scorer, nil, slog.Default())
 
 	teachers := []TeacherInfo{
 		{ID: 1, Name: "Alice", Gender: "male"},
@@ -283,155 +241,6 @@ func TestCLPEngine_Alternatives_RequiredGender_NoMatch_ReturnsEmpty(t *testing.T
 	assert.NoError(t, err)
 	assert.Empty(t, result)
 	scorer.AssertNotCalled(t, "Score")
-	branchCap.AssertNotCalled(t, "GetCapacity", mock.Anything, mock.Anything)
-}
-
-func TestCLPEngine_Alternatives_BranchAtCapacity_Pruned(t *testing.T) {
-	bStore := new(mockCLPBookingStore)
-	tRoster := new(mockCLPTeacherRoster)
-	scorer := new(mockCLPScorer)
-	branchCap := new(mockCLPBranchCapacity)
-	engine := NewCLPEngine(bStore, tRoster, scorer, nil, branchCap, slog.Default())
-
-	teacher := TeacherInfo{ID: 1, Name: "Alice", Gender: "female"}
-	tRoster.On("TeachersBySubject", mock.Anything, 1).Return([]TeacherInfo{teacher}, nil)
-	tRoster.On("TeacherAvailability", mock.Anything, 1).Return([]shared.WeeklySlot{
-		clpSlot(0, "09:00", "17:00"),
-	}, nil)
-	bStore.On("FindConflictingBookings", mock.Anything, 1,
-		mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).Return([]Booking{}, nil)
-
-	branchCap.On("GetCapacity", mock.Anything, 1).Return(1, nil)
-	loc := shared.LoadLocation()
-	anchor := shared.AnchorDateForDay(0, loc)
-	existingBranchBookings := []Booking{
-		{ID: 99, StartTime: anchor.Add(7 * time.Hour), EndTime: anchor.Add(12 * time.Hour)},
-	}
-	bStore.On("FindBookingsByBranch", mock.Anything, 1,
-		mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).Return(existingBranchBookings, nil)
-
-	req := bookingReq(1, 1, clpSlot(0, "09:00", "10:00"), 60)
-	result, err := engine.FindAlternativesForSlot(context.Background(), req, req.PreferredSlots[0])
-
-	assert.NoError(t, err)
-	assert.Empty(t, result)
-	scorer.AssertNotCalled(t, "Score")
-}
-
-func TestCLPEngine_Alternatives_BranchUnderCapacity_Allowed(t *testing.T) {
-	bStore := new(mockCLPBookingStore)
-	tRoster := new(mockCLPTeacherRoster)
-	scorer := new(mockCLPScorer)
-	branchCap := new(mockCLPBranchCapacity)
-	engine := NewCLPEngine(bStore, tRoster, scorer, nil, branchCap, slog.Default())
-
-	teacher := TeacherInfo{ID: 1, Name: "Alice", Gender: "female"}
-	tRoster.On("TeachersBySubject", mock.Anything, 1).Return([]TeacherInfo{teacher}, nil)
-	tRoster.On("TeacherAvailability", mock.Anything, 1).Return([]shared.WeeklySlot{
-		clpSlot(0, "09:00", "17:00"),
-	}, nil)
-	bStore.On("FindConflictingBookings", mock.Anything, 1,
-		mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).Return([]Booking{}, nil)
-
-	branchCap.On("GetCapacity", mock.Anything, 1).Return(2, nil)
-	loc := shared.LoadLocation()
-	anchor := shared.AnchorDateForDay(0, loc)
-	existingBranchBookings := []Booking{
-		{ID: 99, StartTime: anchor.Add(7 * time.Hour), EndTime: anchor.Add(12 * time.Hour)},
-	}
-	bStore.On("FindBookingsByBranch", mock.Anything, 1,
-		mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).Return(existingBranchBookings, nil)
-	scorer.On("Score", mock.Anything, mock.AnythingOfType("ScorableCandidate")).
-		Return(ScoreResult{Score: 85, Reasons: []string{"Good match"}})
-
-	req := bookingReq(1, 1, clpSlot(0, "09:00", "10:00"), 60)
-	result, err := engine.FindAlternativesForSlot(context.Background(), req, req.PreferredSlots[0])
-
-	assert.NoError(t, err)
-	assert.NotEmpty(t, result)
-}
-
-func TestCLPEngine_Alternatives_BranchCapacityUnconfigured_NotEnforced(t *testing.T) {
-	bStore := new(mockCLPBookingStore)
-	tRoster := new(mockCLPTeacherRoster)
-	scorer := new(mockCLPScorer)
-	branchCap := new(mockCLPBranchCapacity)
-	engine := NewCLPEngine(bStore, tRoster, scorer, nil, branchCap, slog.Default())
-
-	teacher := TeacherInfo{ID: 1, Name: "Alice", Gender: "female"}
-	tRoster.On("TeachersBySubject", mock.Anything, 1).Return([]TeacherInfo{teacher}, nil)
-	tRoster.On("TeacherAvailability", mock.Anything, 1).Return([]shared.WeeklySlot{
-		clpSlot(0, "09:00", "17:00"),
-	}, nil)
-	bStore.On("FindConflictingBookings", mock.Anything, 1,
-		mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).Return([]Booking{}, nil)
-
-	branchCap.On("GetCapacity", mock.Anything, 1).Return(0, nil)
-	scorer.On("Score", mock.Anything, mock.AnythingOfType("ScorableCandidate")).
-		Return(ScoreResult{Score: 85, Reasons: []string{"Good match"}})
-
-	req := bookingReq(1, 1, clpSlot(0, "09:00", "10:00"), 60)
-	result, err := engine.FindAlternativesForSlot(context.Background(), req, req.PreferredSlots[0])
-
-	assert.NoError(t, err)
-	assert.NotEmpty(t, result)
-	bStore.AssertNotCalled(t, "FindBookingsByBranch", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
-}
-
-func TestCLPEngine_Alternatives_BranchCapacityLookupError_DegradesGracefully(t *testing.T) {
-	bStore := new(mockCLPBookingStore)
-	tRoster := new(mockCLPTeacherRoster)
-	scorer := new(mockCLPScorer)
-	branchCap := new(mockCLPBranchCapacity)
-	engine := NewCLPEngine(bStore, tRoster, scorer, nil, branchCap, slog.Default())
-
-	teacher := TeacherInfo{ID: 1, Name: "Alice", Gender: "female"}
-	tRoster.On("TeachersBySubject", mock.Anything, 1).Return([]TeacherInfo{teacher}, nil)
-	tRoster.On("TeacherAvailability", mock.Anything, 1).Return([]shared.WeeklySlot{
-		clpSlot(0, "09:00", "17:00"),
-	}, nil)
-	bStore.On("FindConflictingBookings", mock.Anything, 1,
-		mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).Return([]Booking{}, nil)
-
-	branchCap.On("GetCapacity", mock.Anything, 1).Return(0, errors.New("db unreachable"))
-	scorer.On("Score", mock.Anything, mock.AnythingOfType("ScorableCandidate")).
-		Return(ScoreResult{Score: 85, Reasons: []string{"Good match"}})
-
-	req := bookingReq(1, 1, clpSlot(0, "09:00", "10:00"), 60)
-	result, err := engine.FindAlternativesForSlot(context.Background(), req, req.PreferredSlots[0])
-
-	assert.NoError(t, err)
-	assert.NotEmpty(t, result)
-	bStore.AssertNotCalled(t, "FindBookingsByBranch", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
-}
-
-func TestCLPEngine_Alternatives_BranchBookingsLookupError_DegradesGracefully(t *testing.T) {
-	bStore := new(mockCLPBookingStore)
-	tRoster := new(mockCLPTeacherRoster)
-	scorer := new(mockCLPScorer)
-	branchCap := new(mockCLPBranchCapacity)
-	engine := NewCLPEngine(bStore, tRoster, scorer, nil, branchCap, slog.Default())
-
-	teacher := TeacherInfo{ID: 1, Name: "Alice", Gender: "female"}
-	tRoster.On("TeachersBySubject", mock.Anything, 1).Return([]TeacherInfo{teacher}, nil)
-	tRoster.On("TeacherAvailability", mock.Anything, 1).Return([]shared.WeeklySlot{
-		clpSlot(0, "09:00", "17:00"),
-	}, nil)
-	bStore.On("FindConflictingBookings", mock.Anything, 1,
-		mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).Return([]Booking{}, nil)
-
-	branchCap.On("GetCapacity", mock.Anything, 1).Return(1, nil)
-	bStore.On("FindBookingsByBranch", mock.Anything, 1,
-		mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).
-		Return(([]Booking)(nil), errors.New("db unreachable"))
-	scorer.On("Score", mock.Anything, mock.AnythingOfType("ScorableCandidate")).
-		Return(ScoreResult{Score: 85, Reasons: []string{"Good match"}})
-
-	req := bookingReq(1, 1, clpSlot(0, "09:00", "10:00"), 60)
-	result, err := engine.FindAlternativesForSlot(context.Background(), req, req.PreferredSlots[0])
-
-	assert.NoError(t, err)
-	assert.NotEmpty(t, result)
 }
 
 // stubCommute is a CommuteProvider returning a fixed commute duration; the
@@ -449,7 +258,7 @@ func TestCLPEngine_Alternatives_PriorDifferentBranch_ShiftsLater(t *testing.T) {
 	bStore := new(mockCLPBookingStore)
 	tRoster := new(mockCLPTeacherRoster)
 	scorer := new(mockCLPScorer)
-	engine := NewCLPEngine(bStore, tRoster, scorer, stubCommute{minutes: 30}, zeroBranchCapacity{}, slog.Default())
+	engine := NewCLPEngine(bStore, tRoster, scorer, stubCommute{minutes: 30}, slog.Default())
 
 	teacher := TeacherInfo{ID: 1, Name: "Alice", Gender: "female"}
 	tRoster.On("TeachersBySubject", mock.Anything, 1).Return([]TeacherInfo{teacher}, nil)
@@ -482,7 +291,7 @@ func TestCLPEngine_Alternatives_FollowingDifferentBranch_ShiftsEarlier(t *testin
 	bStore := new(mockCLPBookingStore)
 	tRoster := new(mockCLPTeacherRoster)
 	scorer := new(mockCLPScorer)
-	engine := NewCLPEngine(bStore, tRoster, scorer, stubCommute{minutes: 30}, zeroBranchCapacity{}, slog.Default())
+	engine := NewCLPEngine(bStore, tRoster, scorer, stubCommute{minutes: 30}, slog.Default())
 
 	teacher := TeacherInfo{ID: 1, Name: "Alice", Gender: "female"}
 	tRoster.On("TeachersBySubject", mock.Anything, 1).Return([]TeacherInfo{teacher}, nil)
@@ -511,7 +320,7 @@ func TestCLPEngine_Alternatives_ProximityBeatsQuality(t *testing.T) {
 	bStore := new(mockCLPBookingStore)
 	tRoster := new(mockCLPTeacherRoster)
 	scorer := new(mockCLPScorer)
-	engine := NewCLPEngine(bStore, tRoster, scorer, stubCommute{minutes: 30}, zeroBranchCapacity{}, slog.Default())
+	engine := NewCLPEngine(bStore, tRoster, scorer, stubCommute{minutes: 30}, slog.Default())
 
 	teacher := TeacherInfo{ID: 1, Name: "Alice", Gender: "female"}
 	tRoster.On("TeachersBySubject", mock.Anything, 1).Return([]TeacherInfo{teacher}, nil)
@@ -544,7 +353,7 @@ func TestCLPEngine_Alternatives_SameBranchNeighbor_NoShift(t *testing.T) {
 	bStore := new(mockCLPBookingStore)
 	tRoster := new(mockCLPTeacherRoster)
 	scorer := new(mockCLPScorer)
-	engine := NewCLPEngine(bStore, tRoster, scorer, stubCommute{minutes: 30}, zeroBranchCapacity{}, slog.Default())
+	engine := NewCLPEngine(bStore, tRoster, scorer, stubCommute{minutes: 30}, slog.Default())
 
 	teacher := TeacherInfo{ID: 1, Name: "Alice", Gender: "female"}
 	tRoster.On("TeachersBySubject", mock.Anything, 1).Return([]TeacherInfo{teacher}, nil)
@@ -578,7 +387,7 @@ func TestCLPEngine_CommuteConflict(t *testing.T) {
 
 	t.Run("different-branch adjacent booking blocks", func(t *testing.T) {
 		bStore := new(mockCLPBookingStore)
-		engine := NewCLPEngine(bStore, nil, nil, stubCommute{minutes: 30}, zeroBranchCapacity{}, slog.Default())
+		engine := NewCLPEngine(bStore, nil, nil, stubCommute{minutes: 30}, slog.Default())
 		bStore.On("FindConflictingBookings", mock.Anything, 1,
 			mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).Return(priorDiffBranch, nil)
 
@@ -589,7 +398,7 @@ func TestCLPEngine_CommuteConflict(t *testing.T) {
 
 	t.Run("same-branch adjacent booking does not block", func(t *testing.T) {
 		bStore := new(mockCLPBookingStore)
-		engine := NewCLPEngine(bStore, nil, nil, stubCommute{minutes: 30}, zeroBranchCapacity{}, slog.Default())
+		engine := NewCLPEngine(bStore, nil, nil, stubCommute{minutes: 30}, slog.Default())
 		sameBranch := []Booking{{ID: 1, BranchID: 1, StartTime: anchor.Add(12 * time.Hour), EndTime: anchor.Add(13 * time.Hour)}}
 		bStore.On("FindConflictingBookings", mock.Anything, 1,
 			mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).Return(sameBranch, nil)
@@ -601,7 +410,7 @@ func TestCLPEngine_CommuteConflict(t *testing.T) {
 
 	t.Run("nil commute never blocks", func(t *testing.T) {
 		bStore := new(mockCLPBookingStore)
-		engine := NewCLPEngine(bStore, nil, nil, nil, zeroBranchCapacity{}, slog.Default())
+		engine := NewCLPEngine(bStore, nil, nil, nil, slog.Default())
 
 		blocked, err := engine.CommuteConflict(context.Background(), 1, 1, start, end)
 		assert.NoError(t, err)
@@ -618,7 +427,7 @@ func TestCLPEngine_Alternatives_ConflictWindowWidenedByCommutePad(t *testing.T) 
 	bStore := new(mockCLPBookingStore)
 	tRoster := new(mockCLPTeacherRoster)
 	scorer := new(mockCLPScorer)
-	engine := NewCLPEngine(bStore, tRoster, scorer, stubCommute{minutes: 30}, zeroBranchCapacity{}, slog.Default())
+	engine := NewCLPEngine(bStore, tRoster, scorer, stubCommute{minutes: 30}, slog.Default())
 
 	teacher := TeacherInfo{ID: 1, Name: "Alice", Gender: "female"}
 	tRoster.On("TeachersBySubject", mock.Anything, 1).Return([]TeacherInfo{teacher}, nil)
