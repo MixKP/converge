@@ -11,7 +11,7 @@
     "check:booking": "node --experimental-strip-types scripts/check-booking-payload.ts",
     "check:capacity": "node --experimental-strip-types scripts/check-branch-capacity.ts",
     "check:commute": "node --experimental-strip-types scripts/check-commute-availability.ts",
-    "check:schedule": "node --experimental-strip-types scripts/check-schedule-filter.ts"
+    "check:availability": "node --experimental-strip-types scripts/check-availability-business-hours.ts"
   },
   "dependencies": {
     "@fontsource/instrument-sans": "^5.3.0",

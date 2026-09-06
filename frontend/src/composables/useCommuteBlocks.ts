@@ -62,11 +62,5 @@ export function useCommuteBlocks() {
     }))
   )
 
-  const overlapsCommute = (start: Date, end: Date): boolean => {
-    const from = start.getTime()
-    const to = end.getTime()
-    return commuteSpans.value.some((span) => from < span.end && to > span.start)
-  }
-
-  return { commuteConstraints, commuteSpans, overlapsCommute }
+  return { commuteConstraints, commuteSpans }
 }

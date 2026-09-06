@@ -1,4 +1,6 @@
+import type { BusinessHoursInput } from '@fullcalendar/core'
 import type { WeeklySlot } from '../types'
+
 interface BackendWeeklySlot {
   day_of_week: number
   start: string
@@ -21,4 +23,17 @@ export function transformBackendAvailability(
     map.set(item.teacher.id, item.weekly)
   }
   return map
+}
+
+export function businessHoursForTeachers(
+  availability: Map<number, WeeklySlot[]>,
+  teacherIds: number[]
+): BusinessHoursInput {
+  return teacherIds.flatMap((teacherId) =>
+    (availability.get(teacherId) ?? []).map((slot) => ({
+      daysOfWeek: [slot.day_of_week],
+      startTime: slot.start,
+      endTime: slot.end,
+    }))
+  )
 }

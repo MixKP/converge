@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useBookingStore } from '../stores/bookingStore'
 import { useNotification } from './useNotification'
 import { toMinutes } from '../utils/dateValidation'
@@ -13,7 +13,18 @@ export function useAISuggestions() {
 
   const invalidateRequest = () => {
     currentRequestId.value = null
+    bookingStore.isEvaluating = false
   }
+
+  watch(
+    [
+      () => bookingStore.selectedSubjectId,
+      () => bookingStore.selectedBranchId,
+      () => bookingStore.selectedTeacherId,
+      () => bookingStore.requiredGender,
+    ],
+    invalidateRequest
+  )
 
   const getSuggestions = async (
     slots: Array<{ day_of_week: number; start: string; end: string }>
@@ -64,6 +75,7 @@ export function useAISuggestions() {
       showSuccess(msg, 8000)
       return true
     } catch (error) {
+      if (currentRequestId.value !== requestId) return false
       showError(
         error,
         isNetworkError(error)
@@ -75,7 +87,7 @@ export function useAISuggestions() {
       )
       return false
     } finally {
-      bookingStore.isEvaluating = false
+      if (currentRequestId.value === requestId) bookingStore.isEvaluating = false
     }
   }
 

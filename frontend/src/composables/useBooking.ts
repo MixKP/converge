@@ -19,7 +19,6 @@ export function useBooking() {
     isLoadingTeachers: refs.isLoadingTeachers,
     requiredGender: refs.requiredGender,
 
-    calendarRef: refs.calendarRef,
     isEvaluating: refs.isEvaluating,
     events: refs.events,
     businessHours: refs.businessHours,

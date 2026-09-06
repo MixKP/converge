@@ -4,7 +4,10 @@
   import { subjectApi } from '../services/subjectApi'
   import { teacherApi } from '../services/teacherApi'
   import { availabilityApi } from '../services/availabilityApi'
-  import { transformBackendAvailability } from '../utils/availabilityTransform'
+  import {
+    businessHoursForTeachers,
+    transformBackendAvailability,
+  } from '../utils/availabilityTransform'
   import type { Subject, Teacher, WeeklySlot } from '../types'
   import type { BusinessHoursInput } from '@fullcalendar/core'
   import PageLayout from '../components/PageLayout.vue'
@@ -21,6 +24,7 @@
   const businessHours = ref<BusinessHoursInput>([])
   const isLoading = ref(false)
   const isDataReady = ref(false)
+  let subjectRequestId = 0
 
   onMounted(async () => {
     try {
@@ -36,6 +40,7 @@
   })
 
   watch(selectedSubjectId, async (subjectId) => {
+    const requestId = ++subjectRequestId
     if (!subjectId) {
       filteredTeachers.value = []
       businessHours.value = []
@@ -44,22 +49,15 @@
 
     isLoading.value = true
     try {
-      filteredTeachers.value = await teacherApi.getBySubject(subjectId)
-
-      const teacherIds = filteredTeachers.value.map((t) => t.id)
-      const allSlots: WeeklySlot[] = []
-      for (const tid of teacherIds) {
-        const cached = availabilityCache.value.get(tid)
-        if (cached) allSlots.push(...cached)
-      }
-
-      businessHours.value = allSlots.map((slot) => ({
-        daysOfWeek: [slot.day_of_week],
-        startTime: slot.start,
-        endTime: slot.end,
-      }))
+      const teachers = await teacherApi.getBySubject(subjectId)
+      if (requestId !== subjectRequestId) return
+      filteredTeachers.value = teachers
+      businessHours.value = businessHoursForTeachers(
+        availabilityCache.value,
+        teachers.map((teacher) => teacher.id)
+      )
     } finally {
-      isLoading.value = false
+      if (requestId === subjectRequestId) isLoading.value = false
     }
   })
 </script>

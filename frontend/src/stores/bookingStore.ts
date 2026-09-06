@@ -6,8 +6,10 @@ import { subjectApi } from '../services/subjectApi'
 import { teacherApi } from '../services/teacherApi'
 import { branchApi } from '../services/branchApi'
 import { userApi } from '../services/userApi'
-import { transformBackendAvailability } from '../utils/availabilityTransform'
-import { debounce } from '../utils/common'
+import {
+  businessHoursForTeachers,
+  transformBackendAvailability,
+} from '../utils/availabilityTransform'
 import { useNotification } from '../composables/useNotification'
 import type { EventInput, BusinessHoursInput } from '@fullcalendar/core'
 import type {
@@ -55,7 +57,6 @@ export const useBookingStore = defineStore('booking', () => {
     set: (val) => teacherStore.setSelectedTeacherById(val),
   })
 
-  const calendarRef = ref()
   const isEvaluating = ref(false)
   const events = ref<EventInput[]>([])
   const businessHours = ref<BusinessHoursInput>([])
@@ -66,10 +67,10 @@ export const useBookingStore = defineStore('booking', () => {
   const showDetailedResults = ref(false)
 
   const confirmedBookings = ref<Booking[]>([])
-  const isLoadingBookings = ref(false)
 
   let availabilityPromise: Promise<void> | null = null
   let dataFetched = false
+  let subjectRequestId = 0
 
   const fetchSubjects = async () => {
     subjects.value = await subjectApi.getAll()
@@ -83,27 +84,32 @@ export const useBookingStore = defineStore('booking', () => {
     students.value = await userApi.listStudents()
   }
 
-  const fetchTeachersBySubject = async (subjectId: number): Promise<void> => {
+  const handleSubjectChange = async (
+    subjectId: number | null,
+    requestId: number
+  ): Promise<void> => {
+    selectedBranchId.value = null
+    teacherStore.setSelectedTeacherById(null)
+
+    if (!subjectId) {
+      filteredTeachers.value = []
+      return
+    }
+
     try {
       isLoadingTeachers.value = true
-      filteredTeachers.value = await teacherApi.getBySubject(subjectId)
+      const teachers = await teacherApi.getBySubject(subjectId)
+      if (requestId !== subjectRequestId) return
+      filteredTeachers.value = teachers
     } finally {
-      isLoadingTeachers.value = false
+      if (requestId === subjectRequestId) isLoadingTeachers.value = false
     }
   }
 
-  const handleSubjectChange = debounce(async (newSubjectId: number | null) => {
-    if (newSubjectId) {
-      await fetchTeachersBySubject(newSubjectId)
-    } else {
-      filteredTeachers.value = []
-    }
-    selectedBranchId.value = null
-    teacherStore.setSelectedTeacherById(null)
-  }, 200)
-
   watch(selectedSubjectId, (newSubjectId) => {
-    handleSubjectChange(newSubjectId)
+    const requestId = ++subjectRequestId
+    resetBookingState()
+    void handleSubjectChange(newSubjectId, requestId)
   })
 
   const mapCartItemToEvent = (item: CartItem): EventInput => {
@@ -150,50 +156,25 @@ export const useBookingStore = defineStore('booking', () => {
     }
   }
 
-  const bookedEvents = computed<EventInput[]>(() => confirmedBookings.value.map(mapBookingToEvent))
+  const matchesCurrentSelection = (teacherId: number, subjectId: number): boolean => {
+    if (selectedTeacherId.value) return teacherId === selectedTeacherId.value
+    if (!selectedSubjectId.value) return false
+    return (
+      subjectId === selectedSubjectId.value ||
+      filteredTeachers.value.some((teacher) => teacher.id === teacherId)
+    )
+  }
 
   const allEvents = computed<EventInput[]>(() => {
     const cartStore = useCartStore()
 
-    const filteredCartEvents = cartStore.cartItems.map(mapCartItemToEvent).filter((event) => {
-      const eventId = event.id
-      if (!eventId || typeof eventId !== 'string') return false
-      const cartId = parseInt(eventId.replace('cart-', ''), 10)
-      if (isNaN(cartId)) return false
-      const cartItem = cartStore.cartItems.find((item) => item.id === cartId)
-      if (!cartItem) return false
+    const filteredCartEvents = cartStore.cartItems
+      .filter((item) => matchesCurrentSelection(item.teacher_id, item.subject_id))
+      .map(mapCartItemToEvent)
 
-      if (selectedTeacherId.value) {
-        return cartItem.teacher_id === selectedTeacherId.value
-      }
-
-      if (selectedSubjectId.value) {
-        if (cartItem.subject_id === selectedSubjectId.value) {
-          return true
-        }
-        return filteredTeachers.value.some((t) => t.id === cartItem.teacher_id)
-      }
-
-      return false
-    })
-
-    const filteredBookedEvents = bookedEvents.value.filter((event) => {
-      const props = event.extendedProps
-      if (!props) return false
-
-      if (selectedTeacherId.value) {
-        return props.teacherId === selectedTeacherId.value
-      }
-
-      if (selectedSubjectId.value) {
-        if (props.subjectId === selectedSubjectId.value) {
-          return true
-        }
-        return filteredTeachers.value.some((t) => t.id === props.teacherId)
-      }
-
-      return false
-    })
+    const filteredBookedEvents = confirmedBookings.value
+      .filter((booking) => matchesCurrentSelection(booking.teacher_id, booking.subject_id))
+      .map(mapBookingToEvent)
 
     return [...events.value, ...filteredCartEvents, ...filteredBookedEvents]
   })
@@ -210,55 +191,24 @@ export const useBookingStore = defineStore('booking', () => {
   }
 
   const updateBusinessHours = (teacherId: number | null): void => {
-    if (teacherId) {
-      const cached = availabilityCache.value.get(teacherId)
-      if (cached) {
-        businessHours.value = cached.map((slot) => ({
-          daysOfWeek: [slot.day_of_week],
-          startTime: slot.start,
-          endTime: slot.end,
-        }))
-      }
-    } else {
-      businessHours.value = []
-    }
-  }
-
-  const getAggregatedAvailability = (teacherIds: number[]): WeeklySlot[] => {
-    const allSlots: WeeklySlot[] = []
-    for (const teacherId of teacherIds) {
-      const cached = availabilityCache.value.get(teacherId)
-      if (cached) {
-        allSlots.push(...cached)
-      }
-    }
-    return allSlots
+    businessHours.value = businessHoursForTeachers(
+      availabilityCache.value,
+      teacherId === null ? [] : [teacherId]
+    )
   }
 
   const updateBusinessHoursFromTeachers = (teachers: { id: number }[]): void => {
-    const teacherIds = teachers.map((t) => t.id)
-    const slots = getAggregatedAvailability(teacherIds)
-
-    if (slots.length === 0) {
-      businessHours.value = []
-      return
-    }
-
-    businessHours.value = slots.map((slot) => ({
-      daysOfWeek: [slot.day_of_week],
-      startTime: slot.start,
-      endTime: slot.end,
-    }))
+    businessHours.value = businessHoursForTeachers(
+      availabilityCache.value,
+      teachers.map((teacher) => teacher.id)
+    )
   }
 
   const fetchConfirmedBookings = async () => {
-    isLoadingBookings.value = true
     try {
       confirmedBookings.value = await bookingApi.list()
     } catch (error) {
       console.error('Failed to fetch bookings:', error)
-    } finally {
-      isLoadingBookings.value = false
     }
   }
 
@@ -267,10 +217,6 @@ export const useBookingStore = defineStore('booking', () => {
     suggestions.value = null
     events.value = []
   }
-
-  watch(selectedSubjectId, () => {
-    resetBookingState()
-  })
 
   watch(selectedTeacherId, async (teacherId) => {
     if (availabilityPromise) {
@@ -330,7 +276,6 @@ export const useBookingStore = defineStore('booking', () => {
     isLoadingTeachers,
     requiredGender,
 
-    calendarRef,
     isEvaluating,
     events,
     businessHours,
@@ -341,13 +286,9 @@ export const useBookingStore = defineStore('booking', () => {
     allEvents,
 
     confirmedBookings,
-    isLoadingBookings,
-
     fetchSubjects,
     fetchBranches,
     fetchStudents,
-    fetchTeachersBySubject,
-    handleSubjectChange,
     fetchConfirmedBookings,
     resetBookingState,
     initialize,

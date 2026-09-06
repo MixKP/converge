@@ -1,5 +1,3 @@
-// Runnable check for the pure navigation logic in src/router/guard.ts.
-// Run: npm run check:auth   (node --experimental-strip-types, no test framework)
 import { homeFor, resolveRoute, safeRedirect, LOGIN_PATH } from '../src/router/guard.ts'
 
 let failures = 0
@@ -40,9 +38,6 @@ expect('anonymous reaches the login page', resolveRoute(target(LOGIN_PATH), anon
 })
 
 console.log('resolveRoute — expired or absent session')
-// The critical failure mode: a token that expired mid-session leaves the store
-// unauthenticated, and the next navigation must divert to login while keeping
-// the destination so the user is returned to it after signing in.
 expect(
   'expired session on an admin route redirects to login and preserves the destination',
   resolveRoute(

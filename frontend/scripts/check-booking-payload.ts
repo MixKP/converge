@@ -1,5 +1,3 @@
-// Runnable check for the confirm-booking wire shape in src/utils/bookingPayload.ts.
-// Run: npm run check:booking   (node --experimental-strip-types, no test framework)
 import { toConfirmRequest } from '../src/utils/bookingPayload.ts'
 import type { CartItem } from '../src/types/booking.ts'
 
@@ -32,8 +30,6 @@ const item: CartItem = {
 }
 
 console.log('toConfirmRequest — happy path')
-// The backend binds exactly these six fields; anything extra (the old
-// client_name / required_gender) is ignored and a missing student_id is a 400.
 expect('sends exactly the fields the backend binds', toConfirmRequest(item), {
   teacher_id: 7,
   branch_id: 2,
@@ -44,8 +40,6 @@ expect('sends exactly the fields the backend binds', toConfirmRequest(item), {
 })
 
 console.log('toConfirmRequest — cart item written before student ownership')
-// localStorage outlives a deploy, so a cart item can arrive with no student.
-// It must be refused here rather than sent for the backend to reject.
 expect(
   'refuses an item with no student',
   toConfirmRequest({ ...item, student_id: undefined as unknown as number }),
