@@ -3,20 +3,9 @@ import { storeToRefs } from 'pinia'
 import { useBookingStore } from '../stores/bookingStore'
 import { useCartStore } from '../stores/cartStore'
 import { useCommute } from './useCommute'
-import { mergeSpans, subtractSpans, type Span } from '../utils/intervals'
+import { subtractSpans, type Span } from '../utils/intervals'
+import { commuteSpansForBranch, type CommuteEngagement } from '../utils/commuteAvailability'
 import type { EventInput } from '@fullcalendar/core'
-
-const COMMUTE_BACKGROUND = 'rgba(192, 87, 74, 0.14)'
-const COMMUTE_BORDER = 'var(--destructive)'
-const COMMUTE_TEXT = 'var(--destructive)'
-
-const MIN_VISIBLE_MS = 10 * 60 * 1000
-
-interface Engagement {
-  start: number
-  end: number
-  branchId: number
-}
 
 export function useCommuteBlocks() {
   const store = useBookingStore()
@@ -25,11 +14,11 @@ export function useCommuteBlocks() {
   const { cartItems } = storeToRefs(cartStore)
   const { commuteMinutes } = useCommute()
 
-  const engagements = computed<Engagement[]>(() => {
+  const engagements = computed<CommuteEngagement[]>(() => {
     const teacherId = selectedTeacherId.value
     if (teacherId === null) return []
 
-    const rows: Engagement[] = []
+    const rows: CommuteEngagement[] = []
     const add = (branchId: number, startTime: string, endTime: string) => {
       const start = new Date(startTime).getTime()
       const end = new Date(endTime).getTime()
@@ -55,35 +44,21 @@ export function useCommuteBlocks() {
     const branchId = selectedBranchId.value
     if (!minutes || branchId === null) return []
 
-    const buffer = minutes * 60 * 1000
-    const spans: Span[] = []
-    for (const engagement of engagements.value) {
-      if (engagement.branchId === branchId) continue
-      spans.push({ start: engagement.start - buffer, end: engagement.start })
-      spans.push({ start: engagement.end, end: engagement.end + buffer })
-    }
-
     const booked = engagements.value.map((e) => ({ start: e.start, end: e.end }))
-    return mergeSpans(spans)
-      .flatMap((span) => subtractSpans(span, booked))
-      .filter((span) => span.end - span.start >= MIN_VISIBLE_MS)
+    return commuteSpansForBranch(engagements.value, branchId, minutes).flatMap((span) =>
+      subtractSpans(span, booked)
+    )
   })
 
-  const commuteEvents = computed<EventInput[]>(() =>
+  const commuteConstraints = computed<EventInput[]>(() =>
     commuteSpans.value.map((span) => ({
       id: `commute-${span.start}-${span.end}`,
-      title: `Commute ${commuteMinutes.value} min`,
+      title: 'Commute',
       start: new Date(span.start).toISOString(),
       end: new Date(span.end).toISOString(),
       editable: false,
-      backgroundColor: COMMUTE_BACKGROUND,
-      borderColor: COMMUTE_BORDER,
-      textColor: COMMUTE_TEXT,
-      classNames: ['commute-event'],
-      extendedProps: {
-        isCommute: true,
-        commuteLabel: `Commute ${commuteMinutes.value} min`,
-      },
+      classNames: ['commute-unavailable'],
+      extendedProps: { isCommute: true },
     }))
   )
 
@@ -93,5 +68,5 @@ export function useCommuteBlocks() {
     return commuteSpans.value.some((span) => from < span.end && to > span.start)
   }
 
-  return { commuteEvents, commuteSpans, overlapsCommute }
+  return { commuteConstraints, commuteSpans, overlapsCommute }
 }

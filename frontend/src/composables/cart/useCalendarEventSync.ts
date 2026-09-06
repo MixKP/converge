@@ -10,7 +10,8 @@ const collectIds = (events: EventInput[] | undefined): Set<string> =>
 export function useCalendarEventSync(
   calendarRef: CalendarRef,
   source: () => EventInput[] | undefined,
-  transform?: (event: EventInput) => EventInput
+  transform?: (event: EventInput) => EventInput,
+  refreshExisting = false
 ) {
   watch(
     [calendarRef, source] as const,
@@ -28,9 +29,9 @@ export function useCalendarEventSync(
       }
       for (const event of newEvents ?? []) {
         if (!event.id) continue
-        if (!api.getEventById(event.id)) {
-          api.addEvent(transform ? transform(event) : event)
-        }
+        const existing = api.getEventById(event.id)
+        if (existing && refreshExisting) existing.remove()
+        if (!existing || refreshExisting) api.addEvent(transform ? transform(event) : event)
       }
     },
     { immediate: true }

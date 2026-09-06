@@ -10,6 +10,7 @@
     "check:auth": "node --experimental-strip-types scripts/check-auth-guard.ts",
     "check:booking": "node --experimental-strip-types scripts/check-booking-payload.ts",
     "check:capacity": "node --experimental-strip-types scripts/check-branch-capacity.ts",
+    "check:commute": "node --experimental-strip-types scripts/check-commute-availability.ts",
     "check:schedule": "node --experimental-strip-types scripts/check-schedule-filter.ts"
   },
   "dependencies": {

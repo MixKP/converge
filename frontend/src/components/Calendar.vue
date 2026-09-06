@@ -108,7 +108,8 @@
     (event) => ({
       ...event,
       editable: false,
-    })
+    }),
+    true
   )
 
   const formatTimeRange = (start: Date, end: Date): string => {
@@ -117,13 +118,18 @@
     const startAmpm = startHours >= 12 ? 'PM' : 'AM'
     const endAmpm = endHours >= 12 ? 'PM' : 'AM'
 
-    const startFormatted = `${startHours % 12 || 12}:${start.getMinutes().toString().padStart(2, '0')}`
-    const endFormatted = `${endHours % 12 || 12}:${end.getMinutes().toString().padStart(2, '0')}`
+    const formatTime = (hours: number, minutes: number): string =>
+      minutes === 0
+        ? String(hours % 12 || 12)
+        : `${hours % 12 || 12}:${minutes.toString().padStart(2, '0')}`
+
+    const startFormatted = formatTime(startHours, start.getMinutes())
+    const endFormatted = formatTime(endHours, end.getMinutes())
 
     if (startAmpm === endAmpm) {
-      return `${startFormatted} - ${endFormatted} ${startAmpm}`
+      return `${startFormatted}–${endFormatted} ${startAmpm}`
     }
-    return `${startFormatted} ${startAmpm} - ${endFormatted} ${endAmpm}`
+    return `${startFormatted} ${startAmpm}–${endFormatted} ${endAmpm}`
   }
 
   const escapeHtml = (value: string): string =>
@@ -143,22 +149,13 @@
     const timeRange = formatTimeRange(new Date(start), new Date(end))
     const p = arg.event.extendedProps
 
-    if (p?.isCommute) {
-      return {
-        html: `
-          <div class="custom-event-content commute-event-content">
-            <div class="commute-event-label">${escapeHtml(String(p.commuteLabel ?? 'Commute'))}</div>
-          </div>
-        `,
-      }
-    }
-
     if (p?.isBrowse) {
+      const showTime = end.getTime() - start.getTime() > 60 * 60 * 1000
       return {
         html: `
           <div class="custom-event-content browse-event-content">
             <div class="browse-event-label">${escapeHtml(String(p.browseLabel ?? ''))}</div>
-            <div class="browse-event-time">${timeRange}</div>
+            ${showTime ? `<div class="browse-event-time">${timeRange}</div>` : ''}
           </div>
         `,
       }
@@ -300,12 +297,6 @@
     height: 12px;
   }
 
-  :deep(.commute-event) {
-    border-width: 1px;
-    border-style: dashed;
-    cursor: not-allowed;
-  }
-
   :deep(.fc-timegrid-col-bg:has(.capacity-event)) {
     z-index: 4;
     pointer-events: none;
@@ -324,28 +315,38 @@
     border-bottom: 1px solid rgba(193, 104, 87, 0.9);
   }
 
-  :deep(.commute-event-content) {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  :deep(.fc-event.commute-unavailable) {
+    opacity: 1;
+    background: rgba(100, 116, 139, 0.12) !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    pointer-events: none;
+  }
+
+  :deep(.fc-timegrid-event-harness:has(.commute-unavailable)) {
+    pointer-events: none;
+  }
+
+  :deep(.fc-event.commute-unavailable .fc-event-main) {
+    position: relative;
     width: 100%;
     height: 100%;
-    overflow: hidden;
+    padding: 0 !important;
+    font-size: 0;
   }
 
-  :deep(.commute-event-label) {
-    font-size: 0.6875rem;
+  :deep(.fc-event.commute-unavailable .fc-event-main::before) {
+    content: 'Commute';
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: rgba(71, 85, 105, 0.8);
+    font-size: 0.5625rem;
     font-weight: 600;
-    letter-spacing: 0.01em;
-    text-align: center;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-family: 'Inter', sans-serif;
-  }
-
-  :deep(.fc-event.commute-event .fc-event-main) {
-    padding: 2px 4px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
 
   :deep(.browse-event) {

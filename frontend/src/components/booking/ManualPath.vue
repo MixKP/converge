@@ -1,6 +1,6 @@
 <script setup lang="ts">
   import { ref, computed, watch, onMounted } from 'vue'
-  import { CalendarOff, Car, Eye, Loader2, X } from '@lucide/vue'
+  import { CalendarOff, Eye, Loader2, X } from '@lucide/vue'
   import { useBooking } from '../../composables/useBooking'
   import { useBookingContext } from '../../composables/useBookingContext'
   import {
@@ -46,7 +46,7 @@
   const { browseEvents } = useBrowseEvents(() => visibleRange.value)
   const { addSlotToCart } = useCart()
   const { loadCommuteMinutes } = useCommute()
-  const { commuteEvents } = useCommuteBlocks()
+  const { commuteConstraints } = useCommuteBlocks()
   const { capacityEvents, hasCapacityWarnings } = useBranchCapacity()
   const { showSuccess } = useNotification()
 
@@ -82,7 +82,8 @@
   )
 
   const additionalEvents = computed(() => [
-    ...(calendarState.value === 'browse' ? browseEvents.value : commuteEvents.value),
+    ...(calendarState.value === 'browse' ? browseEvents.value : []),
+    ...(calendarState.value === 'editable' ? commuteConstraints.value : []),
     ...capacityEvents.value,
   ])
 
@@ -265,16 +266,6 @@
         >
           <Loader2 class="size-4 animate-spin" />
           Loading availability…
-        </div>
-
-        <div
-          v-if="calendarState === 'editable' && commuteEvents.length > 0"
-          class="border-border bg-muted/40 text-muted-foreground flex items-center gap-2 rounded-md border px-3 py-2 text-xs"
-        >
-          <Car class="size-4 shrink-0" />
-          <span>
-            Dashed blocks are travel time to or from another branch. They cannot be booked.
-          </span>
         </div>
 
         <div
