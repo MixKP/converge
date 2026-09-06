@@ -43,6 +43,10 @@ export function resolveRoute(
     return auth.isAuthenticated ? { type: 'redirect', path: homeFor(auth.role) } : ALLOW
   }
 
+  if (path === GUEST_PATH && auth.isAuthenticated) {
+    return { type: 'redirect', path: homeFor(auth.role) }
+  }
+
   if (!access.requiresAuth) return ALLOW
 
   if (!auth.isAuthenticated) {
