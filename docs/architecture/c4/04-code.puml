@@ -1,0 +1,121 @@
+@startuml Converge_Code
+title Converge - Code Diagram (Go package and port view)
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "cmd/api" {
+  class "main.go" as main
+}
+
+package "internal/adapter/web" {
+  class "Gin handlers\nand middleware" as web
+}
+
+package "internal/scheduling" {
+  class SchedulingService
+  class CLPEngine
+  class WeightedScorer
+  class Solver
+  interface BookingStore <<port>>
+  interface TeacherRoster <<port>>
+  interface CommuteProvider <<port>>
+  interface "ReferenceStore\n(scheduling)" as schedulingReferenceStore <<port>>
+}
+
+package "internal/teacher" {
+  class "Service" as teacherService
+  interface TeacherStore <<port>>
+  interface AvailabilityStore <<port>>
+  interface "ReferenceStore\n(teacher)" as teacherReferenceStore <<port>>
+}
+
+package "internal/branch" {
+  class "Service" as branchService
+  interface BranchStore <<port>>
+}
+
+package "internal/user" {
+  class "Service" as userService
+  interface UserStore <<port>>
+  interface TokenIssuer <<port>>
+}
+
+package "internal/commute" {
+  class "Service" as commuteService
+  interface ConfigStore <<port>>
+}
+
+package "internal/adapter" {
+  class TeacherRosterAdapter
+  class CommuteAdapter
+}
+
+package "internal/adapter/db" {
+  class BookingRepo
+  class PostgresRepo
+  class BranchRepo
+  class UserRepo
+  class CommuteConfigRepo
+}
+
+package "internal/adapter/token" {
+  class JWT
+}
+
+class "PostgreSQL\n<<database>>" as postgres
+
+main --> web : wires routes
+main --> SchedulingService : constructs
+main --> teacherService : constructs
+main --> branchService : constructs
+main --> userService : constructs
+main --> commuteService : constructs
+
+web --> SchedulingService
+web --> teacherService
+web --> branchService
+web --> userService
+web --> commuteService
+
+SchedulingService --> CLPEngine : evaluates with
+CLPEngine --> WeightedScorer : ranks candidates
+CLPEngine --> Solver : solves alternatives
+SchedulingService ..> BookingStore
+SchedulingService ..> schedulingReferenceStore : subjects
+CLPEngine ..> BookingStore
+CLPEngine ..> TeacherRoster
+CLPEngine ..> CommuteProvider
+
+teacherService ..> TeacherStore
+teacherService ..> AvailabilityStore
+teacherService ..> teacherReferenceStore : subjects
+branchService ..> BranchStore
+userService ..> UserStore
+userService ..> TokenIssuer
+commuteService ..> ConfigStore
+
+TeacherRosterAdapter ..|> TeacherRoster
+TeacherRosterAdapter --> teacherService
+CommuteAdapter ..|> CommuteProvider
+CommuteAdapter --> commuteService
+
+BookingRepo ..|> BookingStore
+PostgresRepo ..|> TeacherStore
+PostgresRepo ..|> AvailabilityStore
+PostgresRepo ..|> schedulingReferenceStore
+PostgresRepo ..|> teacherReferenceStore
+BranchRepo ..|> BranchStore
+UserRepo ..|> UserStore
+CommuteConfigRepo ..|> ConfigStore
+JWT ..|> TokenIssuer
+
+BookingRepo --> postgres
+PostgresRepo --> postgres
+BranchRepo --> postgres
+UserRepo --> postgres
+CommuteConfigRepo --> postgres
+
+@enduml

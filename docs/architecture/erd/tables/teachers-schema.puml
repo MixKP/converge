@@ -1,0 +1,23 @@
+@startuml Converge_Teachers_Schema
+
+hide methods
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor #FEFEFE
+  BorderColor #303044
+  FontColor #303044
+}
+
+class teachers <<table>> {
+  * id : SERIAL <<PK>>
+  --
+  name : VARCHAR(100) NOT NULL
+  email : VARCHAR(255)
+  status : VARCHAR(20) DEFAULT 'active'
+  gender : VARCHAR(20) NOT NULL
+  created_at : TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  updated_at : TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+}
+
+@enduml

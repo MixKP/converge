@@ -1,0 +1,25 @@
+@startuml Converge_Container
+!include <C4/C4_Container>
+
+title Converge - Container Diagram
+LAYOUT_LEFT_RIGHT()
+
+Person(admin, "Administrator")
+Person(student, "Student")
+Person(parent, "Parent")
+Person(guest, "Guest")
+
+System_Boundary(converge, "Converge") {
+  Container(web, "Web client", "Vue 3, Pinia, Vite", "Browser interface, client session, and pending booking cart.")
+  Container(api, "Backend API", "Go, Gin", "REST API, authentication, role checks, domain services, and adapters.")
+  ContainerDb(db, "PostgreSQL", "PostgreSQL", "Stores teacher, availability, booking, branch, account, and commute configuration data.")
+}
+
+Rel(admin, web, "Uses", "HTTPS")
+Rel(student, web, "Uses", "HTTPS")
+Rel(parent, web, "Uses", "HTTPS")
+Rel(guest, web, "Uses", "HTTPS")
+Rel(web, api, "Calls REST endpoints", "JSON/HTTPS")
+Rel(api, db, "Reads and writes through repositories", "SQL")
+
+@enduml

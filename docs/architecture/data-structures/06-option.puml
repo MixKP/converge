@@ -1,0 +1,10 @@
+@startuml Option
+hide empty members
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class "Option<T>" as Option <<struct>> {
+  - value : T
+  - present : bool
+}
+@enduml

@@ -1,0 +1,11 @@
+@startuml User
+hide empty members
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class User <<struct>> {
+  + ID : int
+  + Name : string
+  + Role : string
+}
+@enduml

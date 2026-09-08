@@ -1,0 +1,22 @@
+@startuml CartItem
+hide empty members
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class CartItem <<struct>> {
+  + id : string
+  + teacher_id : int
+  + teacher_name : string
+  + branch_id : int
+  + branch_name : string
+  + subject_id : int
+  + subject_name : string
+  + start_time : string
+  + end_time : string
+  + student_id : int
+  + student_name : string
+  + score : int
+  + commute_minutes : int | null
+  + status : pending | confirmed
+}
+@enduml

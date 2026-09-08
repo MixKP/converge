@@ -1,0 +1,12 @@
+@startuml ParentWithStudents
+hide empty members
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class ParentWithStudents <<struct>> {
+  + ID : int
+  + Name : string
+  + Role : string
+  + Students : []User
+}
+@enduml

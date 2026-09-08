@@ -1,0 +1,14 @@
+@startuml BookingRequest
+hide empty members
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class BookingRequest <<struct>> {
+  + SubjectID : int
+  + BranchID : int
+  + PreferredSlots : []WeeklySlot
+  + DurationMinutes : int
+  + PreferredTeacherID : Option<int>
+  + RequiredGender : string
+}
+@enduml

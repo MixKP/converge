@@ -1,0 +1,19 @@
+@startuml Converge_System_Context
+!include <C4/C4_Context>
+
+title Converge - System Context
+LAYOUT_LEFT_RIGHT()
+
+Person(admin, "Administrator", "Manages teachers, availability, branches, commute time, accounts, and bookings.")
+Person(student, "Student", "Views their own classes.")
+Person(parent, "Parent", "Views classes for linked students.")
+Person(guest, "Guest", "Browses teachers, subjects, and availability.")
+
+System(converge, "Converge", "Automated appointment arrangement application.")
+
+Rel(admin, converge, "Manages and confirms bookings", "HTTPS")
+Rel(student, converge, "Views own classes", "HTTPS")
+Rel(parent, converge, "Views linked students' classes", "HTTPS")
+Rel(guest, converge, "Browses public availability", "HTTPS")
+
+@enduml

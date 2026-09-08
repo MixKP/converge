@@ -1,0 +1,10 @@
+@startuml Subject
+hide empty members
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class Subject <<struct>> {
+  + ID : int
+  + Name : string
+}
+@enduml

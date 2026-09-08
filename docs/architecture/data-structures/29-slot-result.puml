@@ -1,0 +1,12 @@
+@startuml SlotResult
+hide empty members
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class SlotResult <<struct>> {
+  + Slot : WeeklySlot
+  + ExactMatch : *BookingAlternative
+  + Alternatives : []BookingAlternative
+  + Message : string
+}
+@enduml

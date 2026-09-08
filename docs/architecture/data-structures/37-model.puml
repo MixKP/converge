@@ -1,0 +1,13 @@
+@startuml Model
+hide empty members
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class Model <<struct>> {
+  + Variables : []Variable
+  + Constraints : []Constraint
+  + Objective : Objective
+  --
+  + DedupKey : func(Assignment) string
+}
+@enduml

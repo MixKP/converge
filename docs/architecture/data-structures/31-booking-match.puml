@@ -1,0 +1,11 @@
+@startuml BookingMatch
+hide empty members
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class BookingMatch <<struct>> {
+  + BookingID : int
+  + Selected : SlotResult
+  + Alternatives : []BookingAlternative
+}
+@enduml

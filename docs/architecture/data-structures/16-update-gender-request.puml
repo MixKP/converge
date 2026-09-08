@@ -1,0 +1,9 @@
+@startuml UpdateGenderRequest
+hide empty members
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class UpdateGenderRequest <<struct>> {
+  + Gender : string
+}
+@enduml

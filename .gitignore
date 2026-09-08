@@ -1,5 +1,8 @@
 .env
 temp/
 memory/
+.memory/
+
+*.tex
 
 .DS_Store

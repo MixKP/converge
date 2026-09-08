@@ -1,0 +1,10 @@
+@startuml AuthResponse
+hide empty members
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class AuthResponse <<struct>> {
+  + Token : string
+  + User : User
+}
+@enduml

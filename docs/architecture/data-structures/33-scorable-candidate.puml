@@ -1,0 +1,15 @@
+@startuml ScorableCandidate
+hide empty members
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class ScorableCandidate <<struct>> {
+  + TeacherID : int
+  + BranchID : int
+  + SubjectID : int
+  + StartTime : time.Time
+  + EndTime : time.Time
+  + PreferenceRank : int
+  + CommuteMinutes : Option<int>
+}
+@enduml

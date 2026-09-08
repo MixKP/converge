@@ -1,0 +1,9 @@
+@startuml UpdateCommuteRequest
+hide empty members
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class UpdateCommuteRequest <<struct>> {
+  + CommuteTime : Option<int>
+}
+@enduml

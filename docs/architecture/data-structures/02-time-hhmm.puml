@@ -1,0 +1,9 @@
+@startuml TimeHHMM
+hide empty members
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class TimeHHMM <<type>> {
+  + value : string
+}
+@enduml

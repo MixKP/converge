@@ -1,0 +1,10 @@
+@startuml ScoreResult
+hide empty members
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class ScoreResult <<struct>> {
+  + Candidate : ScorableCandidate
+  + Score : int
+}
+@enduml

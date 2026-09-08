@@ -1,0 +1,9 @@
+@startuml LinkStudentRequest
+hide empty members
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class LinkStudentRequest <<struct>> {
+  + StudentID : int
+}
+@enduml

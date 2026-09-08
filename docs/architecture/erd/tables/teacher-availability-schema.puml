@@ -1,0 +1,14 @@
+@startuml Converge_Teacher_Availability_Schema
+hide methods
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class teacher_availability <<table>> {
+  * id : SERIAL <<PK>>
+  --
+  * teacher_id : INTEGER <<FK>>
+  day_of_week : INTEGER
+  * start_time : TIME
+  * end_time : TIME
+  created_at : TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+}
+@enduml

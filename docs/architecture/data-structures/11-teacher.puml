@@ -1,0 +1,13 @@
+@startuml Teacher
+hide empty members
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class Teacher <<struct>> {
+  + ID : int
+  + Name : string
+  + Email : string
+  + Status : string
+  + Gender : string
+}
+@enduml

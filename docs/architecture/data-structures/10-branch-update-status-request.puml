@@ -1,0 +1,9 @@
+@startuml BranchUpdateStatusRequest
+hide empty members
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class UpdateStatusRequest <<struct>> {
+  + Status : string
+}
+@enduml

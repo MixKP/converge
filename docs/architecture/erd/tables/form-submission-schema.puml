@@ -1,0 +1,12 @@
+@startuml Converge_Form_Submission_Schema
+hide methods
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class form_submission <<table>> {
+  * id : SERIAL <<PK>>
+  --
+  teacher_id : INTEGER <<FK, nullable>>
+  * raw_payload : JSONB
+  submitted_at : TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+}
+@enduml

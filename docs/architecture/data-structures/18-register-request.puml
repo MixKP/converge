@@ -1,0 +1,12 @@
+@startuml RegisterRequest
+hide empty members
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class RegisterRequest <<struct>> {
+  + Name : string
+  + Password : string
+  + Role : string
+  + StudentIDs : []int
+}
+@enduml

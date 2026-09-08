@@ -1,0 +1,10 @@
+@startuml Converge_Subjects_Schema
+hide methods
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class subjects <<table>> {
+  * id : SERIAL <<PK>>
+  --
+  * name : VARCHAR(100) <<UNIQUE>>
+}
+@enduml

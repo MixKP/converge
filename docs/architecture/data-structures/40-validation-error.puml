@@ -1,0 +1,10 @@
+@startuml ValidationError
+hide empty members
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class ValidationError <<struct>> {
+  + Field : string
+  + Message : string
+}
+@enduml

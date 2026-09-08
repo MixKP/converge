@@ -1,0 +1,10 @@
+@startuml CreateBranchRequest
+hide empty members
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class CreateBranchRequest <<struct>> {
+  + Name : string
+  + Capacity : Option<int>
+}
+@enduml

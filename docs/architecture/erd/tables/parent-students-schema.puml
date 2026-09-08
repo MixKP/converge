@@ -1,0 +1,9 @@
+@startuml Converge_Parent_Students_Schema
+hide methods
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class parent_students <<table>> {
+  * parent_id : INTEGER <<PK, FK>>
+  * student_id : INTEGER <<PK, FK>>
+}
+@enduml

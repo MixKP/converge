@@ -1,0 +1,45 @@
+@startuml Converge_Backend_Component
+!include <C4/C4_Component>
+
+title Converge - Backend Component Diagram (Hexagonal Architecture)
+LAYOUT_LEFT_RIGHT()
+
+Container_Ext(web, "Web client", "Vue 3", "Calls the REST API.")
+ContainerDb_Ext(db, "PostgreSQL", "PostgreSQL", "Persistent application data.")
+
+Container_Boundary(api, "Backend API (Go / Gin)") {
+  Component(http, "HTTP handlers and middleware", "Gin", "Inbound adapters: routing, request binding, JWT authentication, and role checks.")
+
+  Component(scheduling, "Scheduling domain", "Go", "Evaluates booking requests; produces alternatives; confirms, cancels, and lists bookings.")
+  Component(teacher, "Teacher domain", "Go", "Maintains teacher roster and weekly availability.")
+  Component(branch, "Branch domain", "Go", "Maintains branch capacity and status.")
+  Component(user, "User domain", "Go", "Authenticates users and manages parent-student relationships.")
+  Component(commute, "Commute domain", "Go", "Maintains the global cross-branch travel buffer.")
+
+  Component(teacherRoster, "TeacherRoster adapter", "Go", "Implements Scheduling's TeacherRoster port using the Teacher domain.")
+  Component(commuteAdapter, "Commute adapter", "Go", "Implements Scheduling's CommuteProvider port using the Commute domain.")
+  Component(repositories, "PostgreSQL repositories", "Go, database/sql", "Outbound adapters implementing domain persistence ports.")
+  Component(jwt, "JWT adapter", "Go", "Issues and validates JWTs for the User domain and HTTP middleware.")
+}
+
+Rel(web, http, "Calls", "JSON/HTTPS")
+Rel(http, scheduling, "Invokes booking use cases")
+Rel(http, teacher, "Invokes teacher and availability use cases")
+Rel(http, branch, "Invokes branch use cases")
+Rel(http, user, "Invokes account and parent-link use cases")
+Rel(http, commute, "Invokes commute configuration use cases")
+Rel(http, jwt, "Validates bearer tokens")
+
+Rel(scheduling, teacherRoster, "Uses TeacherRoster port")
+Rel(teacherRoster, teacher, "Delegates to")
+Rel(scheduling, commuteAdapter, "Uses CommuteProvider port")
+Rel(commuteAdapter, commute, "Delegates to")
+Rel(scheduling, repositories, "Uses BookingStore port")
+Rel(teacher, repositories, "Uses teacher, availability, and reference ports")
+Rel(branch, repositories, "Uses BranchStore port")
+Rel(user, repositories, "Uses UserStore port")
+Rel(user, jwt, "Uses TokenIssuer port")
+Rel(commute, repositories, "Uses ConfigStore port")
+Rel(repositories, db, "Reads and writes", "SQL")
+
+@enduml

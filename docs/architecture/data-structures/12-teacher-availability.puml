@@ -1,0 +1,10 @@
+@startuml TeacherAvailability
+hide empty members
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class TeacherAvailability <<struct>> {
+  + Teacher : Teacher
+  + Weekly : []WeeklySlot
+}
+@enduml

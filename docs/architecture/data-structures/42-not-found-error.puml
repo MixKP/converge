@@ -1,0 +1,10 @@
+@startuml NotFoundError
+hide empty members
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class NotFoundError <<struct>> {
+  + Resource : string
+  + ID : int
+}
+@enduml

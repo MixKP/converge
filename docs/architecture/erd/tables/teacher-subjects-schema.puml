@@ -1,0 +1,9 @@
+@startuml Converge_Teacher_Subjects_Schema
+hide methods
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class teacher_subjects <<table>> {
+  * teacher_id : INTEGER <<PK, FK>>
+  * subject_id : INTEGER <<PK, FK>>
+}
+@enduml

@@ -1,0 +1,11 @@
+@startuml WeeklySlot
+hide empty members
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class WeeklySlot <<struct>> {
+  + DayOfWeek : int
+  + Start : TimeHHMM
+  + End : TimeHHMM
+}
+@enduml

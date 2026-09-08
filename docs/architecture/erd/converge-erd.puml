@@ -1,0 +1,114 @@
+@startuml Converge_ERD
+
+top to bottom direction
+hide methods
+skinparam shadowing false
+skinparam linetype polyline
+skinparam nodesep 30
+skinparam ranksep 38
+skinparam classAttributeIconSize 0
+skinparam entity {
+  BackgroundColor #FEFEFE
+  BorderColor #303044
+  FontColor #303044
+}
+
+entity "teachers" as teachers {
+  * id : SERIAL <<PK>>
+  --
+  name : VARCHAR(100)
+  email : VARCHAR(255)
+  status : VARCHAR(20)
+  gender : VARCHAR(20)
+}
+
+entity "teacher_availability" as teacher_availability {
+  * id : SERIAL <<PK>>
+  --
+  * teacher_id : INTEGER <<FK>>
+  day_of_week : INTEGER
+  start_time : TIME
+  end_time : TIME
+}
+
+entity "form_submission" as form_submission {
+  * id : SERIAL <<PK>>
+  --
+  teacher_id : INTEGER <<FK, nullable>>
+  raw_payload : JSONB
+  submitted_at : TIMESTAMP
+}
+
+entity "subjects" as subjects {
+  * id : SERIAL <<PK>>
+  --
+  name : VARCHAR(100) <<UNIQUE>>
+}
+
+entity "teacher_subjects" as teacher_subjects {
+  * teacher_id : INTEGER <<PK, FK>>
+  * subject_id : INTEGER <<PK, FK>>
+}
+
+entity "branches" as branches {
+  * id : SERIAL <<PK>>
+  --
+  name : VARCHAR(100) <<UNIQUE>>
+  capacity : INTEGER
+  status : VARCHAR(20)
+}
+
+entity "users" as users {
+  * id : SERIAL <<PK>>
+  --
+  name : VARCHAR(100) <<UNIQUE>>
+  password_hash : VARCHAR(255)
+  role : VARCHAR(20)
+}
+
+entity "parent_students" as parent_students {
+  * parent_id : INTEGER <<PK, FK>>
+  * student_id : INTEGER <<PK, FK>>
+}
+
+entity "bookings" as bookings {
+  * id : SERIAL <<PK>>
+  --
+  * teacher_id : INTEGER <<FK>>
+  * branch_id : INTEGER <<FK>>
+  * subject_id : INTEGER <<FK>>
+  * student_id : INTEGER <<FK>>
+  start_time : TIMESTAMPTZ
+  end_time : TIMESTAMPTZ
+}
+
+entity "commute_config" as commute_config {
+  * id : SMALLINT <<PK>>
+  --
+  commute_minutes : INTEGER
+}
+
+' Layout guides: four entities per row, then their dependent tables below.
+teachers -[hidden]right-> subjects
+subjects -[hidden]right-> branches
+branches -[hidden]right-> users
+teachers -[hidden]down-> teacher_availability
+subjects -[hidden]down-> teacher_subjects
+branches -[hidden]down-> bookings
+users -[hidden]down-> parent_students
+teacher_availability -[hidden]down-> form_submission
+teacher_subjects -[hidden]right-> bookings
+bookings -[hidden]right-> parent_students
+form_submission -[hidden]right-> commute_config
+
+teachers ||--o{ teacher_availability : has
+teachers "0..1" -- "0..*" form_submission : submitted by
+teachers ||--o{ teacher_subjects : teaches
+subjects ||--o{ teacher_subjects : is assigned
+
+teachers ||--o{ bookings : assigned to
+subjects ||--o{ bookings : selected for
+branches ||--o{ bookings : held at
+users ||--o{ bookings : booked by student
+users ||--o{ parent_students : parent_id and student_id
+@enduml

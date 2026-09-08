@@ -1,0 +1,17 @@
+@startuml BookingAlternative
+hide empty members
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class BookingAlternative <<struct>> {
+  + TeacherID : int
+  + TeacherName : string
+  + BranchID : int
+  + SubjectID : int
+  + StartTime : time.Time
+  + EndTime : time.Time
+  + Score : int
+  + Reasons : []string
+  + CommuteMinutes : Option<int>
+}
+@enduml

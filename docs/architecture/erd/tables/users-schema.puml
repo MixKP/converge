@@ -1,0 +1,13 @@
+@startuml Converge_Users_Schema
+hide methods
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class users <<table>> {
+  * id : SERIAL <<PK>>
+  --
+  * name : VARCHAR(100) <<UNIQUE>>
+  * password_hash : VARCHAR(255)
+  * role : VARCHAR(20) DEFAULT 'student'
+  created_at : TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+}
+@enduml

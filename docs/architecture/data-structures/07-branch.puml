@@ -1,0 +1,12 @@
+@startuml Branch
+hide empty members
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class Branch <<struct>> {
+  + ID : int
+  + Name : string
+  + Capacity : int
+  + Status : string
+}
+@enduml

@@ -1,0 +1,16 @@
+@startuml Converge_Bookings_Schema
+hide methods
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class bookings <<table>> {
+  * id : SERIAL <<PK>>
+  --
+  * teacher_id : INTEGER <<FK>>
+  * branch_id : INTEGER <<FK>>
+  * subject_id : INTEGER <<FK>>
+  * student_id : INTEGER <<FK>>
+  * start_time : TIMESTAMPTZ
+  * end_time : TIMESTAMPTZ
+  created_at : TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+}
+@enduml

@@ -1,0 +1,10 @@
+@startuml Converge_Commute_Config_Schema
+hide methods
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class commute_config <<table>> {
+  * id : SMALLINT <<PK; always 1>>
+  --
+  * commute_minutes : INTEGER DEFAULT 30
+}
+@enduml

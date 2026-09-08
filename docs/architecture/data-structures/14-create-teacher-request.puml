@@ -1,0 +1,11 @@
+@startuml CreateTeacherRequest
+hide empty members
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class CreateTeacherRequest <<struct>> {
+  + Name : string
+  + Email : string
+  + Gender : string
+}
+@enduml

@@ -1,0 +1,14 @@
+@startuml ConfirmBookingRequest
+hide empty members
+hide circle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class ConfirmBookingRequest <<struct>> {
+  + TeacherID : int
+  + BranchID : int
+  + SubjectID : int
+  + StartTime : time.Time
+  + EndTime : time.Time
+  + StudentID : int
+}
+@enduml

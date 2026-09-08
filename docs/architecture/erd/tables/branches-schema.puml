@@ -1,0 +1,12 @@
+@startuml Converge_Branches_Schema
+hide methods
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+class branches <<table>> {
+  * id : SERIAL <<PK>>
+  --
+  * name : VARCHAR(100) <<UNIQUE>>
+  * capacity : INTEGER DEFAULT -1
+  * status : VARCHAR(20) DEFAULT 'active'
+}
+@enduml
