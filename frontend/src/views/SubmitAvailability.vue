@@ -21,7 +21,12 @@
 </script>
 
 <template>
-  <PageLayout title="Submit Availability" :show-cart="false">
+  <PageLayout
+    title="Submit Availability"
+    :show-cart="false"
+    back-to="/manage"
+    back-label="Manage Teachers"
+  >
     <div
       class="flex h-[calc(100dvh-60px)] justify-center overflow-hidden p-8 max-[480px]:p-3 max-md:p-4"
     >
@@ -91,6 +96,7 @@
             v-if="selectedTeacherId"
             v-model="events"
             :editable="true"
+            :show-header="false"
             class="min-h-0 md:overflow-hidden"
           />
           <CalendarDisabledOverlay v-else message="Select a teacher first" />

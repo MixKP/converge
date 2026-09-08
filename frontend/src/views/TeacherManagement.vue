@@ -67,7 +67,12 @@
     <div class="manage-root">
       <ManagementNav />
       <div class="manage-section">
-        <h2 class="manage-section-title">Add Teacher</h2>
+        <div class="manage-section-heading">
+          <h2 class="manage-section-title">Add Teacher</h2>
+          <RouterLink to="/form" class="manage-btn manage-btn--secondary">
+            Set Teacher Availability
+          </RouterLink>
+        </div>
         <div class="manage-form">
           <div class="manage-form-row">
             <div class="manage-form-field">
@@ -251,6 +256,18 @@
     color: var(--text-primary);
   }
 
+  .manage-section-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .manage-section-heading .manage-section-title {
+    margin-bottom: 0;
+  }
+
   .manage-form {
     background: var(--bg-card);
     border: 1px solid var(--border-subtle);
@@ -336,6 +353,18 @@
 
   .manage-btn--primary:hover:not(:disabled) {
     opacity: 0.9;
+  }
+
+  .manage-btn--secondary {
+    color: var(--primary-indigo);
+    background: var(--bg-card);
+    border: 1px solid var(--primary-indigo);
+    text-decoration: none;
+  }
+
+  .manage-btn--secondary:hover {
+    color: #fff;
+    background: var(--primary-indigo);
   }
 
   .manage-btn:disabled {
@@ -559,6 +588,11 @@
 
     .manage-section-title {
       font-size: 1rem;
+    }
+
+    .manage-section-heading {
+      align-items: flex-start;
+      flex-direction: column;
     }
   }
 
