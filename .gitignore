@@ -1,8 +1,11 @@
 .env
+.env.pitr
+deploy/postgres-backup/pgbackrest.conf
+deploy/postgres-backup/silo-certs/
 temp/
 memory/
 .memory/
-docs/*
+docs/
 scripts/
 
 *.tex
