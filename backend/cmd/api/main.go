@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -24,6 +25,7 @@ import (
 	"github.com/RinZ5/converge/backend/internal/adapter/db"
 	"github.com/RinZ5/converge/backend/internal/adapter/token"
 	"github.com/RinZ5/converge/backend/internal/adapter/web"
+	"github.com/RinZ5/converge/backend/internal/backup"
 	"github.com/RinZ5/converge/backend/internal/branch"
 	"github.com/RinZ5/converge/backend/internal/commute"
 	"github.com/RinZ5/converge/backend/internal/scheduling"
@@ -98,6 +100,14 @@ func timeoutMiddleware(timeout time.Duration) gin.HandlerFunc {
 	}
 }
 
+func positiveInt(key string, fallback int) int {
+	value, err := strconv.Atoi(os.Getenv(key))
+	if err != nil || value <= 0 {
+		return fallback
+	}
+	return value
+}
+
 func main() {
 	logger := shared.NewLogger()
 
@@ -150,11 +160,19 @@ func main() {
 	branchHandler := web.NewBranchHandler(branchSvc, logger)
 	commuteHandler := web.NewCommuteHandler(commuteSvc, logger)
 	userHandler := web.NewUserHandler(userSvc, logger)
+	backupService := backup.New(os.Getenv("BACKUP_DIR"), time.Duration(positiveInt("BACKUP_INTERVAL_HOURS", 24))*time.Hour, time.Duration(positiveInt("BACKUP_RETENTION_DAYS", 7))*24*time.Hour, logger)
+	backupCtx, stopBackups := context.WithCancel(context.Background())
+	defer stopBackups()
+	if os.Getenv("BACKUP_DIR") != "" {
+		backupService.Start(backupCtx)
+	}
+	recoveryHandler := web.NewRecoveryHandler(backupService, logger)
 
 	r := gin.Default()
 	r.Use(requestIDMiddleware())
 	r.Use(timeoutMiddleware(requestTimeout))
 	r.Use(cors.New(corsConfig()))
+	r.Use(recoveryHandler.Maintenance)
 	authRequired := web.AuthMiddleware(jwtAdapter)
 
 	api := r.Group("/api")
@@ -189,6 +207,9 @@ func main() {
 	admin.PATCH("/branches/:id/status", branchHandler.UpdateBranchStatus)
 	admin.GET("/commute", commuteHandler.GetCommute)
 	admin.PATCH("/commute", commuteHandler.UpdateCommute)
+	admin.GET("/recovery/backups", recoveryHandler.Status)
+	admin.POST("/recovery/backups", recoveryHandler.RequestBackup)
+	admin.POST("/recovery/restores", recoveryHandler.RequestRestore)
 	admin.POST("/bookings", bookingHandler.CreateBooking)
 	admin.POST("/bookings/confirm", bookingHandler.ConfirmBooking)
 	admin.DELETE("/bookings/:id", bookingHandler.CancelBooking)

@@ -1,6 +1,6 @@
 <script setup lang="ts">
   import { useRoute } from 'vue-router'
-  import { Building2, Car, GraduationCap, Users } from '@lucide/vue'
+  import { Building2, Car, DatabaseBackup, GraduationCap, Users } from '@lucide/vue'
 
   const route = useRoute()
 
@@ -9,6 +9,7 @@
     { label: 'Branches', path: '/manage/branches', icon: Building2 },
     { label: 'Commute', path: '/manage/commute', icon: Car },
     { label: 'Accounts', path: '/manage/accounts', icon: Users },
+    { label: 'Backups', path: '/manage/backups', icon: DatabaseBackup },
   ]
 </script>
 

@@ -5,6 +5,8 @@ export const API_ENDPOINTS = {
   BOOKINGS: 'bookings',
   BRANCHES: 'branches',
   COMMUTE: 'commute',
+  RECOVERY_BACKUPS: 'recovery/backups',
+  RECOVERY_RESTORES: 'recovery/restores',
   LOGIN: 'login',
   REGISTER: 'register',
   STUDENTS: 'students',

@@ -84,6 +84,12 @@ const router = createRouter({
       meta: adminOnly,
     },
     {
+      path: '/manage/backups',
+      name: 'backup-management',
+      component: () => import('../views/BackupManagement.vue'),
+      meta: adminOnly,
+    },
+    {
       path: '/:pathMatch(.*)*',
       redirect: '/',
     },
