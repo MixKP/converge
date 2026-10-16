@@ -2,6 +2,15 @@
 temp/
 memory/
 .memory/
+docs/*
+!docs/disaster-recovery/
+docs/disaster-recovery/*
+!docs/disaster-recovery/*.md
+!docs/disaster-recovery/diagrams/
+docs/disaster-recovery/diagrams/*
+!docs/disaster-recovery/diagrams/*.puml
+!docs/disaster-recovery/diagrams/README.md
+scripts/
 
 *.tex
 
