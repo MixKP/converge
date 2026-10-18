@@ -2,6 +2,8 @@ package backup
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"io"
 	"log/slog"
@@ -151,4 +153,39 @@ func TestLiveRestoreBlocksRequestsAndRecoversAfterSafetyBackupFailure(t *testing
 	}, time.Second, time.Millisecond)
 	require.True(t, s.EnterRequest())
 	s.LeaveRequest()
+}
+
+func TestSavePreviewArchiveVerifiesTransfer(t *testing.T) {
+	dir := t.TempDir()
+	s := New(dir, time.Hour, 7*24*time.Hour, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	s.run = func(_ context.Context, name string, args ...string) ([]byte, error) {
+		require.Equal(t, "pg_restore", name)
+		require.Equal(t, "--list", args[0])
+		return nil, nil
+	}
+	data := []byte("recovered archive")
+	digest := sha256.Sum256(data)
+	fetch := func(_ context.Context, dst io.Writer) (string, error) {
+		_, err := dst.Write(data)
+		return hex.EncodeToString(digest[:]), err
+	}
+	require.NoError(t, s.savePreviewArchive(context.Background(), "wal-preview-1.dump", fetch))
+	archive, err := verifiedArchive(dir, "wal-preview-1.dump")
+	require.NoError(t, err)
+	require.Equal(t, data, mustReadFile(t, archive))
+
+	badFetch := func(_ context.Context, dst io.Writer) (string, error) {
+		_, err := dst.Write(data[:5])
+		return hex.EncodeToString(digest[:]), err
+	}
+	require.ErrorContains(t, s.savePreviewArchive(context.Background(), "wal-preview-2.dump", badFetch), "checksum")
+	require.NoFileExists(t, filepath.Join(dir, "wal-preview-2.dump"))
+	require.ErrorContains(t, s.RequestPreviewRestore("bad", "APPLY WAL PREVIEW bad", fetch), "valid recovery preview")
+}
+
+func mustReadFile(t *testing.T, path string) []byte {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	return data
 }

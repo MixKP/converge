@@ -161,12 +161,14 @@ func main() {
 	commuteHandler := web.NewCommuteHandler(commuteSvc, logger)
 	userHandler := web.NewUserHandler(userSvc, logger)
 	backupService := backup.New(os.Getenv("BACKUP_DIR"), time.Duration(positiveInt("BACKUP_INTERVAL_HOURS", 24))*time.Hour, time.Duration(positiveInt("BACKUP_RETENTION_DAYS", 7))*24*time.Hour, logger)
+	backupService.SetAfterRestore(func() error { return db.RecoverAfterLiveRestore(database) })
 	backupCtx, stopBackups := context.WithCancel(context.Background())
 	defer stopBackups()
 	if os.Getenv("BACKUP_DIR") != "" {
 		backupService.Start(backupCtx)
 	}
 	recoveryHandler := web.NewRecoveryHandler(backupService, logger)
+	recoveryTimelineHandler := web.NewRecoveryTimelineHandler(database, backupService, logger)
 
 	r := gin.Default()
 	r.Use(requestIDMiddleware())
@@ -210,6 +212,10 @@ func main() {
 	admin.GET("/recovery/backups", recoveryHandler.Status)
 	admin.POST("/recovery/backups", recoveryHandler.RequestBackup)
 	admin.POST("/recovery/restores", recoveryHandler.RequestRestore)
+	admin.GET("/recovery/timeline", recoveryTimelineHandler.Timeline)
+	admin.POST("/recovery/previews", recoveryTimelineHandler.Preview)
+	admin.GET("/recovery/previews", recoveryTimelineHandler.PreviewStatus)
+	admin.POST("/recovery/previews/apply", recoveryTimelineHandler.ApplyPreview)
 	admin.POST("/bookings", bookingHandler.CreateBooking)
 	admin.POST("/bookings/confirm", bookingHandler.ConfirmBooking)
 	admin.DELETE("/bookings/:id", bookingHandler.CancelBooking)

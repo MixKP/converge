@@ -3,7 +3,7 @@
   import { DatabaseBackup, Loader2 } from '@lucide/vue'
   import PageLayout from '../components/PageLayout.vue'
   import ManagementNav from '../components/ManagementNav.vue'
-  import { recoveryApi, type BackupStatus } from '../services/recoveryApi'
+  import { recoveryApi, type BackupStatus, type RecoveryTimeline, type RecoveryPreview, type AuditEvent } from '../services/recoveryApi'
   import { useNotification } from '../composables/useNotification'
   import { Button } from '@/components/ui/button'
   import { Card, CardContent } from '@/components/ui/card'
@@ -19,6 +19,16 @@
   const isRequestingRestore = ref(false)
   const showRestoreConfirm = ref(false)
   const restoreConfirmation = ref('')
+  const timeline = ref<RecoveryTimeline | null>(null)
+  const timelineError = ref('')
+  const preview = ref<RecoveryPreview | null>(null)
+  const previewTarget = ref('')
+  const isRequestingPreview = ref(false)
+  const isApplyingPreview = ref(false)
+  const showApplyConfirm = ref(false)
+  const applyConfirmation = ref('')
+  const isLoadingMore = ref(false)
+  const hasMoreEvents = ref(true)
   let refreshTimer: ReturnType<typeof setInterval> | undefined
 
   const load = async () => {
@@ -32,9 +42,27 @@
     }
   }
 
+  const loadRecovery = async () => {
+    try {
+      const fresh = await recoveryApi.timeline()
+      const existing = timeline.value?.events ?? []
+      const freshIDs = new Set(fresh.events.map((event) => event.id))
+      fresh.events.push(...existing.filter((event) => !freshIDs.has(event.id)))
+      timeline.value = fresh
+      timelineError.value = ''
+      if (!timeline.value.physical_error) preview.value = await recoveryApi.previewStatus()
+    } catch (err) {
+      timelineError.value = err instanceof Error ? err.message : 'Failed to load recovery timeline'
+    }
+  }
+
   onMounted(() => {
     void load()
-    refreshTimer = setInterval(() => void load(), 10000)
+    void loadRecovery()
+    refreshTimer = setInterval(() => {
+      void load()
+      void loadRecovery()
+    }, 10000)
   })
   onUnmounted(() => clearInterval(refreshTimer))
 
@@ -67,6 +95,60 @@
   }
 
   const expectedConfirmation = computed(() => `RESTORE LIVE DATA from ${status.value?.latest ?? ''}`)
+  const expectedApplyConfirmation = computed(() => `APPLY WAL PREVIEW ${preview.value?.id ?? ''}`)
+
+  const localTime = (value: string) => new Intl.DateTimeFormat('en-GB', {
+    dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Bangkok',
+  }).format(new Date(value)) + ' ICT'
+
+  const chooseBefore = (event: AuditEvent) => {
+    const eventTime = new Date(event.occurred_at).getTime()
+    previewTarget.value = new Date(eventTime - 1000 + 7 * 60 * 60 * 1000).toISOString().slice(0, 16)
+  }
+
+  const requestPreview = async () => {
+    if (!previewTarget.value) return
+    isRequestingPreview.value = true
+    try {
+      preview.value = await recoveryApi.requestPreview(new Date(`${previewTarget.value}:00+07:00`).toISOString())
+      showSuccess('Recovery preview started. Live data is unchanged.')
+    } catch (err) {
+      showError(err, err instanceof Error ? err.message : 'Failed to start preview')
+    } finally {
+      isRequestingPreview.value = false
+    }
+  }
+
+  const applyPreview = async () => {
+    if (!preview.value?.id || applyConfirmation.value !== expectedApplyConfirmation.value) return
+    isApplyingPreview.value = true
+    try {
+      await recoveryApi.applyPreview(preview.value.id, applyConfirmation.value)
+      showApplyConfirm.value = false
+      applyConfirmation.value = ''
+      showSuccess('Applying the recovered data. The app will pause while it finishes.')
+      await load()
+    } catch (err) {
+      showError(err, err instanceof Error ? err.message : 'Failed to apply recovery preview')
+    } finally {
+      isApplyingPreview.value = false
+    }
+  }
+
+  const loadMoreEvents = async () => {
+    const oldest = timeline.value?.events.at(-1)
+    if (!oldest || isLoadingMore.value) return
+    isLoadingMore.value = true
+    try {
+      const next = await recoveryApi.timeline(oldest.id)
+      if (timeline.value) timeline.value.events.push(...next.events)
+      hasMoreEvents.value = next.events.length === 100
+    } catch (err) {
+      showError(err, err instanceof Error ? err.message : 'Failed to load older changes')
+    } finally {
+      isLoadingMore.value = false
+    }
+  }
 
   const requestRestore = async () => {
     if (!status.value?.latest || restoreConfirmation.value !== expectedConfirmation.value) return
@@ -132,6 +214,100 @@
         </CardContent>
       </Card>
 
+      <Card class="max-w-3xl">
+        <CardContent class="flex flex-col gap-4">
+          <div>
+            <h2 class="font-medium">Recovery timeline</h2>
+            <p class="text-muted-foreground mt-1 text-sm">
+              Physical backups and archived WAL can restore the database to a chosen time. Recorded
+              changes help you choose a time; they are not individual undo buttons.
+            </p>
+          </div>
+          <p v-if="timelineError" class="text-destructive text-sm">{{ timelineError }}</p>
+          <template v-else-if="timeline">
+            <p v-if="timeline.physical_error" class="text-destructive text-sm">
+              {{ timeline.physical_error }}. The logical backups above remain separate.
+            </p>
+            <template v-else-if="timeline.physical">
+              <p v-if="timeline.physical.repository_error" class="text-destructive text-sm">
+                Backup repository: {{ timeline.physical.repository_error }}
+              </p>
+              <div class="text-sm">
+                <p>Physical backups: {{ timeline.physical.backups.length }}</p>
+                <p v-if="timeline.physical.backups.length">
+                  Latest base backup:
+                  {{ localTime(timeline.physical.backups[timeline.physical.backups.length - 1]!.completed_at) }}
+                </p>
+                <p v-if="timeline.physical.archive_segment">
+                  Latest archived WAL segment: {{ timeline.physical.archive_segment }}
+                </p>
+                <p v-if="timeline.physical.last_archived_at">
+                  Last archive completed: {{ localTime(timeline.physical.last_archived_at) }}
+                </p>
+                <p v-if="timeline.physical.archive_status_error" class="text-destructive">
+                  {{ timeline.physical.archive_status_error }}
+                </p>
+                <p v-if="timeline.physical.last_failed_at && (!timeline.physical.last_archived_at || timeline.physical.last_failed_at > timeline.physical.last_archived_at)" class="text-destructive">
+                  WAL archiving has a recent failure. Check the backup store before recovery.
+                </p>
+              </div>
+              <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
+                <div class="space-y-1">
+                  <Label for="preview-target">Preview database at this time (ICT)</Label>
+                  <Input id="preview-target" v-model="previewTarget" type="datetime-local" />
+                </div>
+                <Button class="self-start" :disabled="!previewTarget || isRequestingPreview || preview?.state === 'running' || !timeline.physical.backups.length || !!timeline.physical.repository_error" @click="requestPreview">
+                  <Loader2 v-if="isRequestingPreview" class="size-4 animate-spin" />
+                  Preview recovery
+                </Button>
+              </div>
+              <p class="text-muted-foreground text-xs">
+                Backup and WAL markers indicate a possible recovery period. Only a successful isolated
+                preview verifies the selected time. Live data is not changed.
+              </p>
+              <div v-if="preview?.state === 'running'" class="text-sm">Restoring the preview database…</div>
+              <div v-else-if="preview?.state === 'failed'" class="text-destructive text-sm">
+                Preview failed: {{ preview.error }}
+              </div>
+              <div v-else-if="preview?.state === 'ready'" class="text-sm">
+                <p class="font-medium">Preview ready for {{ preview.target ? localTime(preview.target) : '' }}</p>
+                <p v-if="preview.counts">Accounts {{ preview.counts.users }}, teachers {{ preview.counts.teachers }}, branches {{ preview.counts.branches }}, bookings {{ preview.counts.bookings }}.</p>
+                <p v-if="preview.comparison_error" class="text-destructive mt-2">{{ preview.comparison_error }}</p>
+                <p v-else-if="preview.absent_events?.length" class="mt-2 font-medium">Changes absent from this preview, among the latest 100 live changes at preview time:</p>
+                <ul v-if="preview.absent_events?.length" class="list-inside list-disc">
+                  <li v-for="event in preview.absent_events" :key="event.id" class="capitalize">{{ event.operation }} {{ event.resource.replaceAll('_', ' ') }} #{{ event.row_key }} · {{ localTime(event.occurred_at) }}</li>
+                </ul>
+                <p v-if="!preview.comparison_error && !preview.absent_events?.length" class="mt-2">No differences found among the latest 100 live changes at preview time.</p>
+                <p class="text-muted-foreground text-xs">Older changes may also differ. The comparison is a snapshot taken when the preview finished.</p>
+                <p class="text-muted-foreground mt-1">This is a read-only preview. It has not replaced the live database.</p>
+                <Button class="mt-3" variant="destructive" :disabled="!preview.id || !status || status.restoring || status.running || status.queued" @click="showApplyConfirm = true">
+                  Apply this recovery to live data
+                </Button>
+              </div>
+            </template>
+
+            <div class="border-border border-t pt-4">
+              <h3 class="font-medium">Recorded application changes</h3>
+              <p class="text-muted-foreground mt-1 text-xs">
+                This audit history is stored in the database and can roll back after a logical restore.
+                It is separate from archived WAL. Check the preview before relying on a recovery point.
+              </p>
+              <p v-if="!timeline.events.length" class="text-muted-foreground mt-3 text-sm">No recorded changes yet.</p>
+              <ul v-else class="mt-3 space-y-3">
+                <li v-for="event in timeline.events" :key="event.id" class="flex flex-col gap-1 border-b pb-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p class="capitalize">{{ event.operation }} {{ event.resource.replaceAll('_', ' ') }} #{{ event.row_key }}</p>
+                    <p class="text-muted-foreground text-xs">{{ localTime(event.occurred_at) }}<span v-if="event.changed_fields.length"> · {{ event.changed_fields.join(', ') }}</span></p>
+                  </div>
+                  <Button variant="outline" size="sm" :disabled="!!timeline.physical_error" @click="chooseBefore(event)">Choose time before</Button>
+                </li>
+              </ul>
+              <Button v-if="hasMoreEvents && timeline.events.length >= 100" class="mt-3" variant="outline" :disabled="isLoadingMore" @click="loadMoreEvents">Load older changes</Button>
+            </div>
+          </template>
+        </CardContent>
+      </Card>
+
       <Card class="max-w-2xl">
         <CardContent>
           <h2 class="font-medium">Restore live data</h2>
@@ -185,6 +361,29 @@
             @click="requestRestore"
           >
             <Loader2 v-if="isRequestingRestore" class="size-4 animate-spin" />
+            Replace live data
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog v-model:open="showApplyConfirm">
+      <DialogContent class="max-w-lg">
+        <DialogTitle>Apply recovered data?</DialogTitle>
+        <DialogDescription>
+          The previewed database at {{ preview?.target ? localTime(preview.target) : '' }} will replace
+          live accounts, teachers, branches, and bookings. Later changes will be lost. A safety backup
+          of the current database is created first. The app pauses during the restore.
+        </DialogDescription>
+        <div class="space-y-2">
+          <Label for="apply-confirmation">Type this phrase to confirm:</Label>
+          <p class="break-all font-mono text-sm">{{ expectedApplyConfirmation }}</p>
+          <Input id="apply-confirmation" v-model="applyConfirmation" autocomplete="off" />
+        </div>
+        <div class="flex justify-end gap-2">
+          <Button variant="outline" @click="showApplyConfirm = false">Cancel</Button>
+          <Button variant="destructive" :disabled="isApplyingPreview || applyConfirmation !== expectedApplyConfirmation" @click="applyPreview">
+            <Loader2 v-if="isApplyingPreview" class="size-4 animate-spin" />
             Replace live data
           </Button>
         </div>

@@ -1,0 +1,40 @@
+services:
+  db:
+    networks:
+      - default
+      - backup
+    volumes:
+      - ${SILO_CA_FILE:?Set SILO_CA_FILE}:/etc/pgbackrest/silo-ca.crt:ro
+
+  backup-worker:
+    networks:
+      - default
+      - backup
+    volumes:
+      - ${SILO_CA_FILE:?Set SILO_CA_FILE}:/etc/pgbackrest/silo-ca.crt:ro
+
+  pitr-recover-latest:
+    networks:
+      - default
+      - backup
+    volumes:
+      - ${SILO_CA_FILE:?Set SILO_CA_FILE}:/etc/pgbackrest/silo-ca.crt:ro
+
+  pitr-restore:
+    networks:
+      - default
+      - backup
+    volumes:
+      - ${SILO_CA_FILE:?Set SILO_CA_FILE}:/etc/pgbackrest/silo-ca.crt:ro
+
+  pitr-db:
+    networks:
+      - default
+      - backup
+    volumes:
+      - ${SILO_CA_FILE:?Set SILO_CA_FILE}:/etc/pgbackrest/silo-ca.crt:ro
+
+networks:
+  backup:
+    external: true
+    name: converge-backup

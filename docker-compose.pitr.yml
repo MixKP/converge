@@ -51,6 +51,8 @@ services:
     user: postgres
     environment:
       PGUSER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      PGDATABASE: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
+      PITR_WORKER_TOKEN: ${PITR_WORKER_TOKEN:?Set PITR_WORKER_TOKEN in .env.pitr}
     entrypoint: ["/usr/local/bin/converge-backup-worker"]
     depends_on:
       db:
@@ -60,10 +62,13 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+    ports:
+      - "127.0.0.1:${PITR_WORKER_BIND_PORT:-8099}:8099"
     volumes:
       - pgdata:/var/lib/postgresql/data:ro
       - pgsocket:/var/run/postgresql
       - backupstatus:/var/lib/converge-backup
+      - pitrpreview:/var/lib/converge-preview
       - ${PGBACKREST_CONFIG_FILE:?Set PGBACKREST_CONFIG_FILE to an absolute private config path}:/etc/pgbackrest/pgbackrest.conf:ro
     healthcheck:
       test: ["CMD", "/usr/local/bin/converge-backup-worker", "health"]
@@ -106,6 +111,19 @@ services:
       - pitrdata:/var/lib/postgresql/data
       - ${PGBACKREST_CONFIG_FILE:?Set PGBACKREST_CONFIG_FILE to an absolute private config path}:/etc/pgbackrest/pgbackrest.conf:ro
 
+  pitr-recover-latest:
+    image: converge-postgres-backup:local
+    profiles: ["pitr-restore"]
+    user: postgres
+    entrypoint: ["pgbackrest"]
+    command: ["--stanza=converge", "--type=default", "restore"]
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - pitrdata:/var/lib/postgresql/data
+      - ${PGBACKREST_CONFIG_FILE:?Set PGBACKREST_CONFIG_FILE to an absolute private config path}:/etc/pgbackrest/pgbackrest.conf:ro
+
   pitr-db:
     image: converge-postgres-backup:local
     profiles: ["pitr-restore"]
@@ -128,3 +146,4 @@ volumes:
   pgsocket:
   backupstatus:
   pitrdata:
+  pitrpreview:

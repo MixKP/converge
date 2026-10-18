@@ -34,6 +34,9 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	if token := os.Getenv("PITR_WORKER_TOKEN"); token != "" {
+		go serveRecovery(ctx, token)
+	}
 	initialized := false
 	for ctx.Err() == nil {
 		var err error

@@ -1,0 +1,4 @@
+volumes:
+  pgdata:
+    external: true
+    name: ${RECOVERED_PGDATA_VOLUME:?Set RECOVERED_PGDATA_VOLUME to a verified recovery volume}

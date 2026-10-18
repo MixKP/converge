@@ -174,6 +174,52 @@ func AutoMigrate(database *sql.DB) error {
 			commute_minutes INTEGER NOT NULL DEFAULT 30 CHECK (commute_minutes >= 0)
 		)`,
 		`INSERT INTO commute_config (id, commute_minutes) VALUES (1, 30) ON CONFLICT (id) DO NOTHING`,
+		`CREATE TABLE IF NOT EXISTS admin_audit_event (
+			id BIGSERIAL PRIMARY KEY,
+			occurred_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+			resource TEXT NOT NULL,
+			operation TEXT NOT NULL,
+			row_key TEXT NOT NULL,
+			changed_fields TEXT[] NOT NULL DEFAULT '{}'
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_admin_audit_event_time ON admin_audit_event (occurred_at DESC, id DESC)`,
+		`CREATE OR REPLACE FUNCTION record_admin_data_change() RETURNS trigger AS $$
+		DECLARE
+			before_row jsonb;
+			after_row jsonb;
+			row_data jsonb;
+			fields text[] := '{}';
+		BEGIN
+			IF TG_OP <> 'INSERT' THEN before_row := to_jsonb(OLD); END IF;
+			IF TG_OP <> 'DELETE' THEN after_row := to_jsonb(NEW); END IF;
+			row_data := COALESCE(after_row, before_row);
+			IF TG_OP = 'UPDATE' THEN
+				SELECT COALESCE(array_agg(key ORDER BY key), '{}') INTO fields
+				FROM jsonb_object_keys(after_row) AS key
+				WHERE before_row -> key IS DISTINCT FROM after_row -> key
+				  AND key NOT IN ('password_hash', 'raw_payload', 'updated_at');
+				IF cardinality(fields) = 0 THEN RETURN NEW; END IF;
+			END IF;
+			INSERT INTO admin_audit_event (resource, operation, row_key, changed_fields)
+			VALUES (TG_TABLE_NAME, lower(TG_OP),
+				CASE TG_TABLE_NAME
+					WHEN 'teacher_availability' THEN concat_ws('/', row_data ->> 'teacher_id', row_data ->> 'day_of_week', row_data ->> 'start_time')
+					WHEN 'teacher_subjects' THEN concat_ws('/', row_data ->> 'teacher_id', row_data ->> 'subject_id')
+					WHEN 'parent_students' THEN concat_ws('/', row_data ->> 'parent_id', row_data ->> 'student_id')
+					ELSE COALESCE(row_data ->> 'id', '1')
+				END, fields);
+			IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+			RETURN NEW;
+		END;
+		$$ LANGUAGE plpgsql`,
+		`DO $$
+		DECLARE tracked_table text;
+		BEGIN
+			FOREACH tracked_table IN ARRAY ARRAY['teachers', 'teacher_availability', 'teacher_subjects', 'branches', 'bookings', 'users', 'parent_students', 'commute_config'] LOOP
+				EXECUTE format('DROP TRIGGER IF EXISTS admin_data_change ON %I', tracked_table);
+				EXECUTE format('CREATE TRIGGER admin_data_change AFTER INSERT OR UPDATE OR DELETE ON %I FOR EACH ROW EXECUTE FUNCTION record_admin_data_change()', tracked_table);
+			END LOOP;
+		END $$`,
 	}
 	for _, q := range queries {
 		if _, err := database.Exec(q); err != nil {
@@ -181,6 +227,27 @@ func AutoMigrate(database *sql.DB) error {
 		}
 	}
 	slog.Info("Database schema ready")
+	return nil
+}
+
+func RecoverAfterLiveRestore(database *sql.DB) error {
+	var hasAuditTrigger bool
+	err := database.QueryRow(`SELECT EXISTS (
+		SELECT 1 FROM pg_trigger
+		WHERE tgrelid = to_regclass('public.branches')
+		  AND tgname = 'admin_data_change' AND NOT tgisinternal
+	)`).Scan(&hasAuditTrigger)
+	if err != nil {
+		return fmt.Errorf("inspect restored audit schema: %w", err)
+	}
+	if err := AutoMigrate(database); err != nil {
+		return fmt.Errorf("prepare restored schema: %w", err)
+	}
+	if !hasAuditTrigger {
+		if _, err := database.Exec(`TRUNCATE admin_audit_event RESTART IDENTITY`); err != nil {
+			return fmt.Errorf("clear audit history from the replaced database: %w", err)
+		}
+	}
 	return nil
 }
 

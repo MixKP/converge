@@ -42,6 +42,7 @@ type Service struct {
 	restoreError  string
 	restoreBackup string
 	restoredAt    *time.Time
+	afterRestore  func() error
 	queued        bool
 	running       bool
 	wake          chan struct{}
@@ -60,6 +61,10 @@ func New(dir string, interval, retention time.Duration, logger *slog.Logger) *Se
 		return output, nil
 	}
 	return s
+}
+
+func (s *Service) SetAfterRestore(afterRestore func() error) {
+	s.afterRestore = afterRestore
 }
 
 func env(key, fallback string) string {
@@ -136,6 +141,8 @@ func (s *Service) Request() error {
 var ErrBusy = errors.New("a backup or restore is already queued or running")
 var ErrRecoveryPointChanged = errors.New("the latest backup changed; reload and confirm the new recovery point")
 
+type PreviewArchiveFetcher func(context.Context, io.Writer) (string, error)
+
 func (s *Service) EnterRequest() bool {
 	if s.restoring.Load() || !s.gate.TryRLock() {
 		return false
@@ -174,11 +181,95 @@ func (s *Service) RequestLiveRestore(name, confirmation string) error {
 	s.restoreBackup = name
 	s.restoredAt = nil
 	s.restoring.Store(true)
-	go s.runLiveRestore(name, confirmation)
+	go s.runLiveRestore(name)
 	return nil
 }
 
-func (s *Service) runLiveRestore(name, confirmation string) {
+func (s *Service) RequestPreviewRestore(id, confirmation string, fetch PreviewArchiveFetcher) error {
+	if err := s.Ready(); err != nil {
+		return err
+	}
+	previewID, err := strconv.ParseInt(id, 10, 64)
+	if err != nil || previewID <= 0 || fetch == nil {
+		return errors.New("a valid recovery preview is required")
+	}
+	if confirmation != "APPLY WAL PREVIEW "+id {
+		return errors.New("confirmation does not match the selected recovery preview")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.queued || s.running || s.restoring.Load() {
+		return ErrBusy
+	}
+	s.restoreError = ""
+	s.restoreBackup = "WAL preview " + id
+	s.restoredAt = nil
+	s.restoring.Store(true)
+	go s.runPreviewRestore(id, fetch)
+	return nil
+}
+
+func (s *Service) runPreviewRestore(id string, fetch PreviewArchiveFetcher) {
+	s.gate.Lock()
+	defer s.gate.Unlock()
+	defer s.restoring.Store(false)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
+	defer cancel()
+	name := "wal-preview-" + id + ".dump"
+	archive := filepath.Join(s.dir, name)
+	defer os.Remove(archive)
+	defer os.Remove(archive + ".sha256")
+	err := s.savePreviewArchive(ctx, name, fetch)
+	if err == nil {
+		err = s.backupPreserving(ctx, name)
+	}
+	if err == nil {
+		err = writeTime(filepath.Join(s.dir, "last_success"))
+	}
+	if err == nil {
+		err = s.restoreLiveArchive(ctx, name)
+	}
+	s.mu.Lock()
+	if err != nil {
+		s.restoreError = err.Error()
+		s.logger.Error("WAL preview restore failed", "error", err)
+	} else {
+		now := time.Now().UTC()
+		s.restoredAt = &now
+		s.logger.Info("WAL preview restored", "preview_id", id)
+	}
+	s.mu.Unlock()
+}
+
+func (s *Service) savePreviewArchive(ctx context.Context, name string, fetch PreviewArchiveFetcher) error {
+	tmp, err := os.CreateTemp(s.dir, ".wal-preview-*.partial")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	hash := sha256.New()
+	expected, err := fetch(ctx, io.MultiWriter(tmp, hash))
+	closeErr := tmp.Close()
+	if err != nil {
+		return fmt.Errorf("download recovery preview: %w", err)
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	if expected == "" || !strings.EqualFold(hex.EncodeToString(hash.Sum(nil)), expected) {
+		return errors.New("recovery preview archive checksum does not match")
+	}
+	if _, err := s.run(ctx, "pg_restore", "--list", tmp.Name()); err != nil {
+		return fmt.Errorf("verify recovery preview archive: %w", err)
+	}
+	final := filepath.Join(s.dir, name)
+	if err := os.Rename(tmp.Name(), final); err != nil {
+		return err
+	}
+	return writeAtomic(final+".sha256", []byte(expected+"  "+name+"\n"))
+}
+
+func (s *Service) runLiveRestore(name string) {
 	s.gate.Lock()
 	defer s.gate.Unlock()
 	defer s.restoring.Store(false)
@@ -189,13 +280,7 @@ func (s *Service) runLiveRestore(name, confirmation string) {
 		err = writeTime(filepath.Join(s.dir, "last_success"))
 	}
 	if err == nil {
-		err = RestoreLive(ctx, RestoreOptions{
-			BackupDir: s.dir, BackupName: name,
-			SourceHost: env("DB_HOST", "localhost"), SourcePort: env("DB_PORT", "5432"),
-			TargetHost: env("DB_HOST", "localhost"), TargetPort: env("DB_PORT", "5432"),
-			TargetDB: env("POSTGRES_DB", "postgres"), TargetUser: env("POSTGRES_USER", "postgres"),
-			TargetPassword: os.Getenv("POSTGRES_PASSWORD"), Confirmation: confirmation,
-		})
+		err = s.restoreLiveArchive(ctx, name)
 	}
 	s.mu.Lock()
 	if err != nil {
@@ -207,6 +292,22 @@ func (s *Service) runLiveRestore(name, confirmation string) {
 		s.logger.Info("live restore completed", "backup", name)
 	}
 	s.mu.Unlock()
+}
+
+func (s *Service) restoreLiveArchive(ctx context.Context, name string) error {
+	err := RestoreLive(ctx, RestoreOptions{
+		BackupDir: s.dir, BackupName: name,
+		SourceHost: env("DB_HOST", "localhost"), SourcePort: env("DB_PORT", "5432"),
+		TargetHost: env("DB_HOST", "localhost"), TargetPort: env("DB_PORT", "5432"),
+		TargetDB: env("POSTGRES_DB", "postgres"), TargetUser: env("POSTGRES_USER", "postgres"),
+		TargetPassword: os.Getenv("POSTGRES_PASSWORD"), Confirmation: "RESTORE LIVE DATA from " + name,
+	})
+	if err == nil && s.afterRestore != nil {
+		if setupErr := s.afterRestore(); setupErr != nil {
+			return fmt.Errorf("live data was replaced but post-restore setup failed: %w", setupErr)
+		}
+	}
+	return err
 }
 
 func (s *Service) Start(ctx context.Context) {

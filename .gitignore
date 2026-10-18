@@ -2,6 +2,7 @@
 .env.pitr
 deploy/postgres-backup/pgbackrest.conf
 deploy/postgres-backup/silo-certs/
+deploy/postgres-backup/live-private/
 temp/
 memory/
 .memory/

@@ -12,7 +12,7 @@ services:
       MINIO_ROOT_USER: ${PITR_SILO_USER:?Set PITR_SILO_USER in .env.pitr}
       MINIO_ROOT_PASSWORD: ${PITR_SILO_PASSWORD:?Set PITR_SILO_PASSWORD in .env.pitr}
     ports:
-      - "127.0.0.1:9001:9001"
+      - "127.0.0.1:9011:9001"
     volumes:
       - miniodata:/data
       - ./deploy/postgres-backup/silo-certs:/certs:ro
