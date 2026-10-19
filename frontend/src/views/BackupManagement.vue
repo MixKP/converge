@@ -29,11 +29,24 @@
   const applyConfirmation = ref('')
   const isLoadingMore = ref(false)
   const hasMoreEvents = ref(true)
+  const hasLoadedOlder = ref(false)
+  const selectedEvent = ref<AuditEvent | null>(null)
+  const selectedPosition = ref<'before' | 'after'>('after')
+  const previewError = ref('')
+  let visiblePreviewID: string | null | undefined
+  let lastRestoredAt: string | null = null
   let refreshTimer: ReturnType<typeof setInterval> | undefined
 
   const load = async () => {
     try {
       status.value = await recoveryApi.status()
+      if (status.value.restored_at && status.value.restored_at !== lastRestoredAt) {
+        lastRestoredAt = status.value.restored_at
+        selectedEvent.value = null
+        preview.value = null
+        visiblePreviewID = null
+        void loadRecovery(true)
+      }
       loadError.value = ''
     } catch (err) {
       loadError.value = err instanceof Error ? err.message : 'Failed to load backup status'
@@ -42,15 +55,20 @@
     }
   }
 
-  const loadRecovery = async () => {
+  const loadRecovery = async (refreshEvents = true) => {
     try {
       const fresh = await recoveryApi.timeline()
-      const existing = timeline.value?.events ?? []
-      const freshIDs = new Set(fresh.events.map((event) => event.id))
-      fresh.events.push(...existing.filter((event) => !freshIDs.has(event.id)))
+      if (!refreshEvents && hasLoadedOlder.value && timeline.value) fresh.events = timeline.value.events
+      else {
+        hasLoadedOlder.value = false
+        hasMoreEvents.value = fresh.events.length === 100
+      }
       timeline.value = fresh
       timelineError.value = ''
-      if (!timeline.value.physical_error) preview.value = await recoveryApi.previewStatus()
+      if (!timeline.value.physical_error) {
+        const currentPreview = await recoveryApi.previewStatus()
+        preview.value = visiblePreviewID === undefined || currentPreview.id === visiblePreviewID ? currentPreview : null
+      }
     } catch (err) {
       timelineError.value = err instanceof Error ? err.message : 'Failed to load recovery timeline'
     }
@@ -61,7 +79,7 @@
     void loadRecovery()
     refreshTimer = setInterval(() => {
       void load()
-      void loadRecovery()
+      void loadRecovery(false)
     }, 10000)
   })
   onUnmounted(() => clearInterval(refreshTimer))
@@ -101,19 +119,47 @@
     dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Bangkok',
   }).format(new Date(value)) + ' ICT'
 
-  const chooseBefore = (event: AuditEvent) => {
-    const eventTime = new Date(event.occurred_at).getTime()
-    previewTarget.value = new Date(eventTime - 1000 + 7 * 60 * 60 * 1000).toISOString().slice(0, 16)
+  const beforeFirstBackup = (event: AuditEvent) => {
+    const first = timeline.value?.physical?.backups[0]?.completed_at
+    return !first || new Date(event.occurred_at).getTime() < new Date(first).getTime()
+  }
+
+  const previewEvent = async (event: AuditEvent, position: 'before' | 'after') => {
+    selectedEvent.value = event
+    selectedPosition.value = position
+    previewError.value = ''
+    visiblePreviewID = null
+    if (beforeFirstBackup(event)) {
+      preview.value = null
+      previewError.value = `This change is before the first physical backup (${timeline.value?.physical?.backups[0] ? localTime(timeline.value.physical.backups[0].completed_at) : 'none available'}). Choose a later change.`
+      return
+    }
+    isRequestingPreview.value = true
+    try {
+      preview.value = await recoveryApi.requestEventPreview(event.id, position)
+      visiblePreviewID = preview.value.id ?? null
+      showSuccess('Recovery preview started. Live data is unchanged.')
+    } catch (err) {
+      preview.value = null
+      previewError.value = err instanceof Error ? err.message : 'Failed to start preview'
+    } finally {
+      isRequestingPreview.value = false
+    }
   }
 
   const requestPreview = async () => {
     if (!previewTarget.value) return
+    selectedEvent.value = null
+    previewError.value = ''
+    visiblePreviewID = null
     isRequestingPreview.value = true
     try {
-      preview.value = await recoveryApi.requestPreview(new Date(`${previewTarget.value}:00+07:00`).toISOString())
+      preview.value = await recoveryApi.requestPreview(new Date(previewTarget.value).toISOString())
+      visiblePreviewID = preview.value.id ?? null
       showSuccess('Recovery preview started. Live data is unchanged.')
     } catch (err) {
-      showError(err, err instanceof Error ? err.message : 'Failed to start preview')
+      preview.value = null
+      previewError.value = err instanceof Error ? err.message : 'Failed to start preview'
     } finally {
       isRequestingPreview.value = false
     }
@@ -140,8 +186,9 @@
     if (!oldest || isLoadingMore.value) return
     isLoadingMore.value = true
     try {
-      const next = await recoveryApi.timeline(oldest.id)
+      const next = await recoveryApi.timeline(oldest)
       if (timeline.value) timeline.value.events.push(...next.events)
+      hasLoadedOlder.value = true
       hasMoreEvents.value = next.events.length === 100
     } catch (err) {
       showError(err, err instanceof Error ? err.message : 'Failed to load older changes')
@@ -251,26 +298,60 @@
                   WAL archiving has a recent failure. Check the backup store before recovery.
                 </p>
               </div>
-              <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
-                <div class="space-y-1">
-                  <Label for="preview-target">Preview database at this time (ICT)</Label>
-                  <Input id="preview-target" v-model="previewTarget" type="datetime-local" />
-                </div>
-                <Button class="self-start" :disabled="!previewTarget || isRequestingPreview || preview?.state === 'running' || !timeline.physical.backups.length || !!timeline.physical.repository_error" @click="requestPreview">
-                  <Loader2 v-if="isRequestingPreview" class="size-4 animate-spin" />
-                  Preview recovery
-                </Button>
-              </div>
               <p class="text-muted-foreground text-xs">
                 Backup and WAL markers indicate a possible recovery period. Only a successful isolated
                 preview verifies the selected time. Live data is not changed.
               </p>
+              <div class="border-border border-t pt-4">
+                <div class="flex items-center justify-between gap-3">
+                  <h3 class="font-medium">Recorded application changes</h3>
+                  <Button variant="outline" size="sm" @click="loadRecovery(true)">Refresh changes</Button>
+                </div>
+                <p class="text-muted-foreground mt-1 text-xs">
+                  Newest first. Select a change to preview the database just after it. These records
+                  describe application changes; they are separate from archived WAL.
+                </p>
+                <p v-if="!timeline.events.length" class="text-muted-foreground mt-3 text-sm">No recorded changes yet.</p>
+                <ul v-else class="mt-3 max-h-96 space-y-2 overflow-y-auto">
+                  <li v-for="event in timeline.events" :key="event.id">
+                    <button type="button" class="border-border hover:bg-muted/50 w-full rounded-md border p-3 text-left text-sm disabled:cursor-not-allowed disabled:opacity-60" :class="selectedEvent?.id === event.id ? 'border-primary bg-muted/50' : ''" :disabled="!!timeline.physical_error || isRequestingPreview || preview?.state === 'running'" @click="previewEvent(event, 'after')">
+                      <span class="block capitalize">{{ event.operation }} {{ event.resource.replaceAll('_', ' ') }} #{{ event.row_key }}</span>
+                      <span class="text-muted-foreground block text-xs">{{ localTime(event.occurred_at) }}<span v-if="event.changed_fields.length"> · {{ event.changed_fields.join(', ') }}</span></span>
+                      <span v-if="beforeFirstBackup(event)" class="text-destructive block text-xs">Before first physical backup</span>
+                    </button>
+                  </li>
+                </ul>
+                <Button v-if="hasMoreEvents && timeline.events.length >= 100" class="mt-3" variant="outline" :disabled="isLoadingMore" @click="loadMoreEvents">Load older changes</Button>
+              </div>
+              <div v-if="selectedEvent" class="border-border rounded-md border p-3 text-sm">
+                <p class="font-medium capitalize">{{ selectedEvent.operation }} {{ selectedEvent.resource.replaceAll('_', ' ') }} #{{ selectedEvent.row_key }}</p>
+                <p class="text-muted-foreground text-xs">{{ localTime(selectedEvent.occurred_at) }}</p>
+                <div class="mt-3 flex gap-2">
+                  <Button size="sm" :variant="selectedPosition === 'after' ? 'default' : 'outline'" :disabled="isRequestingPreview || preview?.state === 'running'" @click="previewEvent(selectedEvent, 'after')">After this change</Button>
+                  <Button size="sm" :variant="selectedPosition === 'before' ? 'default' : 'outline'" :disabled="isRequestingPreview || preview?.state === 'running'" @click="previewEvent(selectedEvent, 'before')">Before this change</Button>
+                </div>
+              </div>
+              <details class="border-border border-t pt-3 text-sm">
+                <summary class="cursor-pointer font-medium">Advanced: choose a time</summary>
+                <div class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
+                  <div class="space-y-1">
+                    <Label for="preview-target">Preview database at this time (your local time)</Label>
+                    <Input id="preview-target" v-model="previewTarget" type="datetime-local" />
+                  </div>
+                  <Button class="self-start" :disabled="!previewTarget || isRequestingPreview || preview?.state === 'running' || !timeline.physical.backups.length || !!timeline.physical.repository_error" @click="requestPreview">
+                    <Loader2 v-if="isRequestingPreview" class="size-4 animate-spin" />
+                    Preview recovery
+                  </Button>
+                </div>
+              </details>
+              <p v-if="previewError" class="text-destructive text-sm">{{ previewError }}</p>
               <div v-if="preview?.state === 'running'" class="text-sm">Restoring the preview database…</div>
               <div v-else-if="preview?.state === 'failed'" class="text-destructive text-sm">
                 Preview failed: {{ preview.error }}
               </div>
               <div v-else-if="preview?.state === 'ready'" class="text-sm">
                 <p class="font-medium">Preview ready for {{ preview.target ? localTime(preview.target) : '' }}</p>
+                <p v-if="preview.event_id" class="mt-1">Verified {{ preview.position }} the selected change in the recovered database.</p>
                 <p v-if="preview.counts">Accounts {{ preview.counts.users }}, teachers {{ preview.counts.teachers }}, branches {{ preview.counts.branches }}, bookings {{ preview.counts.bookings }}.</p>
                 <p v-if="preview.comparison_error" class="text-destructive mt-2">{{ preview.comparison_error }}</p>
                 <p v-else-if="preview.absent_events?.length" class="mt-2 font-medium">Changes absent from this preview, among the latest 100 live changes at preview time:</p>
@@ -280,30 +361,12 @@
                 <p v-if="!preview.comparison_error && !preview.absent_events?.length" class="mt-2">No differences found among the latest 100 live changes at preview time.</p>
                 <p class="text-muted-foreground text-xs">Older changes may also differ. The comparison is a snapshot taken when the preview finished.</p>
                 <p class="text-muted-foreground mt-1">This is a read-only preview. It has not replaced the live database.</p>
-                <Button class="mt-3" variant="destructive" :disabled="!preview.id || !status || status.restoring || status.running || status.queued" @click="showApplyConfirm = true">
+                <Button class="mt-3" variant="destructive" :disabled="!preview.id || (preview.event_id && !preview.selection_matched) || !status || status.restoring || status.running || status.queued" @click="showApplyConfirm = true">
                   Apply this recovery to live data
                 </Button>
               </div>
             </template>
 
-            <div class="border-border border-t pt-4">
-              <h3 class="font-medium">Recorded application changes</h3>
-              <p class="text-muted-foreground mt-1 text-xs">
-                This audit history is stored in the database and can roll back after a logical restore.
-                It is separate from archived WAL. Check the preview before relying on a recovery point.
-              </p>
-              <p v-if="!timeline.events.length" class="text-muted-foreground mt-3 text-sm">No recorded changes yet.</p>
-              <ul v-else class="mt-3 space-y-3">
-                <li v-for="event in timeline.events" :key="event.id" class="flex flex-col gap-1 border-b pb-2 text-sm sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p class="capitalize">{{ event.operation }} {{ event.resource.replaceAll('_', ' ') }} #{{ event.row_key }}</p>
-                    <p class="text-muted-foreground text-xs">{{ localTime(event.occurred_at) }}<span v-if="event.changed_fields.length"> · {{ event.changed_fields.join(', ') }}</span></p>
-                  </div>
-                  <Button variant="outline" size="sm" :disabled="!!timeline.physical_error" @click="chooseBefore(event)">Choose time before</Button>
-                </li>
-              </ul>
-              <Button v-if="hasMoreEvents && timeline.events.length >= 100" class="mt-3" variant="outline" :disabled="isLoadingMore" @click="loadMoreEvents">Load older changes</Button>
-            </div>
           </template>
         </CardContent>
       </Card>

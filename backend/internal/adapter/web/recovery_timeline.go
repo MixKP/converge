@@ -28,7 +28,10 @@ type RecoveryTimelineHandler struct {
 	logger *slog.Logger
 }
 
-type workerStatusError struct{ code int }
+type workerStatusError struct {
+	code    int
+	message string
+}
 
 func (e workerStatusError) Error() string {
 	return fmt.Sprintf("physical recovery worker returned %d", e.code)
@@ -51,15 +54,17 @@ func (h *RecoveryTimelineHandler) ApplyPreview(c *gin.Context) {
 		return
 	}
 	var preview struct {
-		ID    string `json:"id"`
-		State string `json:"state"`
+		ID               string `json:"id"`
+		State            string `json:"state"`
+		EventID          int64  `json:"event_id"`
+		SelectionMatched bool   `json:"selection_matched"`
 	}
 	var previewJSON json.RawMessage
 	if err := h.worker(c.Request.Context(), http.MethodGet, "/previews", nil, &previewJSON); err != nil || json.Unmarshal(previewJSON, &preview) != nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "recovery preview is unavailable"})
 		return
 	}
-	if preview.State != "ready" || preview.ID != request.ID {
+	if preview.State != "ready" || preview.ID != request.ID || (preview.EventID > 0 && !preview.SelectionMatched) {
 		c.JSON(http.StatusConflict, gin.H{"error": "recovery preview changed; preview again before applying"})
 		return
 	}
@@ -114,6 +119,7 @@ func (h *RecoveryTimelineHandler) Timeline(c *gin.Context) {
 		after = &parsed
 	}
 	beforeID := int64(0)
+	var beforeAt *time.Time
 	if raw := c.Query("before_id"); raw != "" {
 		parsed, err := strconv.ParseInt(raw, 10, 64)
 		if err != nil || parsed <= 0 {
@@ -121,13 +127,19 @@ func (h *RecoveryTimelineHandler) Timeline(c *gin.Context) {
 			return
 		}
 		beforeID = parsed
+		parsedAt, err := time.Parse(time.RFC3339Nano, c.Query("before_at"))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "before_at must be an ISO timestamp"})
+			return
+		}
+		beforeAt = &parsedAt
 	}
 	rows, err := h.db.QueryContext(c.Request.Context(), `
 		SELECT id, occurred_at, resource, operation, row_key, array_to_json(changed_fields)::text
 		FROM admin_audit_event
 		WHERE ($1::timestamptz IS NULL OR occurred_at > $1)
-		  AND ($2::bigint = 0 OR id < $2)
-		ORDER BY id DESC LIMIT 100`, after, beforeID)
+		  AND ($2::timestamptz IS NULL OR (occurred_at, id) < ($2, $3))
+		ORDER BY occurred_at DESC, id DESC LIMIT 100`, after, beforeAt, beforeID)
 	if err != nil {
 		h.logger.Error("read recovery audit events", "error", err)
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "recovery timeline is unavailable"})
@@ -167,9 +179,40 @@ func (h *RecoveryTimelineHandler) Timeline(c *gin.Context) {
 
 func (h *RecoveryTimelineHandler) Preview(c *gin.Context) {
 	var request struct {
-		Target time.Time `json:"target" binding:"required"`
+		Target   time.Time `json:"target"`
+		EventID  int64     `json:"event_id"`
+		EventAt  time.Time `json:"event_at"`
+		Position string    `json:"position"`
 	}
-	if err := c.ShouldBindJSON(&request); err != nil || request.Target.IsZero() || request.Target.After(time.Now()) {
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid recovery preview request"})
+		return
+	}
+	if request.EventID != 0 {
+		if request.EventID < 0 || (request.Position != "before" && request.Position != "after") || !request.Target.IsZero() {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "select a recorded change and Before or After"})
+			return
+		}
+		if err := h.db.QueryRowContext(c.Request.Context(), "SELECT occurred_at FROM admin_audit_event WHERE id = $1", request.EventID).Scan(&request.EventAt); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				c.JSON(http.StatusNotFound, gin.H{"error": "this change is no longer in the current history; refresh the list"})
+			} else {
+				h.logger.Error("read recovery audit event", "error", err)
+				c.JSON(http.StatusServiceUnavailable, gin.H{"error": "recovery timeline is unavailable"})
+			}
+			return
+		}
+		request.Target = request.EventAt
+		if request.Position == "before" {
+			request.Target = request.Target.Add(-time.Microsecond)
+		} else {
+			request.Target = request.Target.Add(time.Second)
+		}
+	} else if request.Position != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "a recorded change is required"})
+		return
+	}
+	if request.Target.IsZero() || request.Target.After(time.Now()) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "a past target time is required"})
 		return
 	}
@@ -179,7 +222,11 @@ func (h *RecoveryTimelineHandler) Preview(c *gin.Context) {
 		if errors.As(err, &workerErr) {
 			switch workerErr.code {
 			case http.StatusBadRequest:
-				c.JSON(http.StatusBadRequest, gin.H{"error": "the selected time is outside the available backups"})
+				message := workerErr.message
+				if message == "" {
+					message = "invalid recovery target"
+				}
+				c.JSON(http.StatusBadRequest, gin.H{"error": message})
 				return
 			case http.StatusConflict:
 				c.JSON(http.StatusConflict, gin.H{"error": "a recovery preview is already running"})
@@ -227,7 +274,8 @@ func (h *RecoveryTimelineHandler) worker(ctx context.Context, method, path strin
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return workerStatusError{code: response.StatusCode}
+		message, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
+		return workerStatusError{code: response.StatusCode, message: strings.TrimSpace(string(message))}
 	}
 	data, err := io.ReadAll(io.LimitReader(response.Body, 1<<20))
 	if err != nil {

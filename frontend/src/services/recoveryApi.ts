@@ -46,6 +46,9 @@ export interface RecoveryPreview {
   id?: string
   state: 'idle' | 'running' | 'ready' | 'failed'
   target?: string
+  event_id?: number
+  position?: 'before' | 'after'
+  selection_matched?: boolean
   started_at?: string
   finished_at?: string
   counts?: Record<string, number>
@@ -64,10 +67,12 @@ export const recoveryApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ backup_name: backupName, confirmation }),
     }),
-  timeline: (beforeId?: number, after?: string) => {
+  timeline: (before?: AuditEvent) => {
     const params = new URLSearchParams()
-    if (beforeId) params.set('before_id', String(beforeId))
-    if (after) params.set('after', after)
+    if (before) {
+      params.set('before_id', String(before.id))
+      params.set('before_at', before.occurred_at)
+    }
     const query = params.toString()
     return fetchApi<RecoveryTimeline>(`${API_ENDPOINTS.RECOVERY_TIMELINE}${query ? `?${query}` : ''}`)
   },
@@ -77,6 +82,12 @@ export const recoveryApi = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ target }),
+    }),
+  requestEventPreview: (eventId: number, position: 'before' | 'after') =>
+    fetchApi<RecoveryPreview>(API_ENDPOINTS.RECOVERY_PREVIEWS, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event_id: eventId, position }),
     }),
   applyPreview: (id: string, confirmation: string) =>
     fetchApi<{ message: string }>(`${API_ENDPOINTS.RECOVERY_PREVIEWS}/apply`, {

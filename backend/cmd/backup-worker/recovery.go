@@ -41,15 +41,18 @@ type physicalStatus struct {
 }
 
 type previewStatus struct {
-	ID              string         `json:"id,omitempty"`
-	State           string         `json:"state"`
-	Target          time.Time      `json:"target,omitempty"`
-	StartedAt       *time.Time     `json:"started_at,omitempty"`
-	FinishedAt      *time.Time     `json:"finished_at,omitempty"`
-	Counts          map[string]int `json:"counts,omitempty"`
-	AbsentEvents    []auditEvent   `json:"absent_events,omitempty"`
-	ComparisonError string         `json:"comparison_error,omitempty"`
-	Error           string         `json:"error,omitempty"`
+	ID               string         `json:"id,omitempty"`
+	State            string         `json:"state"`
+	Target           time.Time      `json:"target,omitempty"`
+	EventID          int64          `json:"event_id,omitempty"`
+	Position         string         `json:"position,omitempty"`
+	SelectionMatched bool           `json:"selection_matched,omitempty"`
+	StartedAt        *time.Time     `json:"started_at,omitempty"`
+	FinishedAt       *time.Time     `json:"finished_at,omitempty"`
+	Counts           map[string]int `json:"counts,omitempty"`
+	AbsentEvents     []auditEvent   `json:"absent_events,omitempty"`
+	ComparisonError  string         `json:"comparison_error,omitempty"`
+	Error            string         `json:"error,omitempty"`
 }
 
 type auditEvent struct {
@@ -241,9 +244,12 @@ func (s *recoveryServer) previewArchive(w http.ResponseWriter, r *http.Request) 
 
 func (s *recoveryServer) startPreview(w http.ResponseWriter, r *http.Request) {
 	var request struct {
-		Target time.Time `json:"target"`
+		Target   time.Time `json:"target"`
+		EventID  int64     `json:"event_id"`
+		EventAt  time.Time `json:"event_at"`
+		Position string    `json:"position"`
 	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024)).Decode(&request); err != nil || request.Target.IsZero() || request.Target.After(time.Now()) {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024)).Decode(&request); err != nil || request.Target.IsZero() || request.Target.After(time.Now()) || request.EventID < 0 || (request.EventID > 0 && (request.EventAt.IsZero() || request.Position != "before" && request.Position != "after")) || (request.EventID == 0 && request.Position != "") {
 		http.Error(w, "a past target time is required", http.StatusBadRequest)
 		return
 	}
@@ -255,7 +261,11 @@ func (s *recoveryServer) startPreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if request.Target.Before(status.Backups[0].CompletedAt) {
-		http.Error(w, "target precedes the oldest base backup", http.StatusBadRequest)
+		message := "Selected time is before the first physical backup. Choose a later time."
+		if request.EventID > 0 {
+			message = "This change is before the first physical backup. Choose a later change or create a new backup."
+		}
+		http.Error(w, message, http.StatusBadRequest)
 		return
 	}
 	s.mu.Lock()
@@ -265,36 +275,43 @@ func (s *recoveryServer) startPreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := time.Now().UTC()
-	s.preview = previewStatus{ID: strconv.FormatInt(now.UnixNano(), 10), State: "running", Target: request.Target.UTC(), StartedAt: &now}
+	s.preview = previewStatus{ID: strconv.FormatInt(now.UnixNano(), 10), State: "running", Target: request.Target.UTC(), EventID: request.EventID, Position: request.Position, StartedAt: &now}
 	started := s.preview
 	s.mu.Unlock()
-	go s.runPreview(request.Target.UTC())
+	go s.runPreview(request.Target.UTC(), request.EventID, request.EventAt.UTC(), request.Position)
 	writeJSON(w, http.StatusAccepted, started)
 }
 
-func (s *recoveryServer) runPreview(target time.Time) {
+func (s *recoveryServer) runPreview(target time.Time, eventID int64, eventAt time.Time, position string) {
 	s.archiveMu.Lock()
 	defer s.archiveMu.Unlock()
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
 	defer cancel()
-	counts, absentEvents, comparisonError, err := restorePreview(ctx, target)
+	counts, absentEvents, comparisonError, err := restorePreview(ctx, target, eventID, eventAt, position)
 	finished := time.Now().UTC()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.preview.FinishedAt = &finished
 	if err != nil {
 		s.preview.State = "failed"
-		s.preview.Error = "Recovery preview failed. Check the backup worker logs for the cause."
+		if errors.Is(err, errSelectionMismatch) {
+			s.preview.Error = "Archived WAL did not reach the selected change at this time. Choose another recovery point or wait for archiving."
+		} else {
+			s.preview.Error = "Recovery preview failed. Check the backup worker logs for the cause."
+		}
 		log.Printf("recovery preview failed: %v", err)
 	} else {
 		s.preview.State = "ready"
+		s.preview.SelectionMatched = eventID > 0
 		s.preview.Counts = counts
 		s.preview.AbsentEvents = absentEvents
 		s.preview.ComparisonError = comparisonError
 	}
 }
 
-func restorePreview(ctx context.Context, target time.Time) (map[string]int, []auditEvent, string, error) {
+var errSelectionMismatch = errors.New("selected audit event did not match recovered preview")
+
+func restorePreview(ctx context.Context, target time.Time, eventID int64, eventAt time.Time, position string) (map[string]int, []auditEvent, string, error) {
 	if err := os.Remove(previewArchivePath); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, nil, "", fmt.Errorf("clear previous preview archive: %w", err)
 	}
@@ -320,6 +337,20 @@ func restorePreview(ctx context.Context, target time.Time) (map[string]int, []au
 			log.Printf("stop preview database: %v", stopErr)
 		}
 	}()
+	if err := waitForPreviewRecovery(ctx); err != nil {
+		return nil, nil, "", err
+	}
+	if eventID > 0 {
+		query := "SELECT EXISTS (SELECT 1 FROM admin_audit_event WHERE id = " + strconv.FormatInt(eventID, 10) + " AND occurred_at = '" + eventAt.Format(time.RFC3339Nano) + "'::timestamptz)"
+		output, queryErr := runOutput(ctx, "psql", "-h", "/tmp", "-p", "5435", "-d", os.Getenv("PGDATABASE"), "-AtX", "-v", "ON_ERROR_STOP=1", "-c", query)
+		if queryErr != nil {
+			return nil, nil, "", fmt.Errorf("check selected event in preview: %w", queryErr)
+		}
+		present := strings.TrimSpace(string(output)) == "t"
+		if present != (position == "after") {
+			return nil, nil, "", errSelectionMismatch
+		}
+	}
 	counts := make(map[string]int)
 	for _, table := range []string{"users", "teachers", "branches", "bookings"} {
 		cmd := exec.CommandContext(ctx, "psql", "-h", "/tmp", "-p", "5435", "-d", os.Getenv("PGDATABASE"), "-AtX", "-v", "ON_ERROR_STOP=1", "-c", "SELECT count(*) FROM "+table)
@@ -369,6 +400,29 @@ func restorePreview(ctx context.Context, target time.Time) (map[string]int, []au
 		}
 	}
 	return counts, absent, "", nil
+}
+
+func waitForPreviewRecovery(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		output, err := runOutput(ctx, "psql", "-h", "/tmp", "-p", "5435", "-d", os.Getenv("PGDATABASE"), "-AtX", "-v", "ON_ERROR_STOP=1", "-c", "SELECT pg_is_in_recovery()")
+		if err == nil && strings.TrimSpace(string(output)) == "f" {
+			return nil
+		}
+		if err != nil {
+			if _, statusErr := runOutput(ctx, "pg_ctl", "-D", previewPath, "status"); statusErr != nil {
+				return fmt.Errorf("preview database stopped before recovery completed: %w", err)
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("wait for preview WAL recovery: %w", ctx.Err())
+		case <-ticker.C:
+		}
+	}
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {
