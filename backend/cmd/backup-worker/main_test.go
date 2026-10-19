@@ -66,3 +66,35 @@ func TestBackupCycleAndHealth(t *testing.T) {
 		t.Fatal("stale backup still reports healthy")
 	}
 }
+
+func TestBackupDueRetriesFailureAndInvalidClock(t *testing.T) {
+	dir := t.TempDir()
+	now := time.Date(2026, time.October, 19, 12, 0, 0, 0, time.UTC)
+	check := func(want bool) {
+		t.Helper()
+		got, err := backupDue(dir, now)
+		if err != nil || got != want {
+			t.Fatalf("backupDue() = %t, %v; want %t", got, err, want)
+		}
+	}
+	check(true)
+	if err := os.WriteFile(filepath.Join(dir, "last-success"), []byte(now.Format(time.RFC3339Nano)), 0600); err != nil {
+		t.Fatal(err)
+	}
+	check(false)
+	if err := os.WriteFile(filepath.Join(dir, "last-failure"), []byte(now.Format(time.RFC3339Nano)), 0600); err != nil {
+		t.Fatal(err)
+	}
+	check(true)
+	if err := os.Remove(filepath.Join(dir, "last-failure")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "last-success"), []byte("invalid timestamp"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	check(true)
+	if err := os.WriteFile(filepath.Join(dir, "last-success"), []byte(now.Add(time.Hour).Format(time.RFC3339Nano)), 0600); err != nil {
+		t.Fatal(err)
+	}
+	check(true)
+}

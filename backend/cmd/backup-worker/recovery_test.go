@@ -37,3 +37,22 @@ func TestPreviewArchiveRejectsStaleID(t *testing.T) {
 		t.Fatalf("stale preview: got %d", response.Code)
 	}
 }
+
+func TestRecoveryPreviewRejectsInvalidEventSelection(t *testing.T) {
+	s := &recoveryServer{preview: previewStatus{State: "idle"}}
+	for _, body := range []string{
+		`{"target":"2026-10-18T12:00:00Z","event_id":3,"position":"after"}`,
+		`{"target":"2026-10-18T12:00:00Z","event_id":3,"event_at":"2026-10-18T11:59:59Z","position":"around"}`,
+		`{"target":"2026-10-18T12:00:00Z","position":"before"}`,
+		`{"target":"2026-10-18T12:00:00Z","event_id":-1}`,
+	} {
+		response := httptest.NewRecorder()
+		s.startPreview(response, httptest.NewRequest(http.MethodPost, "/previews", strings.NewReader(body)))
+		if response.Code != http.StatusBadRequest {
+			t.Errorf("request %s: got %d, want 400", body, response.Code)
+		}
+		if s.preview.State != "idle" {
+			t.Fatal("invalid selection started a preview")
+		}
+	}
+}
