@@ -315,19 +315,21 @@ func TestSchedulingService_Confirm_Success(t *testing.T) {
 
 func TestSchedulingService_Confirm_MissingFields(t *testing.T) {
 	svc := NewSchedulingService(new(mockStore), new(mockStore), new(mockEngine))
+	start := time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC)
+	end := start.Add(time.Hour)
 
 	tests := []struct {
 		name string
 		req  ConfirmBookingRequest
 		err  string
 	}{
-		{"teacher", ConfirmBookingRequest{BranchID: 1, SubjectID: 1, StartTime: time.Now(), EndTime: time.Now().Add(time.Hour), StudentID: 3}, "teacher_id"},
-		{"branch", ConfirmBookingRequest{TeacherID: 1, SubjectID: 1, StartTime: time.Now(), EndTime: time.Now().Add(time.Hour), StudentID: 3}, "branch_id"},
-		{"subject", ConfirmBookingRequest{TeacherID: 1, BranchID: 1, StartTime: time.Now(), EndTime: time.Now().Add(time.Hour), StudentID: 3}, "subject_id"},
-		{"start_time", ConfirmBookingRequest{TeacherID: 1, BranchID: 1, SubjectID: 1, EndTime: time.Now(), StudentID: 3}, "start_time"},
-		{"end_time", ConfirmBookingRequest{TeacherID: 1, BranchID: 1, SubjectID: 1, StartTime: time.Now(), StudentID: 3}, "end_time"},
-		{"time_reversed", ConfirmBookingRequest{TeacherID: 1, BranchID: 1, SubjectID: 1, StartTime: time.Now().Add(time.Hour), EndTime: time.Now(), StudentID: 3}, "end_time must be after start_time"},
-		{"student_id", ConfirmBookingRequest{TeacherID: 1, BranchID: 1, SubjectID: 1, StartTime: time.Now(), EndTime: time.Now().Add(time.Hour)}, "student_id"},
+		{"teacher", ConfirmBookingRequest{BranchID: 1, SubjectID: 1, StartTime: start, EndTime: end, StudentID: 3}, "teacher_id"},
+		{"branch", ConfirmBookingRequest{TeacherID: 1, SubjectID: 1, StartTime: start, EndTime: end, StudentID: 3}, "branch_id"},
+		{"subject", ConfirmBookingRequest{TeacherID: 1, BranchID: 1, StartTime: start, EndTime: end, StudentID: 3}, "subject_id"},
+		{"start_time", ConfirmBookingRequest{TeacherID: 1, BranchID: 1, SubjectID: 1, EndTime: start, StudentID: 3}, "start_time"},
+		{"end_time", ConfirmBookingRequest{TeacherID: 1, BranchID: 1, SubjectID: 1, StartTime: start, StudentID: 3}, "end_time"},
+		{"time_reversed", ConfirmBookingRequest{TeacherID: 1, BranchID: 1, SubjectID: 1, StartTime: end, EndTime: start, StudentID: 3}, "end_time must be after start_time"},
+		{"student_id", ConfirmBookingRequest{TeacherID: 1, BranchID: 1, SubjectID: 1, StartTime: start, EndTime: end}, "student_id"},
 	}
 
 	for _, tt := range tests {

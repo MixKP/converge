@@ -79,18 +79,14 @@ func TestBookingRepoCreateBooking(t *testing.T) {
 	teacherID, branchID, subjectID := seedBookingParents(t, db)
 	studentID := seedStudent(t, db, "John Doe")
 
-	start := time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC)
-	end := time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)
-	req := scheduling.ConfirmBookingRequest{
+	booking, err := repo.CreateBooking(context.Background(), scheduling.ConfirmBookingRequest{
 		TeacherID: teacherID,
 		BranchID:  branchID,
 		SubjectID: subjectID,
-		StartTime: start,
-		EndTime:   end,
+		StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
 		StudentID: studentID,
-	}
-
-	booking, err := repo.CreateBooking(context.Background(), req)
+	})
 	require.NoError(t, err)
 	assert.Equal(t, teacherID, booking.TeacherID)
 	assert.Equal(t, branchID, booking.BranchID)
@@ -99,21 +95,59 @@ func TestBookingRepoCreateBooking(t *testing.T) {
 	assert.Equal(t, "John Doe", booking.StudentName)
 	assert.NotZero(t, booking.ID)
 	assert.NotZero(t, booking.CreatedAt)
+}
 
-	overlap := scheduling.ConfirmBookingRequest{
-		TeacherID: teacherID,
-		BranchID:  branchID,
-		SubjectID: subjectID,
-		StartTime: start.Add(30 * time.Minute),
-		EndTime:   end.Add(30 * time.Minute),
+func TestBookingRepoCreateBooking_RejectsOverlap(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBookingRepository(db)
+	teacherID, branchID, subjectID := seedBookingParents(t, db)
+	studentID := seedStudent(t, db, "John Doe")
+
+	_, err := repo.CreateBooking(context.Background(), scheduling.ConfirmBookingRequest{
+		TeacherID: teacherID, BranchID: branchID, SubjectID: subjectID,
+		StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
 		StudentID: studentID,
-	}
-	_, err = repo.CreateBooking(context.Background(), overlap)
+	})
+	require.NoError(t, err)
+
+	_, err = repo.CreateBooking(context.Background(), scheduling.ConfirmBookingRequest{
+		TeacherID: teacherID, BranchID: branchID, SubjectID: subjectID,
+		StartTime: time.Date(2026, 6, 1, 9, 30, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 6, 1, 10, 30, 0, 0, time.UTC),
+		StudentID: studentID,
+	})
 	require.Error(t, err)
 	assert.ErrorIs(t, err, scheduling.ErrBookingConflict)
 }
 
-func TestBookingRepoCreateBooking_CommuteBoundaryAndConcurrentConflict(t *testing.T) {
+func TestBookingRepoCreateBooking_ExactCommuteGapAccepted(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBookingRepository(db)
+	teacherID, branchAID, subjectID := seedBookingParents(t, db)
+	studentID := seedStudent(t, db, "Commute Student")
+
+	var branchBID int
+	require.NoError(t, db.QueryRow(`INSERT INTO branches (id, name) VALUES (2, 'Second Branch') RETURNING id`).Scan(&branchBID))
+
+	_, err := repo.CreateBooking(context.Background(), scheduling.ConfirmBookingRequest{
+		TeacherID: teacherID, BranchID: branchAID, SubjectID: subjectID,
+		StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+		StudentID: studentID,
+	})
+	require.NoError(t, err)
+
+	_, err = repo.CreateBooking(context.Background(), scheduling.ConfirmBookingRequest{
+		TeacherID: teacherID, BranchID: branchBID, SubjectID: subjectID,
+		StartTime: time.Date(2026, 6, 1, 10, 30, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 6, 1, 11, 30, 0, 0, time.UTC),
+		StudentID: studentID,
+	})
+	require.NoError(t, err, "an exact 30-minute commute gap should be accepted")
+}
+
+func TestBookingRepoCreateBooking_ConcurrentCommuteConflict(t *testing.T) {
 	db := setupTestDB(t)
 	db.SetMaxOpenConns(10)
 	repo := NewBookingRepository(db)
@@ -122,18 +156,6 @@ func TestBookingRepoCreateBooking_CommuteBoundaryAndConcurrentConflict(t *testin
 
 	var branchBID int
 	require.NoError(t, db.QueryRow(`INSERT INTO branches (id, name) VALUES (2, 'Second Branch') RETURNING id`).Scan(&branchBID))
-
-	dayOne := time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC)
-	_, err := repo.CreateBooking(context.Background(), scheduling.ConfirmBookingRequest{
-		TeacherID: teacherID, BranchID: branchAID, SubjectID: subjectID,
-		StartTime: dayOne, EndTime: dayOne.Add(time.Hour), StudentID: studentID,
-	})
-	require.NoError(t, err)
-	_, err = repo.CreateBooking(context.Background(), scheduling.ConfirmBookingRequest{
-		TeacherID: teacherID, BranchID: branchBID, SubjectID: subjectID,
-		StartTime: dayOne.Add(90 * time.Minute), EndTime: dayOne.Add(150 * time.Minute), StudentID: studentID,
-	})
-	require.NoError(t, err, "an exact 30-minute commute gap should be accepted")
 
 	dayTwo := time.Date(2026, 6, 2, 9, 0, 0, 0, time.UTC)
 	requests := []scheduling.ConfirmBookingRequest{
@@ -179,34 +201,42 @@ func TestBookingRepoCreateBooking_CommuteBoundaryAndConcurrentConflict(t *testin
 	assert.Equal(t, 1, count)
 }
 
-func TestBookingRepoCreateBooking_RejectsNonStudent(t *testing.T) {
+func TestBookingRepoCreateBooking_RejectsMissingStudent(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewBookingRepository(db)
 	teacherID, branchID, subjectID := seedBookingParents(t, db)
 
-	start := time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC)
-	end := time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)
-	base := scheduling.ConfirmBookingRequest{
-		TeacherID: teacherID, BranchID: branchID, SubjectID: subjectID, StartTime: start, EndTime: end,
-	}
-
-	// student_id that does not exist
-	missing := base
-	missing.StudentID = 99999
-	_, err := repo.CreateBooking(context.Background(), missing)
+	_, err := repo.CreateBooking(context.Background(), scheduling.ConfirmBookingRequest{
+		TeacherID: teacherID, BranchID: branchID, SubjectID: subjectID,
+		StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+		StudentID: 99999,
+	})
 	require.Error(t, err)
 	var valErr *shared.ValidationError
 	assert.ErrorAs(t, err, &valErr)
+	assert.EqualError(t, err, "student 99999 not found")
+}
 
-	// student_id that references a non-student user (a parent)
+func TestBookingRepoCreateBooking_RejectsNonStudentUser(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBookingRepository(db)
+	teacherID, branchID, subjectID := seedBookingParents(t, db)
+
 	var parentID int
 	require.NoError(t, db.QueryRow(
 		`INSERT INTO users (name, password_hash, role) VALUES ('p', 'x', 'parent') RETURNING id`).Scan(&parentID))
-	wrongRole := base
-	wrongRole.StudentID = parentID
-	_, err = repo.CreateBooking(context.Background(), wrongRole)
+
+	_, err := repo.CreateBooking(context.Background(), scheduling.ConfirmBookingRequest{
+		TeacherID: teacherID, BranchID: branchID, SubjectID: subjectID,
+		StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+		StudentID: parentID,
+	})
 	require.Error(t, err)
+	var valErr *shared.ValidationError
 	assert.ErrorAs(t, err, &valErr)
+	assert.EqualError(t, err, fmt.Sprintf("user %d is not a student", parentID))
 }
 
 func TestBookingRepoCreateBooking_BranchCapacityIsInformational(t *testing.T) {
@@ -235,27 +265,35 @@ func TestBookingRepoCreateBooking_BranchCapacityIsInformational(t *testing.T) {
 	assert.Equal(t, 2, count)
 }
 
-func TestBookingRepoFindConflictingBookings(t *testing.T) {
-	db := setupTestDB(t)
-	repo := NewBookingRepository(db)
+func seedTwoBookings(t *testing.T, db *sql.DB) (teacherID int) {
+	t.Helper()
 	teacherID, branchID, subjectID := seedBookingParents(t, db)
 	studentID := seedStudent(t, db, "Student")
+	for _, window := range [][2]string{{"2026-06-01T09:00:00Z", "2026-06-01T10:00:00Z"}, {"2026-06-01T11:00:00Z", "2026-06-01T12:00:00Z"}} {
+		_, err := db.Exec(`
+			INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time, student_id)
+			VALUES ($1, $2, $3, $4, $5, $6)`, teacherID, branchID, subjectID, window[0], window[1], studentID)
+		require.NoError(t, err)
+	}
+	return teacherID
+}
 
-	_, err := db.Exec(`
-		INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time, student_id)
-		VALUES ($1, $2, $3, '2026-06-01T09:00:00Z', '2026-06-01T10:00:00Z', $4)`, teacherID, branchID, subjectID, studentID)
-	require.NoError(t, err)
-
-	_, err = db.Exec(`
-		INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time, student_id)
-		VALUES ($1, $2, $3, '2026-06-01T11:00:00Z', '2026-06-01T12:00:00Z', $4)`, teacherID, branchID, subjectID, studentID)
-	require.NoError(t, err)
+func TestBookingRepoFindConflictingBookings_Overlapping(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBookingRepository(db)
+	teacherID := seedTwoBookings(t, db)
 
 	conflicts, err := repo.FindConflictingBookings(context.Background(), teacherID,
 		time.Date(2026, 6, 1, 9, 30, 0, 0, time.UTC),
 		time.Date(2026, 6, 1, 10, 30, 0, 0, time.UTC))
 	require.NoError(t, err)
 	assert.Len(t, conflicts, 1)
+}
+
+func TestBookingRepoFindConflictingBookings_NoOverlap(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBookingRepository(db)
+	teacherID := seedTwoBookings(t, db)
 
 	noConflicts, err := repo.FindConflictingBookings(context.Background(), teacherID,
 		time.Date(2026, 6, 1, 14, 0, 0, 0, time.UTC),
@@ -282,11 +320,17 @@ func TestBookingRepoDeleteBooking(t *testing.T) {
 	var count int
 	require.NoError(t, db.QueryRow(`SELECT COUNT(*) FROM bookings WHERE id = $1`, bookingID).Scan(&count))
 	assert.Equal(t, 0, count)
+}
 
-	err = repo.DeleteBooking(context.Background(), 999)
+func TestBookingRepoDeleteBooking_NotFound(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBookingRepository(db)
+
+	err := repo.DeleteBooking(context.Background(), 999)
 	require.Error(t, err)
 	var notFound *shared.NotFoundError
 	assert.ErrorAs(t, err, &notFound)
+	assert.EqualError(t, err, "booking 999 not found")
 }
 
 func TestBookingRepoFindAllBookings(t *testing.T) {
@@ -309,13 +353,11 @@ func TestBookingRepoFindAllBookings(t *testing.T) {
 	assert.Len(t, bookings, 3)
 }
 
-func TestBookingRepoFindBookingsByStudentIDs(t *testing.T) {
-	db := setupTestDB(t)
-	repo := NewBookingRepository(db)
+func seedStudentBookings(t *testing.T, db *sql.DB) (s1, s2 int) {
+	t.Helper()
 	teacherID, branchID, subjectID := seedBookingParents(t, db)
-	s1 := seedStudent(t, db, "student-a")
-	s2 := seedStudent(t, db, "student-b")
-
+	s1 = seedStudent(t, db, "student-a")
+	s2 = seedStudent(t, db, "student-b")
 	insert := func(studentID, hour int) {
 		_, err := db.Exec(`
 			INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time, student_id)
@@ -327,6 +369,13 @@ func TestBookingRepoFindBookingsByStudentIDs(t *testing.T) {
 	insert(s1, 9)
 	insert(s1, 11)
 	insert(s2, 13)
+	return s1, s2
+}
+
+func TestBookingRepoFindBookingsByStudentIDs_OneStudent(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBookingRepository(db)
+	s1, _ := seedStudentBookings(t, db)
 
 	own, err := repo.FindBookingsByStudentIDs(context.Background(), []int{s1})
 	require.NoError(t, err)
@@ -335,10 +384,22 @@ func TestBookingRepoFindBookingsByStudentIDs(t *testing.T) {
 	assert.Equal(t, "Test Teacher", own[0].TeacherName)
 	assert.Equal(t, "Test Branch", own[0].BranchName)
 	assert.Equal(t, "Test Subject", own[0].SubjectName)
+}
+
+func TestBookingRepoFindBookingsByStudentIDs_SeveralStudents(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBookingRepository(db)
+	s1, s2 := seedStudentBookings(t, db)
 
 	both, err := repo.FindBookingsByStudentIDs(context.Background(), []int{s1, s2})
 	require.NoError(t, err)
 	assert.Len(t, both, 3)
+}
+
+func TestBookingRepoFindBookingsByStudentIDs_EmptyList(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBookingRepository(db)
+	seedStudentBookings(t, db)
 
 	none, err := repo.FindBookingsByStudentIDs(context.Background(), []int{})
 	require.NoError(t, err)
@@ -462,24 +523,39 @@ func TestBookingRepoCreateBooking_RejectsDeactivatedBranch(t *testing.T) {
 	_, err := db.Exec(`UPDATE branches SET status = 'deactivated' WHERE id = $1`, branchID)
 	require.NoError(t, err)
 
-	req := scheduling.ConfirmBookingRequest{
+	_, err = repo.CreateBooking(context.Background(), scheduling.ConfirmBookingRequest{
 		TeacherID: teacherID,
 		BranchID:  branchID,
 		SubjectID: subjectID,
 		StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
 		EndTime:   time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
 		StudentID: studentID,
-	}
-
-	_, err = repo.CreateBooking(context.Background(), req)
+	})
 	require.Error(t, err)
 	var valErr *shared.ValidationError
 	assert.ErrorAs(t, err, &valErr)
+	assert.EqualError(t, err, fmt.Sprintf("branch %d is deactivated", branchID))
+}
 
+func TestBookingRepoCreateBooking_AcceptsReactivatedBranch(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBookingRepository(db)
+	teacherID, branchID, subjectID := seedBookingParents(t, db)
+	studentID := seedStudent(t, db, "Jane Doe")
+
+	_, err := db.Exec(`UPDATE branches SET status = 'deactivated' WHERE id = $1`, branchID)
+	require.NoError(t, err)
 	_, err = db.Exec(`UPDATE branches SET status = 'active' WHERE id = $1`, branchID)
 	require.NoError(t, err)
 
-	booking, err := repo.CreateBooking(context.Background(), req)
+	booking, err := repo.CreateBooking(context.Background(), scheduling.ConfirmBookingRequest{
+		TeacherID: teacherID,
+		BranchID:  branchID,
+		SubjectID: subjectID,
+		StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+		StudentID: studentID,
+	})
 	require.NoError(t, err)
 	assert.Equal(t, branchID, booking.BranchID)
 }

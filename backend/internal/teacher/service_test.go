@@ -103,6 +103,7 @@ func TestTeacherService_SubmitAvailability_Success(t *testing.T) {
 
 	err := svc.SubmitWeeklyAvailability(context.Background(), 42, slots)
 	assert.NoError(t, err)
+	store.AssertExpectations(t)
 }
 
 func TestTeacherService_SubmitAvailability_Overlap(t *testing.T) {
@@ -128,6 +129,7 @@ func TestTeacherService_SubmitAvailability_EmptySlots(t *testing.T) {
 
 	err := svc.SubmitWeeklyAvailability(context.Background(), 1, []shared.WeeklySlot{})
 	assert.NoError(t, err)
+	store.AssertExpectations(t)
 }
 
 func TestTeacherService_SubmitAvailability_ZeroTeacherID(t *testing.T) {
@@ -183,6 +185,7 @@ func TestTeacherService_SubmitAvailability_TouchingSlots(t *testing.T) {
 
 	err := svc.SubmitWeeklyAvailability(context.Background(), 1, slots)
 	assert.NoError(t, err)
+	store.AssertExpectations(t)
 }
 
 func TestTeacherService_SubmitAvailability_OverlapMessageFormat(t *testing.T) {
@@ -212,6 +215,7 @@ func TestTeacherService_SubmitAvailability_CrossDays(t *testing.T) {
 
 	err := svc.SubmitWeeklyAvailability(context.Background(), 1, slots)
 	assert.NoError(t, err)
+	store.AssertExpectations(t)
 }
 
 func TestTeacherService_SubmitAvailability_ReplaceFails(t *testing.T) {
@@ -359,6 +363,20 @@ func TestTeacherService_AddTeacher_Success(t *testing.T) {
 	teacherResult, err := svc.AddTeacher(context.Background(), "Alice", "alice@example.com", "female")
 	assert.NoError(t, err)
 	assert.Equal(t, expected, teacherResult)
+	store.AssertExpectations(t)
+}
+
+func TestTeacherService_AddTeacher_StoreError_Propagates(t *testing.T) {
+	store := new(mockStore)
+	svc := NewService(store, store, store, slog.Default())
+
+	store.On("AddTeacher", mock.Anything, "Alice", "alice@example.com", "robot").Return((*Teacher)(nil), &shared.ValidationError{Msg: "invalid gender"})
+
+	_, err := svc.AddTeacher(context.Background(), "Alice", "alice@example.com", "robot")
+
+	var valErr *shared.ValidationError
+	assert.ErrorAs(t, err, &valErr)
+	assert.EqualError(t, err, "invalid gender")
 }
 
 func TestTeacherService_SetGender_Success(t *testing.T) {
@@ -369,6 +387,7 @@ func TestTeacherService_SetGender_Success(t *testing.T) {
 
 	err := svc.SetGender(context.Background(), 1, "male")
 	assert.NoError(t, err)
+	store.AssertExpectations(t)
 }
 
 func TestTeacherService_SetGender_StoreError_Propagates(t *testing.T) {

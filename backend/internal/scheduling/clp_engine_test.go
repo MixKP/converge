@@ -380,7 +380,7 @@ func TestCLPEngine_Alternatives_SameBranchNeighbor_NoShift(t *testing.T) {
 
 func TestCLPEngine_CommuteConflict(t *testing.T) {
 	loc := shared.LoadLocation()
-	anchor := shared.AnchorDateForDay(0, loc)
+	anchor := time.Date(2026, 6, 7, 0, 0, 0, 0, loc)
 	start := anchor.Add(13 * time.Hour)
 	end := anchor.Add(14 * time.Hour)
 	priorDiffBranch := []Booking{{ID: 1, BranchID: 2, StartTime: anchor.Add(12 * time.Hour), EndTime: anchor.Add(13 * time.Hour)}}
