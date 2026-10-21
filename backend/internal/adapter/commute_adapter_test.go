@@ -21,11 +21,17 @@ func TestCommuteAdapter_DefaultCommute(t *testing.T) {
 }
 
 func TestNewCommuteAdapter_NilSource_Panics(t *testing.T) {
-	var nilSrc CommuteConfigSource
-	assert.Panics(t, func() { NewCommuteAdapter(nilSrc) })
+	const msg = "adapter: NewCommuteAdapter requires a non-nil CommuteConfigSource"
 
-	var typedNil *typedNilSource
-	assert.Panics(t, func() { NewCommuteAdapter(typedNil) })
+	t.Run("nil source", func(t *testing.T) {
+		var nilSrc CommuteConfigSource
+		assert.PanicsWithValue(t, msg, func() { NewCommuteAdapter(nilSrc) })
+	})
+
+	t.Run("typed nil source", func(t *testing.T) {
+		var typedNil *typedNilSource
+		assert.PanicsWithValue(t, msg, func() { NewCommuteAdapter(typedNil) })
+	})
 }
 
 type typedNilSource struct{}

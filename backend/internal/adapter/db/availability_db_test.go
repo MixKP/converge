@@ -4,6 +4,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"testing"
@@ -66,36 +67,45 @@ func TestPostgresRepoGetInactiveTeachers(t *testing.T) {
 	assert.Equal(t, "deactivated", teachers[0].Status)
 }
 
-func TestPostgresRepoReplaceWeeklyAvailability(t *testing.T) {
+func countTeacherSlots(t *testing.T, db *sql.DB, teacherID int) int {
+	t.Helper()
+	var count int
+	require.NoError(t, db.QueryRowContext(context.Background(),
+		`SELECT COUNT(*) FROM teacher_availability WHERE teacher_id = $1`, teacherID).Scan(&count))
+	return count
+}
+
+func TestPostgresRepoReplaceWeeklyAvailability_FirstSubmission(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewPostgresRepo(db)
 
 	_, err := db.Exec(`INSERT INTO teachers (id, name, email, gender, status) VALUES (1, 'Test Teacher', 'test@teacher.com', 'male', 'active')`)
 	require.NoError(t, err)
 
-	slots := []shared.WeeklySlot{
+	err = repo.ReplaceWeeklyAvailability(context.Background(), 1, []shared.WeeklySlot{
 		{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("10:00")},
 		{DayOfWeek: 0, Start: shared.TimeHHMM("11:00"), End: shared.TimeHHMM("12:00")},
-	}
-	err = repo.ReplaceWeeklyAvailability(context.Background(), 1, slots)
+	})
 	require.NoError(t, err)
+	assert.Equal(t, 2, countTeacherSlots(t, db, 1))
+}
 
-	var count int
-	err = db.QueryRowContext(context.Background(),
-		`SELECT COUNT(*) FROM teacher_availability WHERE teacher_id = 1`).Scan(&count)
+func TestPostgresRepoReplaceWeeklyAvailability_ReplacesPrevious(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewPostgresRepo(db)
+
+	_, err := db.Exec(`INSERT INTO teachers (id, name, email, gender, status) VALUES (1, 'Test Teacher', 'test@teacher.com', 'male', 'active')`)
 	require.NoError(t, err)
-	assert.Equal(t, 2, count)
+	require.NoError(t, repo.ReplaceWeeklyAvailability(context.Background(), 1, []shared.WeeklySlot{
+		{DayOfWeek: 0, Start: shared.TimeHHMM("09:00"), End: shared.TimeHHMM("10:00")},
+		{DayOfWeek: 0, Start: shared.TimeHHMM("11:00"), End: shared.TimeHHMM("12:00")},
+	}))
 
-	replaced := []shared.WeeklySlot{
+	err = repo.ReplaceWeeklyAvailability(context.Background(), 1, []shared.WeeklySlot{
 		{DayOfWeek: 2, Start: shared.TimeHHMM("14:00"), End: shared.TimeHHMM("16:00")},
-	}
-	err = repo.ReplaceWeeklyAvailability(context.Background(), 1, replaced)
+	})
 	require.NoError(t, err)
-
-	err = db.QueryRowContext(context.Background(),
-		`SELECT COUNT(*) FROM teacher_availability WHERE teacher_id = 1`).Scan(&count)
-	require.NoError(t, err)
-	assert.Equal(t, 1, count)
+	assert.Equal(t, 1, countTeacherSlots(t, db, 1))
 }
 
 func TestPostgresRepoGetTeachersBySubject_Success(t *testing.T) {

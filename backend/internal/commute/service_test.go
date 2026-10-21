@@ -49,13 +49,21 @@ func TestCommuteService_CommuteTime(t *testing.T) {
 	})
 
 	t.Run("invalid branch id validates before store", func(t *testing.T) {
-		for _, tc := range []struct{ source, dest int }{{0, 1}, {1, -2}} {
-			store := &stubStore{minutes: 45}
-			svc := NewService(store, slog.Default())
-			_, err := svc.CommuteTime(context.Background(), tc.source, tc.dest)
-			var valErr *shared.ValidationError
-			assert.ErrorAs(t, err, &valErr)
-			assert.False(t, store.getCalled)
+		for _, tc := range []struct {
+			name         string
+			source, dest int
+		}{
+			{"invalid source branch", 0, 1},
+			{"invalid destination branch", 1, -2},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				store := &stubStore{minutes: 45}
+				svc := NewService(store, slog.Default())
+				_, err := svc.CommuteTime(context.Background(), tc.source, tc.dest)
+				var valErr *shared.ValidationError
+				assert.ErrorAs(t, err, &valErr)
+				assert.False(t, store.getCalled)
+			})
 		}
 	})
 }

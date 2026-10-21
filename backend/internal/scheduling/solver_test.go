@@ -111,7 +111,7 @@ func TestFitsAvailability_BangkokTimezone(t *testing.T) {
 	loc, err := time.LoadLocation("Asia/Bangkok")
 	require.NoError(t, err)
 
-	anchor := shared.AnchorDateForDay(0, loc)
+	anchor := time.Date(2026, 6, 7, 0, 0, 0, 0, loc)
 	start := anchor.Add(10 * time.Hour)
 	end := anchor.Add(11 * time.Hour)
 

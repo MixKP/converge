@@ -166,7 +166,7 @@ func TestBranchRepoSetStatus(t *testing.T) {
 	assert.Equal(t, "deactivated", branches[0].Status)
 }
 
-func TestBranchRepoSetStatus_Invalid(t *testing.T) {
+func TestBranchRepoSetStatus_UnknownStatus(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewBranchRepository(db)
 
@@ -177,9 +177,16 @@ func TestBranchRepoSetStatus_Invalid(t *testing.T) {
 	require.Error(t, err)
 	var valErr *shared.ValidationError
 	assert.ErrorAs(t, err, &valErr)
+	assert.EqualError(t, err, "invalid status")
+}
 
-	err = repo.SetStatus(context.Background(), 99, "deactivated")
+func TestBranchRepoSetStatus_NotFound(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewBranchRepository(db)
+
+	err := repo.SetStatus(context.Background(), 99, "deactivated")
 	require.Error(t, err)
 	var notFoundErr *shared.NotFoundError
 	assert.ErrorAs(t, err, &notFoundErr)
+	assert.EqualError(t, err, "branch 99 not found")
 }
