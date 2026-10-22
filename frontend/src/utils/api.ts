@@ -48,6 +48,9 @@ export async function postApi<T>(endpoint: string, payload: unknown): Promise<T>
 export async function patchApi<T>(endpoint: string, payload: unknown): Promise<T> {
   return fetchApi<T>(endpoint, jsonRequest('PATCH', payload))
 }
+export async function putApi<T>(endpoint: string, payload: unknown): Promise<T> {
+  return fetchApi<T>(endpoint, jsonRequest('PUT', payload))
+}
 export async function deleteApi<T>(endpoint: string): Promise<T> {
   return fetchApi<T>(endpoint, { method: 'DELETE' })
 }

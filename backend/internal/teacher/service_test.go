@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/RinZ5/converge/backend/internal/shared"
 	"github.com/stretchr/testify/assert"
@@ -81,6 +82,11 @@ func (m *mockStore) ReplaceWeeklyAvailability(ctx context.Context, teacherID int
 	return args.Error(0)
 }
 
+func (m *mockStore) ReplaceWeeklyAvailabilityAndDeleteBookingsFrom(ctx context.Context, teacherID int, slots []shared.WeeklySlot, from time.Time) (int, error) {
+	args := m.Called(ctx, teacherID, slots, from)
+	return args.Int(0), args.Error(1)
+}
+
 func (m *mockStore) SaveRawSubmission(ctx context.Context, teacherID int, rawPayload []byte) error {
 	args := m.Called(ctx, teacherID, rawPayload)
 	return args.Error(0)
@@ -98,11 +104,19 @@ func TestTeacherService_SubmitAvailability_Success(t *testing.T) {
 		tSlot(0, "09:00", "10:00"),
 		tSlot(0, "11:00", "12:00"),
 	}
-	store.On("ReplaceWeeklyAvailability", mock.Anything, 42, slots).Return(nil)
+	isThisWeeksSunday := mock.MatchedBy(func(from time.Time) bool {
+		local := from.In(shared.LoadLocation())
+		age := time.Since(from)
+		return local.Weekday() == time.Sunday &&
+			local.Hour() == 0 && local.Minute() == 0 && local.Second() == 0 &&
+			age >= 0 && age < 7*24*time.Hour
+	})
+	store.On("ReplaceWeeklyAvailabilityAndDeleteBookingsFrom", mock.Anything, 42, slots, isThisWeeksSunday).Return(3, nil)
 	store.On("SaveRawSubmission", mock.Anything, 42, mock.Anything).Return(nil)
 
-	err := svc.SubmitWeeklyAvailability(context.Background(), 42, slots)
+	deleted, err := svc.SubmitWeeklyAvailability(context.Background(), 42, slots)
 	assert.NoError(t, err)
+	assert.Equal(t, 3, deleted)
 	store.AssertExpectations(t)
 }
 
@@ -113,7 +127,7 @@ func TestTeacherService_SubmitAvailability_Overlap(t *testing.T) {
 		tSlot(0, "09:00", "11:00"),
 		tSlot(0, "10:30", "12:00"),
 	}
-	err := svc.SubmitWeeklyAvailability(context.Background(), 1, slots)
+	_, err := svc.SubmitWeeklyAvailability(context.Background(), 1, slots)
 
 	var valErr *ValidationError
 	assert.ErrorAs(t, err, &valErr)
@@ -124,10 +138,10 @@ func TestTeacherService_SubmitAvailability_EmptySlots(t *testing.T) {
 	store := new(mockStore)
 	svc := NewService(store, store, store, slog.Default())
 
-	store.On("ReplaceWeeklyAvailability", mock.Anything, 1, []shared.WeeklySlot{}).Return(nil)
+	store.On("ReplaceWeeklyAvailabilityAndDeleteBookingsFrom", mock.Anything, 1, []shared.WeeklySlot{}, mock.Anything).Return(0, nil)
 	store.On("SaveRawSubmission", mock.Anything, 1, mock.Anything).Return(nil)
 
-	err := svc.SubmitWeeklyAvailability(context.Background(), 1, []shared.WeeklySlot{})
+	_, err := svc.SubmitWeeklyAvailability(context.Background(), 1, []shared.WeeklySlot{})
 	assert.NoError(t, err)
 	store.AssertExpectations(t)
 }
@@ -136,7 +150,7 @@ func TestTeacherService_SubmitAvailability_ZeroTeacherID(t *testing.T) {
 	svc := NewService(new(mockStore), new(mockStore), new(mockStore), slog.Default())
 
 	slots := []shared.WeeklySlot{tSlot(0, "09:00", "10:00")}
-	err := svc.SubmitWeeklyAvailability(context.Background(), 0, slots)
+	_, err := svc.SubmitWeeklyAvailability(context.Background(), 0, slots)
 
 	var valErr *ValidationError
 	assert.ErrorAs(t, err, &valErr)
@@ -146,7 +160,7 @@ func TestTeacherService_SubmitAvailability_DayOfWeekOutOfRange(t *testing.T) {
 	svc := NewService(new(mockStore), new(mockStore), new(mockStore), slog.Default())
 
 	slots := []shared.WeeklySlot{tSlot(7, "09:00", "10:00")}
-	err := svc.SubmitWeeklyAvailability(context.Background(), 1, slots)
+	_, err := svc.SubmitWeeklyAvailability(context.Background(), 1, slots)
 
 	var valErr *ValidationError
 	assert.ErrorAs(t, err, &valErr)
@@ -156,7 +170,7 @@ func TestTeacherService_SubmitAvailability_EmptyStart(t *testing.T) {
 	svc := NewService(new(mockStore), new(mockStore), new(mockStore), slog.Default())
 
 	slots := []shared.WeeklySlot{{DayOfWeek: 0, Start: shared.TimeHHMM(""), End: shared.TimeHHMM("10:00")}}
-	err := svc.SubmitWeeklyAvailability(context.Background(), 1, slots)
+	_, err := svc.SubmitWeeklyAvailability(context.Background(), 1, slots)
 
 	var valErr *ValidationError
 	assert.ErrorAs(t, err, &valErr)
@@ -166,7 +180,7 @@ func TestTeacherService_SubmitAvailability_StartAfterEnd(t *testing.T) {
 	svc := NewService(new(mockStore), new(mockStore), new(mockStore), slog.Default())
 
 	slots := []shared.WeeklySlot{tSlot(0, "10:00", "09:00")}
-	err := svc.SubmitWeeklyAvailability(context.Background(), 1, slots)
+	_, err := svc.SubmitWeeklyAvailability(context.Background(), 1, slots)
 
 	var valErr *ValidationError
 	assert.ErrorAs(t, err, &valErr)
@@ -180,10 +194,10 @@ func TestTeacherService_SubmitAvailability_TouchingSlots(t *testing.T) {
 		tSlot(0, "09:00", "10:00"),
 		tSlot(0, "10:00", "11:00"),
 	}
-	store.On("ReplaceWeeklyAvailability", mock.Anything, 1, slots).Return(nil)
+	store.On("ReplaceWeeklyAvailabilityAndDeleteBookingsFrom", mock.Anything, 1, slots, mock.Anything).Return(0, nil)
 	store.On("SaveRawSubmission", mock.Anything, 1, mock.Anything).Return(nil)
 
-	err := svc.SubmitWeeklyAvailability(context.Background(), 1, slots)
+	_, err := svc.SubmitWeeklyAvailability(context.Background(), 1, slots)
 	assert.NoError(t, err)
 	store.AssertExpectations(t)
 }
@@ -195,7 +209,7 @@ func TestTeacherService_SubmitAvailability_OverlapMessageFormat(t *testing.T) {
 		tSlot(0, "09:00", "11:00"),
 		tSlot(0, "10:30", "12:00"),
 	}
-	err := svc.SubmitWeeklyAvailability(context.Background(), 1, slots)
+	_, err := svc.SubmitWeeklyAvailability(context.Background(), 1, slots)
 
 	var valErr *ValidationError
 	require.ErrorAs(t, err, &valErr)
@@ -210,10 +224,10 @@ func TestTeacherService_SubmitAvailability_CrossDays(t *testing.T) {
 		tSlot(0, "09:00", "11:00"),
 		tSlot(1, "10:00", "12:00"),
 	}
-	store.On("ReplaceWeeklyAvailability", mock.Anything, 1, slots).Return(nil)
+	store.On("ReplaceWeeklyAvailabilityAndDeleteBookingsFrom", mock.Anything, 1, slots, mock.Anything).Return(0, nil)
 	store.On("SaveRawSubmission", mock.Anything, 1, mock.Anything).Return(nil)
 
-	err := svc.SubmitWeeklyAvailability(context.Background(), 1, slots)
+	_, err := svc.SubmitWeeklyAvailability(context.Background(), 1, slots)
 	assert.NoError(t, err)
 	store.AssertExpectations(t)
 }
@@ -223,9 +237,9 @@ func TestTeacherService_SubmitAvailability_ReplaceFails(t *testing.T) {
 	svc := NewService(store, store, store, slog.Default())
 
 	slots := []shared.WeeklySlot{tSlot(0, "09:00", "10:00")}
-	store.On("ReplaceWeeklyAvailability", mock.Anything, 1, slots).Return(errors.New("db error"))
+	store.On("ReplaceWeeklyAvailabilityAndDeleteBookingsFrom", mock.Anything, 1, slots, mock.Anything).Return(0, errors.New("db error"))
 
-	err := svc.SubmitWeeklyAvailability(context.Background(), 1, slots)
+	_, err := svc.SubmitWeeklyAvailability(context.Background(), 1, slots)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "replace availability")
 }

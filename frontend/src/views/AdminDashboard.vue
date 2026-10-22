@@ -78,15 +78,15 @@
 
   const noPeopleLabel = computed(() =>
     mode.value === 'teachers'
-      ? 'No students booked with this teacher yet.'
-      : 'No classes booked for this student yet.'
+      ? 'No students booked with this teacher this week.'
+      : 'No classes booked for this student this week.'
   )
 
   const stats = computed(() => [
     { label: 'Teachers', value: counts.value.teachers },
     { label: 'Students', value: counts.value.students },
     { label: 'Subjects', value: counts.value.subjects },
-    { label: 'Booked classes', value: counts.value.classes },
+    { label: 'Classes this week', value: counts.value.classes },
   ])
 
   const dayFormat = new Intl.DateTimeFormat('en-US', {

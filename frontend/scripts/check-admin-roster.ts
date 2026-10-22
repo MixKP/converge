@@ -8,6 +8,7 @@
 
 import assert from 'node:assert/strict'
 import {
+  bookingsInWeekOf,
   buildEntry,
   groupByCounterpart,
   matchesSearch,
@@ -172,6 +173,37 @@ const booking = (over: Partial<Booking>): Booking =>
     students.map((e) => e.name),
     ['Ann', 'Zed'],
     'statusless entries sort alphabetically'
+  )
+}
+
+// --- the dashboard shows the current Sunday–Saturday week only -------------
+{
+  const at = (day: number, hour: number, minute = 0) => new Date(2026, 9, day, hour, minute)
+  const row = (id: number, start: Date) =>
+    booking({ id, start_time: start.toISOString(), end_time: start.toISOString() })
+  const rows = [
+    row(1, at(17, 23, 59)),
+    row(2, at(18, 0)),
+    row(3, at(22, 9)),
+    row(4, at(24, 23)),
+    row(5, at(25, 0)),
+    booking({ id: 6, start_time: 'not-a-date' }),
+  ]
+
+  assert.deepEqual(
+    bookingsInWeekOf(rows, at(22, 15)).map((b) => b.id),
+    [2, 3, 4],
+    'Sunday 00:00 is in, the next Sunday 00:00 and last Saturday are out'
+  )
+  assert.deepEqual(
+    bookingsInWeekOf(rows, at(18, 0)).map((b) => b.id),
+    [2, 3, 4],
+    'on Sunday at midnight the week has already turned over'
+  )
+  assert.deepEqual(
+    bookingsInWeekOf(rows, at(17, 12)).map((b) => b.id),
+    [1],
+    'the Saturday before belongs to the previous week'
   )
 }
 

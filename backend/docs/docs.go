@@ -42,68 +42,6 @@ const docTemplate = `{
                         }
                     }
                 }
-            },
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Replaces all existing availability for a teacher with the provided weekly schedule (full replace, not merge). Rejects overlapping slots within the same day.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "availability"
-                ],
-                "summary": "Submit weekly availability",
-                "parameters": [
-                    {
-                        "description": "Weekly availability payload",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/scheduling.MessageResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/scheduling.ErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/scheduling.ErrorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/scheduling.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/scheduling.ErrorResponse"
-                        }
-                    }
-                }
             }
         },
         "/bookings": {
@@ -1284,6 +1222,82 @@ const docTemplate = `{
                 }
             }
         },
+        "/teachers/{id}/availability": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Replaces all existing availability for a teacher with the provided weekly schedule (full replace, not merge) and deletes every booking of that teacher from the start of the current week (Sunday 00:00 Asia/Bangkok) onward, including ones earlier this week. Rejects overlapping slots within the same day. Idempotent: repeating the request deletes nothing further.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "availability"
+                ],
+                "summary": "Replace a teacher's weekly availability",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Teacher ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Weekly slots",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/teacher.UpdateAvailabilityRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/teacher.SubmitAvailabilityResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/scheduling.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/teachers/{id}/gender": {
             "patch": {
                 "security": [
@@ -1918,6 +1932,19 @@ const docTemplate = `{
                 }
             }
         },
+        "teacher.SubmitAvailabilityResponse": {
+            "type": "object",
+            "properties": {
+                "deleted_bookings": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Availability saved successfully"
+                }
+            }
+        },
         "teacher.Teacher": {
             "type": "object",
             "properties": {
@@ -1949,6 +1976,17 @@ const docTemplate = `{
                 "teacher": {
                     "$ref": "#/definitions/teacher.Teacher"
                 },
+                "weekly": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/shared.WeeklySlot"
+                    }
+                }
+            }
+        },
+        "teacher.UpdateAvailabilityRequest": {
+            "type": "object",
+            "properties": {
                 "weekly": {
                     "type": "array",
                     "items": {

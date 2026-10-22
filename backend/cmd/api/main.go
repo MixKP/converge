@@ -186,7 +186,6 @@ func main() {
 	api.GET("/availability", availHandler.GetAllAvailability)
 
 	api.POST("/register", authRequired, web.RequireRole(shared.RoleAdmin), userHandler.Register)
-	api.POST("/availability", authRequired, web.RequireRole(shared.RoleAdmin), availHandler.SubmitWeeklyAvailability)
 
 	// Bookings list is scoped by role inside the handler.
 	api.GET("/bookings", authRequired, web.RequireRole(shared.RoleAdmin, shared.RoleStudent, shared.RoleParent), bookingHandler.ListBookings)
@@ -203,6 +202,7 @@ func main() {
 	admin.PATCH("/teachers/:id/gender", availHandler.UpdateTeacherGender)
 	admin.GET("/teachers/:id/subjects", availHandler.GetTeacherSubjects)
 	admin.PUT("/teachers/:id/subjects", availHandler.UpdateTeacherSubjects)
+	admin.PUT("/teachers/:id/availability", availHandler.SubmitWeeklyAvailability)
 	admin.GET("/branches", branchHandler.GetBranches)
 	admin.POST("/branches", branchHandler.CreateBranch)
 	admin.PATCH("/branches/:id/capacity", branchHandler.UpdateBranchCapacity)

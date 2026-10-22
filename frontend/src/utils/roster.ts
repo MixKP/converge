@@ -1,4 +1,5 @@
 import { sortDeactivatedLast } from './status.ts'
+import { startOfWeek } from './calendarHelpers.ts'
 import type { Booking, Teacher } from '../types'
 
 export type RosterMode = 'teachers' | 'students'
@@ -129,6 +130,16 @@ export function buildEntry({
     classCount: bookings.length,
     status,
   }
+}
+
+export function bookingsInWeekOf(bookings: Booking[], date: Date): Booking[] {
+  const start = startOfWeek(date)
+  const end = new Date(start)
+  end.setDate(end.getDate() + 7)
+  return bookings.filter((booking) => {
+    const time = new Date(booking.start_time).getTime()
+    return time >= start.getTime() && time < end.getTime()
+  })
 }
 
 export function groupBookingsBy(

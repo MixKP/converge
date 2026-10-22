@@ -21,6 +21,8 @@
     isLoading,
     events,
     showConfirm,
+    isCountingBookings,
+    affectedBookingCount,
     selectedTeacherId,
     selectedTeacher,
     showErrors,
@@ -120,8 +122,31 @@
         <div class="flex flex-col gap-1">
           <DialogTitle>Confirm availability</DialogTitle>
           <DialogDescription>
-            This replaces {{ selectedTeacher?.name }}'s entire weekly schedule.
+            This replaces {{ selectedTeacher?.name }}'s entire weekly schedule and deletes every
+            class students have booked with them from this week (Sunday) onward, including classes
+            earlier this week. Classes before this week are kept.
           </DialogDescription>
+        </div>
+
+        <div
+          class="border-warning-border bg-warning-surface text-warning-text flex items-start gap-2 rounded-md border px-3 py-2 text-xs"
+          role="status"
+        >
+          <Loader2 v-if="isCountingBookings" class="mt-px size-4 shrink-0 animate-spin" />
+          <TriangleAlert v-else class="mt-px size-4 shrink-0" />
+          <span v-if="isCountingBookings">Checking booked classes…</span>
+          <span v-else-if="affectedBookingCount === null">
+            Couldn't load booked classes. All of {{ selectedTeacher?.name }}'s booked classes from
+            this week onward will still be deleted.
+          </span>
+          <span v-else-if="affectedBookingCount === 0">
+            {{ selectedTeacher?.name }} has no booked classes from this week onward.
+          </span>
+          <span v-else>
+            <strong class="font-medium tabular-nums">{{ affectedBookingCount }}</strong>
+            booked class{{ affectedBookingCount === 1 ? '' : 'es' }} from this week onward will be
+            deleted.
+          </span>
         </div>
 
         <div class="border-border flex flex-col gap-1 rounded-md border p-3">
@@ -137,7 +162,14 @@
 
         <div class="flex justify-end gap-2">
           <Button variant="ghost" @click="cancelConfirm">Cancel</Button>
-          <Button @click="confirmSubmit">Confirm</Button>
+          <Button
+            :disabled="isLoading || isCountingBookings"
+            :aria-busy="isLoading"
+            @click="confirmSubmit"
+          >
+            <Loader2 v-if="isLoading" class="animate-spin" />
+            Confirm
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

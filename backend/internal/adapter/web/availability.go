@@ -20,7 +20,7 @@ type teacherService interface {
 	GetTeachersBySubject(ctx context.Context, subjectID int) ([]teacher.Teacher, error)
 	GetAllAvailability(ctx context.Context) ([]teacher.TeacherAvailability, error)
 	GetSubjects(ctx context.Context) ([]shared.Subject, error)
-	SubmitWeeklyAvailability(ctx context.Context, teacherID int, slots []shared.WeeklySlot) error
+	SubmitWeeklyAvailability(ctx context.Context, teacherID int, slots []shared.WeeklySlot) (int, error)
 	AddTeacher(ctx context.Context, name, email, gender string) (*teacher.Teacher, error)
 	SetStatus(ctx context.Context, teacherID int, status string) error
 	SetGender(ctx context.Context, teacherID int, gender string) error
@@ -146,46 +146,44 @@ func (h *AvailabilityHandler) GetSubjects(c *gin.Context) {
 }
 
 // SubmitWeeklyAvailability godoc
-// @Summary      Submit weekly availability
-// @Description  Replaces all existing availability for a teacher with the provided weekly schedule (full replace, not merge). Rejects overlapping slots within the same day.
+// @Summary      Replace a teacher's weekly availability
+// @Description  Replaces all existing availability for a teacher with the provided weekly schedule (full replace, not merge) and deletes every booking of that teacher from the start of the current week (Sunday 00:00 Asia/Bangkok) onward, including ones earlier this week. Rejects overlapping slots within the same day. Idempotent: repeating the request deletes nothing further.
 // @Tags         availability
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Param        body  body  map[string]interface{}  true  "Weekly availability payload"
-// @Success      201  {object}  scheduling.MessageResponse
+// @Param        id    path  int                                true  "Teacher ID"
+// @Param        body  body  teacher.UpdateAvailabilityRequest  true  "Weekly slots"
+// @Success      200  {object}  teacher.SubmitAvailabilityResponse
 // @Failure      400  {object}  scheduling.ErrorResponse
 // @Failure      401  {object}  scheduling.ErrorResponse
 // @Failure      403  {object}  scheduling.ErrorResponse
+// @Failure      404  {object}  scheduling.ErrorResponse
 // @Failure      500  {object}  scheduling.ErrorResponse
-// @Router       /availability [post]
+// @Router       /teachers/{id}/availability [put]
 func (h *AvailabilityHandler) SubmitWeeklyAvailability(c *gin.Context) {
-	var payload struct {
-		TeacherID int                 `json:"teacher_id"`
-		Weekly    []shared.WeeklySlot `json:"weekly"`
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid teacher id"})
+		return
 	}
-	if err := c.ShouldBindJSON(&payload); err != nil {
+
+	var req teacher.UpdateAvailabilityRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	var valErr *teacher.ValidationError
-	if err := h.svc.SubmitWeeklyAvailability(c.Request.Context(), payload.TeacherID, payload.Weekly); err != nil {
-		if errors.As(err, &valErr) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		} else {
-			h.logger.Error("request failed",
-				"request_id", requestID(c),
-				"op", "SubmitWeeklyAvailability",
-				"teacher_id", payload.TeacherID,
-				"error", err,
-			)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save availability"})
-		}
+	deletedBookings, err := h.svc.SubmitWeeklyAvailability(c.Request.Context(), id, req.Weekly)
+	if err != nil {
+		respondFieldUpdateErr(c, h.logger, err, "SubmitWeeklyAvailability", "teacher", id, "failed to save availability")
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "Availability saved successfully"})
+	c.JSON(http.StatusOK, teacher.SubmitAvailabilityResponse{
+		Message:         "Availability saved successfully",
+		DeletedBookings: deletedBookings,
+	})
 }
 
 // CreateTeacher godoc

@@ -2,6 +2,7 @@ package teacher
 
 import (
 	"context"
+	"time"
 
 	"github.com/RinZ5/converge/backend/internal/shared"
 )
@@ -25,6 +26,7 @@ type AvailabilityStore interface {
 	GetAllAvailability(ctx context.Context) ([]TeacherAvailability, error)
 	FindTeacherAvailability(ctx context.Context, teacherID int) ([]shared.WeeklySlot, error)
 	ReplaceWeeklyAvailability(ctx context.Context, teacherID int, slots []shared.WeeklySlot) error
+	ReplaceWeeklyAvailabilityAndDeleteBookingsFrom(ctx context.Context, teacherID int, slots []shared.WeeklySlot, from time.Time) (int, error)
 	SaveRawSubmission(ctx context.Context, teacherID int, rawPayload []byte) error
 }
 

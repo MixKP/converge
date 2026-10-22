@@ -30,6 +30,8 @@ type mockService struct {
 	availability     []teacher.TeacherAvailability
 	availErr         error
 	submitErr        error
+	submitDeleted    int
+	submitTeacherID  int
 	submitCalled     bool
 	addedTeacher     *teacher.Teacher
 	addTeacherErr    error
@@ -68,9 +70,10 @@ func (m *mockService) GetAllAvailability(ctx context.Context) ([]teacher.Teacher
 	return m.availability, m.availErr
 }
 
-func (m *mockService) SubmitWeeklyAvailability(ctx context.Context, teacherID int, slots []shared.WeeklySlot) error {
+func (m *mockService) SubmitWeeklyAvailability(ctx context.Context, teacherID int, slots []shared.WeeklySlot) (int, error) {
 	m.submitCalled = true
-	return m.submitErr
+	m.submitTeacherID = teacherID
+	return m.submitDeleted, m.submitErr
 }
 
 func (m *mockService) AddTeacher(ctx context.Context, name, email, gender string) (*teacher.Teacher, error) {
@@ -137,28 +140,60 @@ func TestAvailabilityHandler_GetTeachers_Error(t *testing.T) {
 }
 
 func TestAvailabilityHandler_SubmitWeeklyAvailability_Success(t *testing.T) {
-	mock := &mockService{}
+	mock := &mockService{submitDeleted: 2}
 	handler := NewAvailabilityHandler(mock, slog.Default())
 
 	payload := map[string]interface{}{
-		"teacher_id": 42,
 		"weekly": []map[string]interface{}{
 			{"day_of_week": 0, "start": "09:00", "end": "10:00"},
 			{"day_of_week": 0, "start": "11:00", "end": "12:00"},
 		},
 	}
 	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/api/availability", bytes.NewReader(body))
+	req := httptest.NewRequest(http.MethodPut, "/api/teachers/42/availability", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
 	r := gin.Default()
-	r.POST("/api/availability", handler.SubmitWeeklyAvailability)
+	r.PUT("/api/teachers/:id/availability", handler.SubmitWeeklyAvailability)
 
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusCreated, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 	assert.True(t, mock.submitCalled)
+	assert.Equal(t, 42, mock.submitTeacherID)
+	assert.JSONEq(t, `{"message":"Availability saved successfully","deleted_bookings":2}`, w.Body.String())
+}
+
+func TestAvailabilityHandler_SubmitWeeklyAvailability_InvalidTeacherID(t *testing.T) {
+	mock := &mockService{}
+	handler := NewAvailabilityHandler(mock, slog.Default())
+	r := gin.Default()
+	r.PUT("/api/teachers/:id/availability", handler.SubmitWeeklyAvailability)
+
+	req := httptest.NewRequest(http.MethodPut, "/api/teachers/abc/availability", bytes.NewReader([]byte(`{"weekly":[]}`)))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.False(t, mock.submitCalled)
+}
+
+func TestAvailabilityHandler_SubmitWeeklyAvailability_TeacherNotFound(t *testing.T) {
+	mock := &mockService{submitErr: &shared.NotFoundError{Msg: "teacher 99 not found"}}
+	handler := NewAvailabilityHandler(mock, slog.Default())
+	r := gin.Default()
+	r.PUT("/api/teachers/:id/availability", handler.SubmitWeeklyAvailability)
+
+	body := `{"weekly":[{"day_of_week":0,"start":"09:00","end":"10:00"}]}`
+	req := httptest.NewRequest(http.MethodPut, "/api/teachers/99/availability", bytes.NewReader([]byte(body)))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+	assert.Contains(t, w.Body.String(), "teacher 99 not found")
 }
 
 func TestAvailabilityHandler_SubmitWeeklyAvailability_Overlap(t *testing.T) {
@@ -170,18 +205,17 @@ func TestAvailabilityHandler_SubmitWeeklyAvailability_Overlap(t *testing.T) {
 	handler := NewAvailabilityHandler(mock, slog.Default())
 
 	payload := map[string]interface{}{
-		"teacher_id": 1,
 		"weekly": []map[string]interface{}{
 			{"day_of_week": 0, "start": "09:00", "end": "11:00"},
 			{"day_of_week": 0, "start": "10:30", "end": "12:00"},
 		},
 	}
 	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/api/availability", bytes.NewReader(body))
+	req := httptest.NewRequest(http.MethodPut, "/api/teachers/1/availability", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
 	r := gin.Default()
-	r.POST("/api/availability", handler.SubmitWeeklyAvailability)
+	r.PUT("/api/teachers/:id/availability", handler.SubmitWeeklyAvailability)
 
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -194,9 +228,9 @@ func TestAvailabilityHandler_SubmitWeeklyAvailability_InvalidJSON(t *testing.T) 
 	mock := &mockService{}
 	handler := NewAvailabilityHandler(mock, slog.Default())
 	r := gin.Default()
-	r.POST("/api/availability", handler.SubmitWeeklyAvailability)
+	r.PUT("/api/teachers/:id/availability", handler.SubmitWeeklyAvailability)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/availability", bytes.NewReader([]byte(`{`)))
+	req := httptest.NewRequest(http.MethodPut, "/api/teachers/1/availability", bytes.NewReader([]byte(`{`)))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -210,17 +244,16 @@ func TestAvailabilityHandler_SubmitWeeklyAvailability_ServiceError(t *testing.T)
 	handler := NewAvailabilityHandler(mock, slog.Default())
 
 	payload := map[string]interface{}{
-		"teacher_id": 1,
 		"weekly": []map[string]interface{}{
 			{"day_of_week": 0, "start": "09:00", "end": "10:00"},
 		},
 	}
 	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/api/availability", bytes.NewReader(body))
+	req := httptest.NewRequest(http.MethodPut, "/api/teachers/1/availability", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
 	r := gin.Default()
-	r.POST("/api/availability", handler.SubmitWeeklyAvailability)
+	r.PUT("/api/teachers/:id/availability", handler.SubmitWeeklyAvailability)
 
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -234,11 +267,11 @@ func TestAvailabilityHandler_SubmitWeeklyAvailability_EmptyBody(t *testing.T) {
 	mock := &mockService{}
 	handler := NewAvailabilityHandler(mock, slog.Default())
 
-	req := httptest.NewRequest(http.MethodPost, "/api/availability", bytes.NewReader([]byte{}))
+	req := httptest.NewRequest(http.MethodPut, "/api/teachers/1/availability", bytes.NewReader([]byte{}))
 	req.Header.Set("Content-Type", "application/json")
 
 	r := gin.Default()
-	r.POST("/api/availability", handler.SubmitWeeklyAvailability)
+	r.PUT("/api/teachers/:id/availability", handler.SubmitWeeklyAvailability)
 
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
