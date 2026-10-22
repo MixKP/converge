@@ -123,56 +123,21 @@ func (r *BookingRepo) CreateBooking(ctx context.Context, req scheduling.ConfirmB
 	}
 	defer tx.Rollback()
 
-	var studentRole string
-	if err := tx.QueryRowContext(ctx, `SELECT role FROM users WHERE id = $1`, req.StudentID).Scan(&studentRole); err != nil {
-		if err == sql.ErrNoRows {
-			return nil, &shared.ValidationError{Msg: fmt.Sprintf("student %d not found", req.StudentID)}
-		}
+	if err := requireStudent(ctx, tx, req.StudentID); err != nil {
 		return nil, err
 	}
-	if studentRole != "student" {
-		return nil, &shared.ValidationError{Msg: fmt.Sprintf("user %d is not a student", req.StudentID)}
-	}
-
-	var branchStatus string
-	if err := tx.QueryRowContext(ctx, `SELECT status FROM branches WHERE id = $1`, req.BranchID).Scan(&branchStatus); err != nil {
-		if err == sql.ErrNoRows {
-			return nil, &shared.NotFoundError{Msg: fmt.Sprintf("branch %d not found", req.BranchID)}
-		}
+	if err := requireActiveBranch(ctx, tx, req.BranchID); err != nil {
 		return nil, err
 	}
-	if branchStatus != "active" {
-		return nil, &shared.ValidationError{Msg: fmt.Sprintf("branch %d is deactivated", req.BranchID)}
-	}
-
-	if _, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(1, $1::int)`, req.TeacherID); err != nil {
+	if err := lockTeacher(ctx, tx, req.TeacherID); err != nil {
 		return nil, err
 	}
-
-	var commuteMinutes int
-	if err := tx.QueryRowContext(ctx, `SELECT commute_minutes FROM commute_config WHERE id = 1 FOR SHARE`).Scan(&commuteMinutes); err != nil {
+	commuteMinutes, err := readCommuteMinutes(ctx, tx)
+	if err != nil {
 		return nil, err
 	}
-	if commuteMinutes > 0 {
-		var commuteConflict bool
-		if err := tx.QueryRowContext(ctx, `
-			SELECT EXISTS (
-				SELECT 1 FROM bookings
-				WHERE teacher_id = $1
-				  AND branch_id <> $2
-				  AND tstzrange(
-					start_time - ($5::int * interval '1 minute'),
-					end_time + ($5::int * interval '1 minute'),
-					'[)'
-				  ) && tstzrange($3, $4, '[)')
-			)`,
-			req.TeacherID, req.BranchID, req.StartTime, req.EndTime, commuteMinutes,
-		).Scan(&commuteConflict); err != nil {
-			return nil, err
-		}
-		if commuteConflict {
-			return nil, scheduling.ErrCommuteConflict
-		}
+	if err := checkCommute(ctx, tx, req.TeacherID, req.BranchID, req.StartTime, req.EndTime, commuteMinutes); err != nil {
+		return nil, err
 	}
 
 	row := tx.QueryRowContext(ctx, `
@@ -190,8 +155,7 @@ func (r *BookingRepo) CreateBooking(ctx context.Context, req scheduling.ConfirmB
 	var b scheduling.Booking
 	if err := row.Scan(&b.ID, &b.TeacherID, &b.BranchID, &b.SubjectID,
 		&b.StartTime, &b.EndTime, &b.StudentID, &b.StudentName, &b.CreatedAt); err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == pgExclusionViolation {
+		if isExclusionViolation(err) {
 			return nil, scheduling.ErrBookingConflict
 		}
 		return nil, err
@@ -201,6 +165,182 @@ func (r *BookingRepo) CreateBooking(ctx context.Context, req scheduling.ConfirmB
 		return nil, err
 	}
 	return &b, nil
+}
+
+// RescheduleBooking moves one booking under the same per-teacher lock as
+// CreateBooking. The teacher is read before the lock and the row is locked
+// after it, the order every other writer of a teacher's bookings uses.
+func (r *BookingRepo) RescheduleBooking(ctx context.Context, bookingID int, start, end, now time.Time) (*scheduling.Booking, error) {
+	tx, err := r.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	notFound := &shared.NotFoundError{Msg: fmt.Sprintf("booking %d not found", bookingID)}
+
+	var teacherID int
+	if err := tx.QueryRowContext(ctx, `SELECT teacher_id FROM bookings WHERE id = $1`, bookingID).Scan(&teacherID); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, notFound
+		}
+		return nil, err
+	}
+	if err := lockTeacher(ctx, tx, teacherID); err != nil {
+		return nil, err
+	}
+
+	var branchID int
+	var currentStart time.Time
+	if err := tx.QueryRowContext(ctx,
+		`SELECT branch_id, start_time FROM bookings WHERE id = $1 FOR UPDATE`, bookingID,
+	).Scan(&branchID, &currentStart); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, notFound
+		}
+		return nil, err
+	}
+
+	if !currentStart.After(now) {
+		return nil, scheduling.ErrBookingStarted
+	}
+	if !start.After(now) {
+		return nil, scheduling.ErrSessionInPast
+	}
+	if err := requireActiveBranch(ctx, tx, branchID); err != nil {
+		return nil, err
+	}
+	inside, err := withinAvailability(ctx, tx, teacherID, start, end)
+	if err != nil {
+		return nil, err
+	}
+	if !inside {
+		return nil, scheduling.ErrOutsideAvailability
+	}
+	commuteMinutes, err := readCommuteMinutes(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	if err := checkCommute(ctx, tx, teacherID, branchID, start, end, commuteMinutes); err != nil {
+		return nil, err
+	}
+
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE bookings SET start_time = $2, end_time = $3 WHERE id = $1`, bookingID, start, end,
+	); err != nil {
+		if isExclusionViolation(err) {
+			return nil, scheduling.ErrBookingConflict
+		}
+		return nil, err
+	}
+
+	rows, err := tx.QueryContext(ctx, bookingWithStudentSelect+` WHERE b.id = $1`, bookingID)
+	if err != nil {
+		return nil, err
+	}
+	moved, err := scanStudentBookings(rows)
+	rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	if len(moved) != 1 {
+		return nil, notFound
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return &moved[0], nil
+}
+
+func isExclusionViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == pgExclusionViolation
+}
+
+func requireStudent(ctx context.Context, tx *sql.Tx, studentID int) error {
+	var studentRole string
+	if err := tx.QueryRowContext(ctx, `SELECT role FROM users WHERE id = $1`, studentID).Scan(&studentRole); err != nil {
+		if err == sql.ErrNoRows {
+			return &shared.ValidationError{Msg: fmt.Sprintf("student %d not found", studentID)}
+		}
+		return err
+	}
+	if studentRole != "student" {
+		return &shared.ValidationError{Msg: fmt.Sprintf("user %d is not a student", studentID)}
+	}
+	return nil
+}
+
+func requireActiveBranch(ctx context.Context, tx *sql.Tx, branchID int) error {
+	var branchStatus string
+	if err := tx.QueryRowContext(ctx, `SELECT status FROM branches WHERE id = $1`, branchID).Scan(&branchStatus); err != nil {
+		if err == sql.ErrNoRows {
+			return &shared.NotFoundError{Msg: fmt.Sprintf("branch %d not found", branchID)}
+		}
+		return err
+	}
+	if branchStatus != "active" {
+		return &shared.ValidationError{Msg: fmt.Sprintf("branch %d is deactivated", branchID)}
+	}
+	return nil
+}
+
+func lockTeacher(ctx context.Context, tx *sql.Tx, teacherID int) error {
+	_, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(1, $1::int)`, teacherID)
+	return err
+}
+
+func readCommuteMinutes(ctx context.Context, tx *sql.Tx) (int, error) {
+	var commuteMinutes int
+	err := tx.QueryRowContext(ctx, `SELECT commute_minutes FROM commute_config WHERE id = 1 FOR SHARE`).Scan(&commuteMinutes)
+	return commuteMinutes, err
+}
+
+func checkCommute(ctx context.Context, tx *sql.Tx, teacherID, branchID int, start, end time.Time, commuteMinutes int) error {
+	if commuteMinutes <= 0 {
+		return nil
+	}
+	var commuteConflict bool
+	if err := tx.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM bookings
+			WHERE teacher_id = $1
+			  AND branch_id <> $2
+			  AND tstzrange(
+				start_time - ($5::int * interval '1 minute'),
+				end_time + ($5::int * interval '1 minute'),
+				'[)'
+			  ) && tstzrange($3, $4, '[)')
+		)`,
+		teacherID, branchID, start, end, commuteMinutes,
+	).Scan(&commuteConflict); err != nil {
+		return err
+	}
+	if commuteConflict {
+		return scheduling.ErrCommuteConflict
+	}
+	return nil
+}
+
+// withinAvailability reads the weekly slots inside the transaction, so it
+// serialises with ReplaceWeeklyAvailabilityAndDeleteBookingsFrom through the
+// shared teacher lock. Slots are wall-clock times, so the new time is compared
+// in the business timezone.
+func withinAvailability(ctx context.Context, tx *sql.Tx, teacherID int, start, end time.Time) (bool, error) {
+	var inside bool
+	err := tx.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM teacher_availability
+			WHERE teacher_id = $1
+			  AND ($2::timestamptz AT TIME ZONE $4)::date = ($3::timestamptz AT TIME ZONE $4)::date
+			  AND day_of_week = EXTRACT(DOW FROM $2::timestamptz AT TIME ZONE $4)
+			  AND start_time <= ($2::timestamptz AT TIME ZONE $4)::time
+			  AND end_time >= ($3::timestamptz AT TIME ZONE $4)::time
+		)`,
+		teacherID, start, end, shared.LoadLocation().String(),
+	).Scan(&inside)
+	return inside, err
 }
 
 func (r *BookingRepo) DeleteBooking(ctx context.Context, bookingID int) error {

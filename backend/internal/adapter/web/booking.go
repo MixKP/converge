@@ -17,6 +17,7 @@ type bookingService interface {
 	Evaluate(ctx context.Context, req scheduling.BookingRequest) (*scheduling.BookingResponse, error)
 	Confirm(ctx context.Context, req scheduling.ConfirmBookingRequest) (*scheduling.Booking, error)
 	Cancel(ctx context.Context, bookingID int) error
+	Reschedule(ctx context.Context, bookingID int, req scheduling.RescheduleBookingRequest) (*scheduling.Booking, error)
 	ListAll(ctx context.Context) ([]scheduling.Booking, error)
 	ListForStudentIDs(ctx context.Context, studentIDs []int) ([]scheduling.Booking, error)
 }
@@ -176,6 +177,70 @@ func (h *BookingHandler) CancelBooking(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Booking cancelled successfully"})
+}
+
+// RescheduleBooking godoc
+// @Summary      Change a booking's time
+// @Description  Moves a booking to a new time. Teacher, branch, subject and student stay as booked. The class must not have started, and the new time must be in the future, inside the teacher's availability, and pass the overlap and commute checks.
+// @Tags         bookings
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path  int                                  true  "Booking ID"
+// @Param        body  body  scheduling.RescheduleBookingRequest  true  "New time"
+// @Success      200  {object}  scheduling.Booking
+// @Failure      400  {object}  scheduling.ErrorResponse
+// @Failure      401  {object}  scheduling.ErrorResponse
+// @Failure      403  {object}  scheduling.ErrorResponse
+// @Failure      404  {object}  scheduling.ErrorResponse
+// @Failure      409  {object}  scheduling.ErrorResponse
+// @Failure      500  {object}  scheduling.ErrorResponse
+// @Router       /bookings/{id} [put]
+func (h *BookingHandler) RescheduleBooking(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid booking id"})
+		return
+	}
+
+	var req scheduling.RescheduleBookingRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	result, err := h.svc.Reschedule(c.Request.Context(), id, req)
+	if err != nil {
+		var valErr *scheduling.ValidationError
+		var confErr *scheduling.ConflictError
+		var notFoundErr *scheduling.NotFoundError
+		switch {
+		case errors.As(err, &valErr):
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		case errors.As(err, &confErr):
+			h.logger.Warn("booking conflict",
+				"request_id", requestID(c),
+				"op", "RescheduleBooking/Reschedule",
+				"booking_id", id,
+				"start_time", req.StartTime,
+				"error", err,
+			)
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		case errors.As(err, &notFoundErr):
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		default:
+			h.logger.Error("request failed",
+				"request_id", requestID(c),
+				"op", "RescheduleBooking/Reschedule",
+				"booking_id", id,
+				"error", err,
+			)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to reschedule booking"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
 }
 
 // ListBookings godoc

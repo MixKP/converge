@@ -14,6 +14,7 @@ type BookingStore interface {
 	FindConflictingBookings(ctx context.Context, teacherID int, startTime, endTime time.Time) ([]Booking, error)
 	CreateBooking(ctx context.Context, req ConfirmBookingRequest) (*Booking, error)
 	DeleteBooking(ctx context.Context, bookingID int) error
+	RescheduleBooking(ctx context.Context, bookingID int, start, end, now time.Time) (*Booking, error)
 	FindAllBookings(ctx context.Context) ([]Booking, error)
 	FindBookingsByStudentIDs(ctx context.Context, studentIDs []int) ([]Booking, error)
 }

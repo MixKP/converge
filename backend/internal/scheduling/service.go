@@ -157,6 +157,34 @@ func (s *SchedulingService) Cancel(ctx context.Context, bookingID int) error {
 	return nil
 }
 
+func (s *SchedulingService) Reschedule(ctx context.Context, bookingID int, req RescheduleBookingRequest) (*Booking, error) {
+	if err := shared.ValidateAll(bookingID,
+		shared.PositiveInt("booking_id", func(id int) int { return id }),
+	); err != nil {
+		return nil, err
+	}
+	if req.StartTime.IsZero() || req.EndTime.IsZero() {
+		return nil, &ValidationError{Msg: "start_time and end_time must be provided"}
+	}
+	if !req.EndTime.After(req.StartTime) {
+		return nil, &ValidationError{Msg: "end_time must be after start_time"}
+	}
+
+	booking, err := s.bookingStore.RescheduleBooking(ctx, bookingID, req.StartTime, req.EndTime, time.Now())
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrBookingStarted), errors.Is(err, ErrSessionInPast), errors.Is(err, ErrOutsideAvailability):
+			return nil, &ValidationError{Msg: err.Error()}
+		case errors.Is(err, ErrBookingConflict):
+			return nil, &ConflictError{Msg: "Teacher already has a booking in this time range"}
+		case errors.Is(err, ErrCommuteConflict):
+			return nil, &ConflictError{Msg: "Teacher does not have enough commute time between branches"}
+		}
+		return nil, err
+	}
+	return booking, nil
+}
+
 func (s *SchedulingService) ListAll(ctx context.Context) ([]Booking, error) {
 	bookings, err := s.bookingStore.FindAllBookings(ctx)
 	if err != nil {

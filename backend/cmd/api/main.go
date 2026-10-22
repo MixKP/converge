@@ -219,6 +219,7 @@ func main() {
 	admin.POST("/bookings", bookingHandler.CreateBooking)
 	admin.POST("/bookings/confirm", bookingHandler.ConfirmBooking)
 	admin.DELETE("/bookings/:id", bookingHandler.CancelBooking)
+	admin.PUT("/bookings/:id", bookingHandler.RescheduleBooking)
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 

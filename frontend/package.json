@@ -14,6 +14,7 @@
     "check:availability": "node --experimental-strip-types scripts/check-availability-business-hours.ts",
     "check:tokens": "node --experimental-strip-types scripts/check-design-tokens.ts",
     "check:roster": "node --experimental-strip-types scripts/check-admin-roster.ts",
+    "check:edit": "node --experimental-strip-types scripts/check-booking-edit.ts",
     "check:notify": "node --experimental-strip-types scripts/check-notification-timeout.ts",
     "check:contrast": "node --experimental-strip-types scripts/check-contrast.ts",
     "check:score": "node --experimental-strip-types scripts/check-score-color.ts",
