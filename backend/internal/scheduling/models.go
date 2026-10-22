@@ -48,6 +48,13 @@ type ConfirmBookingRequest struct {
 	StudentID int       `json:"student_id"  binding:"required" example:"3"`
 }
 
+// RescheduleBookingRequest moves a booking. Teacher, branch, subject and
+// student stay as booked; changing any of those is a new booking.
+type RescheduleBookingRequest struct {
+	StartTime time.Time `json:"start_time" binding:"required" example:"2026-06-01T09:00:00Z"`
+	EndTime   time.Time `json:"end_time"   binding:"required" example:"2026-06-01T10:00:00Z"`
+}
+
 type BookingAlternative struct {
 	TeacherID      int                `json:"teacher_id"`
 	TeacherName    string             `json:"teacher_name"`

@@ -559,3 +559,138 @@ func TestBookingRepoCreateBooking_AcceptsReactivatedBranch(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, branchID, booking.BranchID)
 }
+
+type rescheduleFixture struct {
+	repo    *BookingRepo
+	db      *sql.DB
+	now     time.Time
+	moveID  int
+	pastID  int
+	at      func(day, hour int) time.Time
+	timesOf func(id int) (time.Time, time.Time)
+}
+
+// setupRescheduleFixture freezes "now" at Thu 22 Oct 2026 12:00 Bangkok.
+// Teacher A is free Mondays 09:00-17:00 and Tuesdays 09:00-12:00. Student S has
+// an upcoming Monday 09:00 class (the one moved) and a past Tuesday class.
+// Another student holds Monday 13:00 with the same teacher, and the teacher
+// teaches at a second branch on Monday 11:00-12:00 (commute is 30 minutes).
+func setupRescheduleFixture(t *testing.T) rescheduleFixture {
+	t.Helper()
+	db := setupTestDB(t)
+	teacherA, _, branchID, subjectID := seedCappedBranchWithTwoTeachers(t, db, -1)
+	var secondBranch int
+	require.NoError(t, db.QueryRow(`INSERT INTO branches (id, name) VALUES (2, 'Second Branch') RETURNING id`).Scan(&secondBranch))
+	student := seedStudent(t, db, "S")
+	other := seedStudent(t, db, "S2")
+	_, err := db.Exec(`
+		INSERT INTO teacher_availability (teacher_id, day_of_week, start_time, end_time)
+		VALUES ($1, 1, '09:00', '17:00'), ($1, 2, '09:00', '12:00')`, teacherA)
+	require.NoError(t, err)
+
+	loc := shared.LoadLocation()
+	at := func(day, hour int) time.Time { return time.Date(2026, 10, day, hour, 0, 0, 0, loc) }
+	insert := func(studentID, branch int, start time.Time) int {
+		var id int
+		require.NoError(t, db.QueryRow(`
+			INSERT INTO bookings (teacher_id, branch_id, subject_id, start_time, end_time, student_id)
+			VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+			teacherA, branch, subjectID, start, start.Add(time.Hour), studentID).Scan(&id))
+		return id
+	}
+
+	f := rescheduleFixture{
+		repo:   NewBookingRepository(db),
+		db:     db,
+		now:    at(22, 12),
+		moveID: insert(student, branchID, at(26, 9)),
+		pastID: insert(student, branchID, at(20, 9)),
+		at:     at,
+	}
+	insert(other, branchID, at(26, 13))
+	insert(student, secondBranch, at(26, 11))
+	f.timesOf = func(id int) (time.Time, time.Time) {
+		var start, end time.Time
+		require.NoError(t, db.QueryRow(`SELECT start_time, end_time FROM bookings WHERE id = $1`, id).Scan(&start, &end))
+		return start.In(loc), end.In(loc)
+	}
+	return f
+}
+
+func TestBookingRepoRescheduleBooking_MovesWithinAvailability(t *testing.T) {
+	f := setupRescheduleFixture(t)
+
+	moved, err := f.repo.RescheduleBooking(context.Background(), f.moveID, f.at(27, 10), f.at(27, 11), f.now)
+
+	require.NoError(t, err)
+	assert.Equal(t, f.moveID, moved.ID, "the booking keeps its id")
+	assert.True(t, moved.StartTime.Equal(f.at(27, 10)))
+	assert.Equal(t, "S", moved.StudentName)
+	assert.Equal(t, "Teacher A", moved.TeacherName, "the response carries the display names like the list does")
+	start, end := f.timesOf(f.moveID)
+	assert.Equal(t, f.at(27, 10), start)
+	assert.Equal(t, f.at(27, 11), end)
+}
+
+func TestBookingRepoRescheduleBooking_Rejects(t *testing.T) {
+	tests := []struct {
+		name       string
+		id         func(f rescheduleFixture) int
+		start, end func(f rescheduleFixture) time.Time
+		want       error
+	}{
+		{"a class that already happened",
+			func(f rescheduleFixture) int { return f.pastID },
+			func(f rescheduleFixture) time.Time { return f.at(26, 15) },
+			func(f rescheduleFixture) time.Time { return f.at(26, 16) },
+			scheduling.ErrBookingStarted},
+		{"a new time in the past",
+			func(f rescheduleFixture) int { return f.moveID },
+			func(f rescheduleFixture) time.Time { return f.at(19, 9) },
+			func(f rescheduleFixture) time.Time { return f.at(19, 10) },
+			scheduling.ErrSessionInPast},
+		{"past the end of the availability window",
+			func(f rescheduleFixture) int { return f.moveID },
+			func(f rescheduleFixture) time.Time { return f.at(26, 16) },
+			func(f rescheduleFixture) time.Time { return f.at(26, 18) },
+			scheduling.ErrOutsideAvailability},
+		{"a day the teacher is not free",
+			func(f rescheduleFixture) int { return f.moveID },
+			func(f rescheduleFixture) time.Time { return f.at(28, 9) },
+			func(f rescheduleFixture) time.Time { return f.at(28, 10) },
+			scheduling.ErrOutsideAvailability},
+		{"on top of another student's class",
+			func(f rescheduleFixture) int { return f.moveID },
+			func(f rescheduleFixture) time.Time { return f.at(26, 13) },
+			func(f rescheduleFixture) time.Time { return f.at(26, 14) },
+			scheduling.ErrBookingConflict},
+		{"right after a class at another branch",
+			func(f rescheduleFixture) int { return f.moveID },
+			func(f rescheduleFixture) time.Time { return f.at(26, 12) },
+			func(f rescheduleFixture) time.Time { return f.at(26, 13) },
+			scheduling.ErrCommuteConflict},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := setupRescheduleFixture(t)
+			id := tt.id(f)
+			beforeStart, beforeEnd := f.timesOf(id)
+
+			_, err := f.repo.RescheduleBooking(context.Background(), id, tt.start(f), tt.end(f), f.now)
+
+			require.ErrorIs(t, err, tt.want)
+			afterStart, afterEnd := f.timesOf(id)
+			assert.Equal(t, beforeStart, afterStart, "the booking is left where it was")
+			assert.Equal(t, beforeEnd, afterEnd)
+		})
+	}
+}
+
+func TestBookingRepoRescheduleBooking_NotFound(t *testing.T) {
+	f := setupRescheduleFixture(t)
+
+	_, err := f.repo.RescheduleBooking(context.Background(), 9999, f.at(26, 15), f.at(26, 16), f.now)
+
+	var notFound *shared.NotFoundError
+	require.ErrorAs(t, err, &notFound)
+}

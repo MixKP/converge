@@ -40,6 +40,14 @@ func (m *mockStore) DeleteBooking(ctx context.Context, bookingID int) error {
 	return args.Error(0)
 }
 
+func (m *mockStore) RescheduleBooking(ctx context.Context, bookingID int, start, end, now time.Time) (*Booking, error) {
+	args := m.Called(ctx, bookingID, start, end, now)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*Booking), args.Error(1)
+}
+
 func (m *mockStore) FindAllBookings(ctx context.Context) ([]Booking, error) {
 	args := m.Called(ctx)
 	return args.Get(0).([]Booking), args.Error(1)
@@ -406,4 +414,90 @@ func TestSchedulingService_GetSubjects_Success(t *testing.T) {
 	subjects, err := svc.GetSubjects(context.Background())
 	assert.NoError(t, err)
 	assert.Len(t, subjects, 1)
+}
+
+func TestSchedulingService_Reschedule_PassesTimesAndNow(t *testing.T) {
+	store := new(mockStore)
+	svc := NewSchedulingService(store, store, new(mockEngine))
+
+	start := time.Date(2026, 10, 26, 2, 0, 0, 0, time.UTC)
+	end := start.Add(time.Hour)
+	before := time.Now()
+	store.On("RescheduleBooking", mock.Anything, 10, start, end, mock.MatchedBy(func(now time.Time) bool {
+		return !now.Before(before) && !now.After(time.Now())
+	})).Return(&Booking{ID: 10, StartTime: start, EndTime: end}, nil)
+
+	booking, err := svc.Reschedule(context.Background(), 10, RescheduleBookingRequest{StartTime: start, EndTime: end})
+
+	assert.NoError(t, err)
+	assert.Equal(t, 10, booking.ID)
+	store.AssertExpectations(t)
+}
+
+func TestSchedulingService_Reschedule_RejectsBadInputBeforeTheStore(t *testing.T) {
+	start := time.Date(2026, 10, 26, 2, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name string
+		id   int
+		req  RescheduleBookingRequest
+		err  string
+	}{
+		{"zero id", 0, RescheduleBookingRequest{StartTime: start, EndTime: start.Add(time.Hour)}, "booking_id"},
+		{"missing end", 10, RescheduleBookingRequest{StartTime: start}, "must be provided"},
+		{"end before start", 10, RescheduleBookingRequest{StartTime: start, EndTime: start.Add(-time.Hour)}, "end_time must be after start_time"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := new(mockStore)
+			svc := NewSchedulingService(store, store, new(mockEngine))
+
+			_, err := svc.Reschedule(context.Background(), tt.id, tt.req)
+
+			var valErr *ValidationError
+			assert.ErrorAs(t, err, &valErr)
+			assert.Contains(t, err.Error(), tt.err)
+			store.AssertNotCalled(t, "RescheduleBooking", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+		})
+	}
+}
+
+func TestSchedulingService_Reschedule_MapsStoreErrors(t *testing.T) {
+	start := time.Date(2026, 10, 26, 2, 0, 0, 0, time.UTC)
+	req := RescheduleBookingRequest{StartTime: start, EndTime: start.Add(time.Hour)}
+
+	validation := func(t *testing.T, err error) {
+		var e *ValidationError
+		assert.ErrorAs(t, err, &e)
+	}
+	conflict := func(t *testing.T, err error) {
+		var e *ConflictError
+		assert.ErrorAs(t, err, &e)
+	}
+	notFound := func(t *testing.T, err error) {
+		var e *NotFoundError
+		assert.ErrorAs(t, err, &e)
+	}
+	tests := []struct {
+		name     string
+		storeErr error
+		check    func(t *testing.T, err error)
+	}{
+		{"already started", ErrBookingStarted, validation},
+		{"new time in the past", ErrSessionInPast, validation},
+		{"outside availability", ErrOutsideAvailability, validation},
+		{"overlap", ErrBookingConflict, conflict},
+		{"commute", ErrCommuteConflict, conflict},
+		{"missing booking", &NotFoundError{Msg: "booking 10 not found"}, notFound},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := new(mockStore)
+			svc := NewSchedulingService(store, store, new(mockEngine))
+			store.On("RescheduleBooking", mock.Anything, 10, req.StartTime, req.EndTime, mock.Anything).Return(nil, tt.storeErr)
+
+			_, err := svc.Reschedule(context.Background(), 10, req)
+
+			tt.check(t, err)
+		})
+	}
 }

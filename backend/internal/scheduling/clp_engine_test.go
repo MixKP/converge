@@ -42,6 +42,14 @@ func (m *mockCLPBookingStore) DeleteBooking(ctx context.Context, bookingID int) 
 	return args.Error(0)
 }
 
+func (m *mockCLPBookingStore) RescheduleBooking(ctx context.Context, bookingID int, start, end, now time.Time) (*Booking, error) {
+	args := m.Called(ctx, bookingID, start, end, now)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*Booking), args.Error(1)
+}
+
 func (m *mockCLPBookingStore) FindAllBookings(ctx context.Context) ([]Booking, error) {
 	args := m.Called(ctx)
 	return args.Get(0).([]Booking), args.Error(1)

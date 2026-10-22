@@ -12,3 +12,7 @@ var ErrCommuteConflict = errors.New("teacher does not have enough commute time b
 type ValidationError = shared.ValidationError
 type ConflictError = shared.ConflictError
 type NotFoundError = shared.NotFoundError
+
+var ErrBookingStarted = errors.New("the class has already started and can no longer be moved")
+var ErrSessionInPast = errors.New("the new time must be in the future")
+var ErrOutsideAvailability = errors.New("the new time is outside the teacher's availability")

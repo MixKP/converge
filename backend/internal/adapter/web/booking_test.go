@@ -23,6 +23,10 @@ type mockBookingSvc struct {
 	confirm      *scheduling.Booking
 	confErr      error
 	cancelErr    error
+	moved        *scheduling.Booking
+	moveErr      error
+	gotMoveID    int
+	gotMove      scheduling.RescheduleBookingRequest
 	listAll      []scheduling.Booking
 	listErr      error
 	gotStudentID []int
@@ -38,6 +42,12 @@ func (m *mockBookingSvc) Confirm(ctx context.Context, req scheduling.ConfirmBook
 
 func (m *mockBookingSvc) Cancel(ctx context.Context, bookingID int) error {
 	return m.cancelErr
+}
+
+func (m *mockBookingSvc) Reschedule(ctx context.Context, bookingID int, req scheduling.RescheduleBookingRequest) (*scheduling.Booking, error) {
+	m.gotMoveID = bookingID
+	m.gotMove = req
+	return m.moved, m.moveErr
 }
 
 func (m *mockBookingSvc) ListAll(ctx context.Context) ([]scheduling.Booking, error) {
@@ -608,4 +618,68 @@ func TestBookingHandler_ListBookings_ServiceError(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	assert.Contains(t, w.Body.String(), "failed to list bookings")
+}
+
+func serveReschedule(t *testing.T, mock *mockBookingSvc, url, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	handler := NewBookingHandler(mock, &mockGuardian{}, slog.Default())
+	gin.SetMode(gin.TestMode)
+	r := gin.Default()
+	r.PUT("/api/bookings/:id", handler.RescheduleBooking)
+
+	req := httptest.NewRequest(http.MethodPut, url, bytes.NewReader([]byte(body)))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	return w
+}
+
+func TestBookingHandler_RescheduleBooking_Success(t *testing.T) {
+	start := time.Date(2026, 10, 26, 2, 0, 0, 0, time.UTC)
+	mock := &mockBookingSvc{moved: &scheduling.Booking{ID: 10, StartTime: start, EndTime: start.Add(time.Hour)}}
+
+	w := serveReschedule(t, mock, "/api/bookings/10",
+		`{"start_time":"2026-10-26T02:00:00Z","end_time":"2026-10-26T03:00:00Z"}`)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, 10, mock.gotMoveID)
+	assert.True(t, mock.gotMove.StartTime.Equal(start))
+	var body scheduling.Booking
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	assert.Equal(t, 10, body.ID)
+}
+
+func TestBookingHandler_RescheduleBooking_BadRequest(t *testing.T) {
+	cases := map[string]struct{ url, body string }{
+		"non-numeric id": {"/api/bookings/abc", `{"start_time":"2026-10-26T02:00:00Z","end_time":"2026-10-26T03:00:00Z"}`},
+		"missing end":    {"/api/bookings/10", `{"start_time":"2026-10-26T02:00:00Z"}`},
+		"malformed json": {"/api/bookings/10", `{`},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			mock := &mockBookingSvc{}
+			w := serveReschedule(t, mock, tc.url, tc.body)
+			assert.Equal(t, http.StatusBadRequest, w.Code)
+			assert.Zero(t, mock.gotMoveID, "the service is not called")
+		})
+	}
+}
+
+func TestBookingHandler_RescheduleBooking_ErrorMapping(t *testing.T) {
+	cases := map[string]struct {
+		err  error
+		code int
+	}{
+		"validation": {&scheduling.ValidationError{Msg: "outside availability"}, http.StatusBadRequest},
+		"conflict":   {&scheduling.ConflictError{Msg: "overlap"}, http.StatusConflict},
+		"not found":  {&scheduling.NotFoundError{Msg: "booking 10 not found"}, http.StatusNotFound},
+		"internal":   {assert.AnError, http.StatusInternalServerError},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			w := serveReschedule(t, &mockBookingSvc{moveErr: tc.err}, "/api/bookings/10",
+				`{"start_time":"2026-10-26T02:00:00Z","end_time":"2026-10-26T03:00:00Z"}`)
+			assert.Equal(t, tc.code, w.Code)
+		})
+	}
 }
