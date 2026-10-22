@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/RinZ5/converge/backend/internal/shared"
 )
@@ -100,13 +101,15 @@ func (s *Service) GetSubjects(ctx context.Context) ([]shared.Subject, error) {
 	return s.referenceStore.GetSubjects(ctx)
 }
 
-func (s *Service) SubmitWeeklyAvailability(ctx context.Context, teacherID int, slots []shared.WeeklySlot) error {
+func (s *Service) SubmitWeeklyAvailability(ctx context.Context, teacherID int, slots []shared.WeeklySlot) (int, error) {
 	if err := validateAvailabilityPayload(teacherID, slots); err != nil {
-		return err
+		return 0, err
 	}
 
-	if err := s.availabilityStore.ReplaceWeeklyAvailability(ctx, teacherID, slots); err != nil {
-		return fmt.Errorf("replace availability: %w", err)
+	weekStart := shared.StartOfWeek(time.Now(), shared.LoadLocation())
+	deletedBookings, err := s.availabilityStore.ReplaceWeeklyAvailabilityAndDeleteBookingsFrom(ctx, teacherID, slots, weekStart)
+	if err != nil {
+		return 0, fmt.Errorf("replace availability: %w", err)
 	}
 
 	rawJSON, err := json.Marshal(map[string]interface{}{
@@ -115,12 +118,12 @@ func (s *Service) SubmitWeeklyAvailability(ctx context.Context, teacherID int, s
 	})
 	if err != nil {
 		s.logger.Warn("failed to marshal audit payload", slog.Int("teacher_id", teacherID), slog.Any("error", err))
-		return nil
+		return deletedBookings, nil
 	}
 	if err := s.availabilityStore.SaveRawSubmission(ctx, teacherID, rawJSON); err != nil {
 		s.logger.Warn("failed to save submission audit log", slog.Int("teacher_id", teacherID), slog.Any("error", err))
 	}
-	return nil
+	return deletedBookings, nil
 }
 
 type ValidationError = shared.ValidationError

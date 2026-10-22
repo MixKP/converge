@@ -20,6 +20,12 @@ func AnchorDateForDay(dayOfWeek int, loc *time.Location) time.Time {
 	return anchor
 }
 
+func StartOfWeek(t time.Time, loc *time.Location) time.Time {
+	local := t.In(loc)
+	midnight := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc)
+	return midnight.AddDate(0, 0, -int(midnight.Weekday()))
+}
+
 func ParseTimeHHMM(t TimeHHMM) time.Time {
 	parsed, err := time.Parse("15:04", string(t))
 	if err != nil {

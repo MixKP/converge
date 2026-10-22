@@ -4,6 +4,7 @@ import { teacherApi } from '../services/teacherApi'
 import { subjectApi } from '../services/subjectApi'
 import { userApi } from '../services/userApi'
 import {
+  bookingsInWeekOf,
   buildEntry,
   groupBookingsBy,
   matchesSearch,
@@ -74,7 +75,7 @@ export function useAdminRoster() {
         subjectApi.getAll(),
       ])
 
-      bookings.value = bookingList
+      bookings.value = bookingsInWeekOf(bookingList, new Date())
       teachers.value = teacherList
       students.value = studentList
       subjects.value = subjectList

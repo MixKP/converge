@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/RinZ5/converge/backend/internal/shared"
 	"github.com/RinZ5/converge/backend/internal/teacher"
@@ -187,6 +188,58 @@ func (p *PostgresRepo) ReplaceWeeklyAvailability(ctx context.Context, teacherID 
 	}
 	defer tx.Rollback()
 
+	if err := replaceWeeklyAvailabilityTx(ctx, tx, teacherID, slots); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// ReplaceWeeklyAvailabilityAndDeleteBookingsFrom takes the same per-teacher
+// advisory lock as BookingRepo.CreateBooking, so a booking confirmed while the
+// schedule is being replaced either lands before the delete or waits for it.
+// Every booking starting at or after from is deleted, including ones that
+// already took place.
+func (p *PostgresRepo) ReplaceWeeklyAvailabilityAndDeleteBookingsFrom(ctx context.Context, teacherID int, slots []shared.WeeklySlot, from time.Time) (int, error) {
+	tx, err := p.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(1, $1::int)`, teacherID); err != nil {
+		return 0, err
+	}
+
+	var exists bool
+	if err := tx.QueryRowContext(ctx,
+		`SELECT EXISTS (SELECT 1 FROM teachers WHERE id = $1)`, teacherID).Scan(&exists); err != nil {
+		return 0, err
+	}
+	if !exists {
+		return 0, &shared.NotFoundError{Msg: fmt.Sprintf("teacher %d not found", teacherID)}
+	}
+
+	if err := replaceWeeklyAvailabilityTx(ctx, tx, teacherID, slots); err != nil {
+		return 0, err
+	}
+
+	res, err := tx.ExecContext(ctx,
+		`DELETE FROM bookings WHERE teacher_id = $1 AND start_time >= $2`, teacherID, from)
+	if err != nil {
+		return 0, err
+	}
+	deleted, err := res.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return int(deleted), nil
+}
+
+func replaceWeeklyAvailabilityTx(ctx context.Context, tx *sql.Tx, teacherID int, slots []shared.WeeklySlot) error {
 	if _, err := tx.ExecContext(ctx, `DELETE FROM teacher_availability WHERE teacher_id = $1`, teacherID); err != nil {
 		return err
 	}
@@ -199,7 +252,7 @@ func (p *PostgresRepo) ReplaceWeeklyAvailability(ctx context.Context, teacherID 
 			return err
 		}
 	}
-	return tx.Commit()
+	return nil
 }
 
 func (p *PostgresRepo) GetAllAvailability(ctx context.Context) ([]teacher.TeacherAvailability, error) {

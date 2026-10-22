@@ -20,6 +20,15 @@ type AvailabilityPayload struct {
 	Weekly    []shared.WeeklySlot `json:"weekly"`
 }
 
+type UpdateAvailabilityRequest struct {
+	Weekly []shared.WeeklySlot `json:"weekly"`
+}
+
+type SubmitAvailabilityResponse struct {
+	Message         string `json:"message"          example:"Availability saved successfully"`
+	DeletedBookings int    `json:"deleted_bookings" example:"3"`
+}
+
 type CreateTeacherRequest struct {
 	Name   string `json:"name"   binding:"required" example:"Alice"`
 	Email  string `json:"email"  binding:"required" example:"alice@example.com"`

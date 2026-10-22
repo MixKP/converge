@@ -2,8 +2,9 @@ import { ref, computed, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import { useTeacherStore } from '../stores/teacherStore'
 import { availabilityApi } from '../services/availabilityApi'
+import { bookingApi } from '../services/bookingApi'
 import type { EventInput } from '@fullcalendar/vue3'
-import { generateAvailabilityPayload } from '../utils/calendarHelpers'
+import { generateAvailabilityPayload, startOfWeek } from '../utils/calendarHelpers'
 import { availabilityFormSchema } from '../schemas/forms'
 import { availabilityPayloadSchema, type WeeklySlotInput } from '../schemas/calendar'
 import { toTypedSchema } from '../schemas/veeValidate'
@@ -14,6 +15,8 @@ export function useSubmitAvailability() {
   const isLoading = ref(false)
   const events = ref<EventInput[]>([])
   const showConfirm = ref(false)
+  const isCountingBookings = ref(false)
+  const affectedBookingCount = ref<number | null>(null)
   const { successMessage, errorMessage, showSuccess, showError } = useNotification()
 
   const {
@@ -74,13 +77,32 @@ export function useSubmitAvailability() {
       })
   })
 
-  watch(selectedTeacherId, () => {
+  watch(selectedTeacherId, (id) => {
+    setFieldValue('teacher_id', id)
     events.value = []
     errorMessage.value = ''
   })
 
-  const handleSubmit = veeHandleSubmit(() => {
+  const loadAffectedBookingCount = async (teacherId: number) => {
+    isCountingBookings.value = true
+    affectedBookingCount.value = null
+    try {
+      // tradeoff: week start uses the browser's timezone while the server uses Asia/Bangkok -> count server-side via a preview endpoint
+      const weekStart = startOfWeek(new Date())
+      const bookings = await bookingApi.list()
+      affectedBookingCount.value = bookings.filter(
+        (b) => b.teacher_id === teacherId && new Date(b.start_time).getTime() >= weekStart.getTime()
+      ).length
+    } catch (error) {
+      console.error('Failed to count affected bookings:', error)
+    } finally {
+      isCountingBookings.value = false
+    }
+  }
+
+  const handleSubmit = veeHandleSubmit((values) => {
     showConfirm.value = true
+    loadAffectedBookingCount(values.teacher_id)
   })
 
   const confirmSubmit = async () => {
@@ -94,12 +116,17 @@ export function useSubmitAvailability() {
       const payload = availabilityPayloadSchema.parse(
         generateAvailabilityPayload(events.value, selectedTeacherId.value ?? 0)
       )
-      await availabilityApi.submitAvailability(payload)
+      const { deleted_bookings: deleted } = await availabilityApi.submitAvailability(payload)
       events.value = []
       teacherStore.setSelectedTeacherById(null)
       resetForm({ values: { teacher_id: null, weekly: [] } })
       showConfirm.value = false
-      showSuccess('Availability submitted successfully!', 3000)
+      showSuccess(
+        deleted > 0
+          ? `Availability submitted. ${deleted} booked class${deleted === 1 ? '' : 'es'} removed.`
+          : 'Availability submitted successfully!',
+        3000
+      )
     } catch (error) {
       showError(error, 'Failed to submit availability. Please try again.')
     } finally {
@@ -122,6 +149,8 @@ export function useSubmitAvailability() {
     successMessage,
     events,
     showConfirm,
+    isCountingBookings,
+    affectedBookingCount,
     selectedTeacherId,
     selectedTeacher,
     showErrors,

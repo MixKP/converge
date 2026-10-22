@@ -42,6 +42,25 @@ func TestAnchorDateForDay_DayOutOfRange(t *testing.T) {
 	assert.Equal(t, now.Weekday(), anchor.Weekday())
 }
 
+func TestStartOfWeek(t *testing.T) {
+	loc := LoadLocation()
+	sunday := time.Date(2026, 10, 18, 0, 0, 0, 0, loc)
+
+	cases := map[string]time.Time{
+		"midweek":                 time.Date(2026, 10, 22, 15, 30, 0, 0, loc),
+		"sunday midnight":         sunday,
+		"saturday last second":    time.Date(2026, 10, 24, 23, 59, 59, 0, loc),
+		"utc saturday is bkk sun": time.Date(2026, 10, 17, 20, 0, 0, 0, time.UTC),
+	}
+	for name, input := range cases {
+		t.Run(name, func(t *testing.T) {
+			assert.True(t, sunday.Equal(StartOfWeek(input, loc)), "got %s", StartOfWeek(input, loc))
+		})
+	}
+
+	assert.True(t, sunday.AddDate(0, 0, -7).Equal(StartOfWeek(sunday.Add(-time.Second), loc)))
+}
+
 func TestParseTimeHHMM_Valid(t *testing.T) {
 	result := ParseTimeHHMM("09:00")
 	assert.Equal(t, 9, result.Hour())

@@ -1,6 +1,13 @@
 import type { EventInput } from '@fullcalendar/vue3'
 import type { AvailabilityPayload } from '../types'
 
+export function startOfWeek(date: Date): Date {
+  const start = new Date(date)
+  start.setHours(0, 0, 0, 0)
+  start.setDate(start.getDate() - start.getDay())
+  return start
+}
+
 function generateEventId(): string {
   return `event-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
 }

@@ -239,6 +239,15 @@ definitions:
     - gender
     - name
     type: object
+  teacher.SubmitAvailabilityResponse:
+    properties:
+      deleted_bookings:
+        example: 3
+        type: integer
+      message:
+        example: Availability saved successfully
+        type: string
+    type: object
   teacher.Teacher:
     properties:
       email:
@@ -261,6 +270,13 @@ definitions:
     properties:
       teacher:
         $ref: '#/definitions/teacher.Teacher'
+      weekly:
+        items:
+          $ref: '#/definitions/shared.WeeklySlot'
+        type: array
+    type: object
+  teacher.UpdateAvailabilityRequest:
+    properties:
       weekly:
         items:
           $ref: '#/definitions/shared.WeeklySlot'
@@ -401,48 +417,6 @@ paths:
           schema:
             $ref: '#/definitions/scheduling.ErrorResponse'
       summary: Get all teacher availability
-      tags:
-      - availability
-    post:
-      consumes:
-      - application/json
-      description: Replaces all existing availability for a teacher with the provided
-        weekly schedule (full replace, not merge). Rejects overlapping slots within
-        the same day.
-      parameters:
-      - description: Weekly availability payload
-        in: body
-        name: body
-        required: true
-        schema:
-          additionalProperties: true
-          type: object
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/scheduling.MessageResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/scheduling.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/scheduling.ErrorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/scheduling.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/scheduling.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Submit weekly availability
       tags:
       - availability
   /bookings:
@@ -1210,6 +1184,59 @@ paths:
       summary: Create a teacher
       tags:
       - teachers
+  /teachers/{id}/availability:
+    put:
+      consumes:
+      - application/json
+      description: 'Replaces all existing availability for a teacher with the provided
+        weekly schedule (full replace, not merge) and deletes every booking of that
+        teacher from the start of the current week (Sunday 00:00 Asia/Bangkok) onward,
+        including ones earlier this week. Rejects overlapping slots within the same
+        day. Idempotent: repeating the request deletes nothing further.'
+      parameters:
+      - description: Teacher ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Weekly slots
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/teacher.UpdateAvailabilityRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/teacher.SubmitAvailabilityResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/scheduling.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Replace a teacher's weekly availability
+      tags:
+      - availability
   /teachers/{id}/gender:
     patch:
       consumes:
