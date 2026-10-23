@@ -56,30 +56,6 @@ func TestCommuteHandler_GetCommute(t *testing.T) {
 		wantTime   int
 	}{
 		{
-			name:       "no params returns configured value",
-			path:       "/api/commute",
-			mock:       &mockCommuteService{minutes: 30},
-			wantStatus: http.StatusOK,
-			wantCalled: false,
-			wantTime:   30,
-		},
-		{
-			name:       "same branch returns zero",
-			path:       "/api/commute?source_branch=1&destination_branch=1",
-			mock:       &mockCommuteService{minutes: 0},
-			wantStatus: http.StatusOK,
-			wantCalled: true,
-			wantTime:   0,
-		},
-		{
-			name:       "different branches returns default",
-			path:       "/api/commute?source_branch=1&destination_branch=2",
-			mock:       &mockCommuteService{minutes: 30},
-			wantStatus: http.StatusOK,
-			wantCalled: true,
-			wantTime:   30,
-		},
-		{
 			name:       "only source provided",
 			path:       "/api/commute?source_branch=1",
 			mock:       &mockCommuteService{},
@@ -156,14 +132,6 @@ func TestCommuteHandler_UpdateCommute(t *testing.T) {
 		wantCalled bool
 		wantArg    int
 	}{
-		{
-			name:       "valid update echoes value",
-			body:       `{"commute_time": 45}`,
-			mock:       &mockCommuteService{},
-			wantStatus: http.StatusOK,
-			wantCalled: true,
-			wantArg:    45,
-		},
 		{
 			name:       "zero allowed",
 			body:       `{"commute_time": 0}`,

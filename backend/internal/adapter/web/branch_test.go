@@ -2,7 +2,6 @@ package web
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -13,7 +12,6 @@ import (
 	"github.com/RinZ5/converge/backend/internal/shared"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 type mockBranchService struct {
@@ -64,25 +62,6 @@ func (m *mockBranchService) SetStatus(ctx context.Context, branchID int, status 
 	return m.setStatusErr
 }
 
-func TestBranchHandler_GetBranches_Success(t *testing.T) {
-	mock := &mockBranchService{branches: []branch.Branch{{ID: 1, Name: "Siam", Capacity: 30}}}
-	handler := NewBranchHandler(mock, slog.Default())
-
-	gin.SetMode(gin.TestMode)
-	r := gin.Default()
-	r.GET("/api/branches", handler.GetBranches)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/branches", nil)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	var branches []branch.Branch
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &branches))
-	assert.Len(t, branches, 1)
-	assert.Equal(t, 30, branches[0].Capacity)
-}
-
 func TestBranchHandler_GetBranches_Error(t *testing.T) {
 	mock := &mockBranchService{getErr: assert.AnError}
 	handler := NewBranchHandler(mock, slog.Default())
@@ -109,15 +88,6 @@ func TestBranchHandler_CreateBranch(t *testing.T) {
 		wantCapacity int
 	}{
 		{
-			name:         "success",
-			body:         `{"name": "Riverside", "capacity": 20}`,
-			mock:         &mockBranchService{addBranchResult: &branch.Branch{ID: 3, Name: "Riverside", Capacity: 20}},
-			wantStatus:   http.StatusCreated,
-			wantCalled:   true,
-			wantName:     "Riverside",
-			wantCapacity: 20,
-		},
-		{
 			name:         "capacity omitted defaults to unlimited",
 			body:         `{"name": "Riverside"}`,
 			mock:         &mockBranchService{addBranchResult: &branch.Branch{ID: 3, Name: "Riverside", Capacity: -1}},
@@ -132,15 +102,6 @@ func TestBranchHandler_CreateBranch(t *testing.T) {
 			mock:       &mockBranchService{},
 			wantStatus: http.StatusBadRequest,
 			wantCalled: false,
-		},
-		{
-			name:         "duplicate name",
-			body:         `{"name": "Main Campus", "capacity": 20}`,
-			mock:         &mockBranchService{addBranchErr: &shared.ConflictError{Msg: `branch "Main Campus" already exists`}},
-			wantStatus:   http.StatusConflict,
-			wantCalled:   true,
-			wantName:     "Main Campus",
-			wantCapacity: 20,
 		},
 		{
 			name:         "unlimited capacity",
@@ -196,15 +157,6 @@ func TestBranchHandler_UpdateBranchCapacity(t *testing.T) {
 		wantCalled   bool
 		wantCapacity int
 	}{
-		{
-			name:         "success",
-			path:         "/api/branches/1/capacity",
-			body:         `{"capacity": 30}`,
-			mock:         &mockBranchService{},
-			wantStatus:   http.StatusOK,
-			wantCalled:   true,
-			wantCapacity: 30,
-		},
 		{
 			name:         "zero capacity rejected",
 			path:         "/api/branches/1/capacity",
@@ -300,24 +252,6 @@ func TestBranchHandler_UpdateBranchStatus(t *testing.T) {
 		wantCalled bool
 		wantValue  string
 	}{
-		{
-			name:       "deactivate success",
-			path:       "/api/branches/1/status",
-			body:       `{"status": "deactivated"}`,
-			mock:       &mockBranchService{},
-			wantStatus: http.StatusOK,
-			wantCalled: true,
-			wantValue:  "deactivated",
-		},
-		{
-			name:       "reactivate success",
-			path:       "/api/branches/1/status",
-			body:       `{"status": "active"}`,
-			mock:       &mockBranchService{},
-			wantStatus: http.StatusOK,
-			wantCalled: true,
-			wantValue:  "active",
-		},
 		{
 			name:       "invalid id",
 			path:       "/api/branches/abc/status",

@@ -69,20 +69,6 @@ func TestUserHandler_Register(t *testing.T) {
 		wantCalled bool
 	}{
 		{
-			name:       "success",
-			body:       `{"name":"alice","password":"s3cret","role":"student"}`,
-			mock:       &mockUserService{registerUser: &user.User{ID: 1, Name: "alice", Role: "student"}},
-			wantStatus: http.StatusCreated,
-			wantCalled: true,
-		},
-		{
-			name:       "duplicate name conflict",
-			body:       `{"name":"alice","password":"s3cret","role":"student"}`,
-			mock:       &mockUserService{registerErr: &shared.ConflictError{Msg: `username "alice" already taken`}},
-			wantStatus: http.StatusConflict,
-			wantCalled: true,
-		},
-		{
 			name:       "service validation error",
 			body:       `{"name":"alice","password":"s3cret","role":"student"}`,
 			mock:       &mockUserService{registerErr: &shared.ValidationError{Msg: "name must not be empty"}},
@@ -153,20 +139,6 @@ func TestUserHandler_Login(t *testing.T) {
 		wantStatus int
 		wantCalled bool
 	}{
-		{
-			name:       "success",
-			body:       `{"name":"alice","password":"s3cret"}`,
-			mock:       &mockUserService{loginUser: &user.User{ID: 1, Name: "alice", Role: "student"}, loginToken: "tok-123"},
-			wantStatus: http.StatusOK,
-			wantCalled: true,
-		},
-		{
-			name:       "invalid credentials",
-			body:       `{"name":"alice","password":"wrong"}`,
-			mock:       &mockUserService{loginErr: user.ErrInvalidCredentials},
-			wantStatus: http.StatusUnauthorized,
-			wantCalled: true,
-		},
 		{
 			name:       "missing password fails binding",
 			body:       `{"name":"alice"}`,

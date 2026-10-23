@@ -68,7 +68,7 @@ func (h *AvailabilityHandler) GetTeachers(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve teachers"})
 			return
 		}
-		c.JSON(http.StatusOK, teachers)
+		c.JSON(http.StatusOK, orEmpty(teachers))
 		return
 	}
 
@@ -98,7 +98,7 @@ func (h *AvailabilityHandler) GetTeachers(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve teachers"})
 		return
 	}
-	c.JSON(http.StatusOK, teachers)
+	c.JSON(http.StatusOK, orEmpty(teachers))
 }
 
 // GetAllAvailability godoc

@@ -12,6 +12,8 @@ package main
 
 import (
 	"context"
+	"database/sql"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -138,6 +140,47 @@ func main() {
 		os.Exit(1)
 	}
 
+	backupService := backup.New(os.Getenv("BACKUP_DIR"), time.Duration(positiveInt("BACKUP_INTERVAL_HOURS", 24))*time.Hour, time.Duration(positiveInt("BACKUP_RETENTION_DAYS", 7))*24*time.Hour, logger)
+	backupService.SetAfterRestore(func() error { return db.RecoverAfterLiveRestore(database) })
+	backupCtx, stopBackups := context.WithCancel(context.Background())
+	defer stopBackups()
+	if os.Getenv("BACKUP_DIR") != "" {
+		backupService.Start(backupCtx)
+	}
+	r := newRouter(database, jwtAdapter, logger, backupService)
+
+	srv := &http.Server{
+		Addr:              serverAddr,
+		Handler:           r,
+		ReadHeaderTimeout: readHeaderTimeout,
+		ReadTimeout:       readTimeout,
+		WriteTimeout:      writeTimeout,
+		IdleTimeout:       idleTimeout,
+	}
+
+	go func() {
+		logger.Info("server starting", "addr", serverAddr, "tz", shared.LoadLocation().String())
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Error("server failed", "error", err)
+			os.Exit(1)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	logger.Info("shutting down server...")
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		logger.Error("server forced to shutdown", "error", err)
+	}
+	logger.Info("server stopped")
+}
+
+func newRouter(database *sql.DB, jwtAdapter *token.JWT, logger *slog.Logger, backupService *backup.Service) *gin.Engine {
 	availRepo := db.NewPostgresRepo(database)
 	bookingRepo := db.NewBookingRepository(database)
 	branchRepo := db.NewBranchRepository(database)
@@ -160,13 +203,6 @@ func main() {
 	branchHandler := web.NewBranchHandler(branchSvc, logger)
 	commuteHandler := web.NewCommuteHandler(commuteSvc, logger)
 	userHandler := web.NewUserHandler(userSvc, logger)
-	backupService := backup.New(os.Getenv("BACKUP_DIR"), time.Duration(positiveInt("BACKUP_INTERVAL_HOURS", 24))*time.Hour, time.Duration(positiveInt("BACKUP_RETENTION_DAYS", 7))*24*time.Hour, logger)
-	backupService.SetAfterRestore(func() error { return db.RecoverAfterLiveRestore(database) })
-	backupCtx, stopBackups := context.WithCancel(context.Background())
-	defer stopBackups()
-	if os.Getenv("BACKUP_DIR") != "" {
-		backupService.Start(backupCtx)
-	}
 	recoveryHandler := web.NewRecoveryHandler(backupService, logger)
 	recoveryTimelineHandler := web.NewRecoveryTimelineHandler(database, backupService, logger)
 
@@ -235,33 +271,5 @@ func main() {
 		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 	})
 
-	srv := &http.Server{
-		Addr:              serverAddr,
-		Handler:           r,
-		ReadHeaderTimeout: readHeaderTimeout,
-		ReadTimeout:       readTimeout,
-		WriteTimeout:      writeTimeout,
-		IdleTimeout:       idleTimeout,
-	}
-
-	go func() {
-		logger.Info("server starting", "addr", serverAddr, "tz", shared.LoadLocation().String())
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Error("server failed", "error", err)
-			os.Exit(1)
-		}
-	}()
-
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
-
-	logger.Info("shutting down server...")
-	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
-	defer cancel()
-
-	if err := srv.Shutdown(ctx); err != nil {
-		logger.Error("server forced to shutdown", "error", err)
-	}
-	logger.Info("server stopped")
+	return r
 }

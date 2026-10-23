@@ -183,6 +183,39 @@ func TestSavePreviewArchiveVerifiesTransfer(t *testing.T) {
 	require.ErrorContains(t, s.RequestPreviewRestore("bad", "APPLY WAL PREVIEW bad", fetch), "valid recovery preview")
 }
 
+func TestPreviewRestoreFailureClearsBusyStateAndTemporaryArchive(t *testing.T) {
+	dir := t.TempDir()
+	s := New(dir, time.Hour, 7*24*time.Hour, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	started := make(chan struct{})
+	release := make(chan struct{})
+	fetch := func(_ context.Context, dst io.Writer) (string, error) {
+		close(started)
+		<-release
+		_, err := dst.Write([]byte("partial archive"))
+		if err != nil {
+			return "", err
+		}
+		return "", errors.New("worker connection lost")
+	}
+	require.ErrorContains(t, s.RequestPreviewRestore("123", "wrong", fetch), "confirmation")
+	require.NoError(t, s.RequestPreviewRestore("123", "APPLY WAL PREVIEW 123", fetch))
+	<-started
+	require.False(t, s.EnterRequest())
+	require.ErrorIs(t, s.Request(), ErrBusy)
+	close(release)
+	require.Eventually(t, func() bool {
+		state, err := s.Status()
+		return err == nil && !state.Restoring && strings.Contains(state.RestoreError, "worker connection lost")
+	}, time.Second, time.Millisecond)
+	require.True(t, s.EnterRequest())
+	s.LeaveRequest()
+	require.NoFileExists(t, filepath.Join(dir, "wal-preview-123.dump"))
+	require.NoFileExists(t, filepath.Join(dir, "wal-preview-123.dump.sha256"))
+	partials, err := filepath.Glob(filepath.Join(dir, ".wal-preview-*.partial"))
+	require.NoError(t, err)
+	require.Empty(t, partials)
+}
+
 func mustReadFile(t *testing.T, path string) []byte {
 	t.Helper()
 	data, err := os.ReadFile(path)

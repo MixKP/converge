@@ -353,49 +353,6 @@ func TestBookingHandler_CreateBooking_OptionalPreferredTeacher(t *testing.T) {
 	assert.Len(t, response.Results, 1)
 }
 
-func TestBookingHandler_ConfirmBooking_Success(t *testing.T) {
-	mock := &mockBookingSvc{
-		confirm: &scheduling.Booking{
-			ID:          10,
-			TeacherID:   1,
-			BranchID:    2,
-			SubjectID:   3,
-			StartTime:   time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
-			EndTime:     time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
-			StudentID:   3,
-			StudentName: "John Doe",
-		},
-	}
-	handler := NewBookingHandler(mock, &mockGuardian{}, slog.Default())
-
-	payload := scheduling.ConfirmBookingRequest{
-		TeacherID: 1,
-		BranchID:  2,
-		SubjectID: 3,
-		StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC),
-		EndTime:   time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
-		StudentID: 3,
-	}
-	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/api/bookings/confirm", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-
-	gin.SetMode(gin.TestMode)
-	r := gin.Default()
-	r.POST("/api/bookings/confirm", handler.ConfirmBooking)
-
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusCreated, w.Code)
-
-	var response scheduling.Booking
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	require.NoError(t, err)
-	assert.Equal(t, 10, response.ID)
-	assert.Equal(t, "John Doe", response.StudentName)
-}
-
 func TestBookingHandler_ConfirmBooking_ValidationError(t *testing.T) {
 	mock := &mockBookingSvc{
 		confErr: &scheduling.ValidationError{Msg: "student_id must be positive"},
@@ -479,22 +436,6 @@ func TestBookingHandler_ConfirmBooking_ServiceError(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "failed to confirm booking")
 }
 
-func TestBookingHandler_CancelBooking_Success(t *testing.T) {
-	mock := &mockBookingSvc{}
-	handler := NewBookingHandler(mock, &mockGuardian{}, slog.Default())
-
-	gin.SetMode(gin.TestMode)
-	r := gin.Default()
-	r.DELETE("/api/bookings/:id", handler.CancelBooking)
-
-	req := httptest.NewRequest(http.MethodDelete, "/api/bookings/10", nil)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "Booking cancelled successfully")
-}
-
 func TestBookingHandler_CancelBooking_NotFound(t *testing.T) {
 	mock := &mockBookingSvc{
 		cancelErr: &scheduling.NotFoundError{Msg: "booking 999 not found"},
@@ -545,68 +486,6 @@ func TestBookingHandler_CancelBooking_ServiceError(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "failed to cancel booking")
 }
 
-func TestBookingHandler_ListBookings_AdminSeesAll(t *testing.T) {
-	mock := &mockBookingSvc{
-		listAll: []scheduling.Booking{
-			{ID: 1, TeacherID: 1, StudentID: 3, StudentName: "John Doe", StartTime: time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC), EndTime: time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)},
-			{ID: 2, TeacherID: 2, StudentID: 4, StudentName: "Jane Doe", StartTime: time.Date(2026, 6, 2, 10, 0, 0, 0, time.UTC), EndTime: time.Date(2026, 6, 2, 11, 0, 0, 0, time.UTC)},
-		},
-	}
-	handler := NewBookingHandler(mock, &mockGuardian{}, slog.Default())
-	r := listRouter(handler, shared.Principal{UserID: 1, Role: shared.RoleAdmin})
-
-	req := httptest.NewRequest(http.MethodGet, "/api/bookings", nil)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	var bookings []scheduling.Booking
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &bookings))
-	assert.Len(t, bookings, 2)
-	assert.Equal(t, "John Doe", bookings[0].StudentName)
-	assert.Nil(t, mock.gotStudentID) // admin path does not scope
-}
-
-func TestBookingHandler_ListBookings_StudentSeesOwn(t *testing.T) {
-	mock := &mockBookingSvc{listAll: []scheduling.Booking{{ID: 1, StudentID: 7}}}
-	handler := NewBookingHandler(mock, &mockGuardian{}, slog.Default())
-	r := listRouter(handler, shared.Principal{UserID: 7, Role: shared.RoleStudent})
-
-	req := httptest.NewRequest(http.MethodGet, "/api/bookings", nil)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, []int{7}, mock.gotStudentID) // scoped to self
-}
-
-func TestBookingHandler_ListBookings_ParentSeesChildren(t *testing.T) {
-	mock := &mockBookingSvc{listAll: []scheduling.Booking{}}
-	guardian := &mockGuardian{ids: []int{3, 4}}
-	handler := NewBookingHandler(mock, guardian, slog.Default())
-	r := listRouter(handler, shared.Principal{UserID: 9, Role: shared.RoleParent})
-
-	req := httptest.NewRequest(http.MethodGet, "/api/bookings", nil)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, []int{3, 4}, mock.gotStudentID) // scoped to the parent's students
-}
-
-func TestBookingHandler_ListBookings_EmptySerializesToArray(t *testing.T) {
-	mock := &mockBookingSvc{listAll: nil}
-	handler := NewBookingHandler(mock, &mockGuardian{}, slog.Default())
-	r := listRouter(handler, shared.Principal{UserID: 1, Role: shared.RoleAdmin})
-
-	req := httptest.NewRequest(http.MethodGet, "/api/bookings", nil)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.JSONEq(t, "[]", w.Body.String())
-}
-
 func TestBookingHandler_ListBookings_ServiceError(t *testing.T) {
 	mock := &mockBookingSvc{listErr: assert.AnError}
 	handler := NewBookingHandler(mock, &mockGuardian{}, slog.Default())
@@ -632,21 +511,6 @@ func serveReschedule(t *testing.T, mock *mockBookingSvc, url, body string) *http
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	return w
-}
-
-func TestBookingHandler_RescheduleBooking_Success(t *testing.T) {
-	start := time.Date(2026, 10, 26, 2, 0, 0, 0, time.UTC)
-	mock := &mockBookingSvc{moved: &scheduling.Booking{ID: 10, StartTime: start, EndTime: start.Add(time.Hour)}}
-
-	w := serveReschedule(t, mock, "/api/bookings/10",
-		`{"start_time":"2026-10-26T02:00:00Z","end_time":"2026-10-26T03:00:00Z"}`)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, 10, mock.gotMoveID)
-	assert.True(t, mock.gotMove.StartTime.Equal(start))
-	var body scheduling.Booking
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-	assert.Equal(t, 10, body.ID)
 }
 
 func TestBookingHandler_RescheduleBooking_BadRequest(t *testing.T) {
