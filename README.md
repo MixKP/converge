@@ -54,6 +54,15 @@ For subsequent starts, run the database, API, and frontend commands again, **wit
 
 Create a writable directory and set its absolute path as `BACKUP_DIR` in `backend/.env`. The API schedules backups while it runs; `BACKUP_INTERVAL_HOURS` and `BACKUP_RETENTION_DAYS` are optional. PostgreSQL 16 `pg_dump` and `pg_restore` must be on the API process's `PATH`. This gives you scheduled and manual logical backups. A directory on the same computer does not protect against loss of that computer; use a mounted off-host directory for durable deployment backups.
 
+## Run tests
+
+Run these commands from `backend/`:
+
+- `make test` runs the unit tests.
+- `make test-integration` runs the application HTTP, recovery HTTP, repository, and physical Silo/WAL integration tests, together with the unit tests. Docker must be running. It requires PostgreSQL 16 client tools and the `converge-postgres-backup:local` image.
+
+The application HTTP test uses the production router, real services and SQL repositories. Mocked handler tests remain for validation and injected failures.
+
 ## Run the physical backup and WAL recovery stack
 
 This is an additional setup for testing recovery from a physical base backup plus archived WAL. It runs Silo in a separate Compose project. The local example still keeps both Docker projects on one computer; deployment storage should be on another host.
