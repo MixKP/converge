@@ -5,12 +5,18 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -44,7 +50,10 @@ func TestApplicationHTTPWithPostgres(t *testing.T) {
 	_, err = users.Register(ctx, "operator", "secret123", "admin", nil)
 	require.NoError(t, err)
 	gin.SetMode(gin.TestMode)
-	server := httptest.NewServer(newRouter(database, jwt, logger, backup.New("", time.Hour, 24*time.Hour, logger)))
+	backupDir := t.TempDir()
+	backupService := backup.New(backupDir, 24*time.Hour, 24*time.Hour, logger)
+	backupService.SetAfterRestore(func() error { return db.RecoverAfterLiveRestore(database) })
+	server := httptest.NewServer(newRouter(database, jwt, logger, backupService))
 	t.Cleanup(server.Close)
 	client := server.Client()
 	client.Timeout = 10 * time.Second
@@ -118,6 +127,11 @@ func TestApplicationHTTPWithPostgres(t *testing.T) {
 	require.NoError(t, json.Unmarshal(request("GET", parentPath, nil, admin.Token, 200), &linked))
 	require.Len(t, linked, 1)
 	require.Equal(t, alice.ID, linked[0].ID)
+	request("DELETE", fmt.Sprintf("%s/%d", parentPath, alice.ID), nil, admin.Token, 400)
+	require.NoError(t, json.Unmarshal(request("GET", parentPath, nil, admin.Token, 200), &linked))
+	require.Len(t, linked, 1)
+	require.Equal(t, alice.ID, linked[0].ID)
+
 	request("POST", parentPath, map[string]any{"student_id": 999999}, admin.Token, 404)
 
 	var branch struct {
@@ -215,6 +229,33 @@ func TestApplicationHTTPWithPostgres(t *testing.T) {
 	require.NoError(t, json.Unmarshal(request("POST", "/api/bookings/confirm", second, admin.Token, 201), &bobBooking))
 	require.NotZero(t, bobBooking.ID)
 	request("POST", "/api/bookings/confirm", confirm, admin.Token, 409)
+	businessSnapshot := func() string {
+		t.Helper()
+		var value string
+		require.NoError(t, database.QueryRow(`SELECT jsonb_build_object(
+   'teacher', (SELECT to_jsonb(x)-'status' FROM teachers x WHERE id=$1),
+   'availability', (SELECT jsonb_agg(to_jsonb(x) ORDER BY id) FROM teacher_availability x WHERE teacher_id=$1),
+   'subjects', (SELECT jsonb_agg(to_jsonb(x) ORDER BY subject_id) FROM teacher_subjects x WHERE teacher_id=$1),
+   'branch', (SELECT to_jsonb(x)-'status' FROM branches x WHERE id=$2),
+   'bookings', (SELECT jsonb_agg(to_jsonb(x) ORDER BY id) FROM bookings x))::text`, tutor.ID, branch.ID).Scan(&value))
+		return value
+	}
+	beforeStatusChange := businessSnapshot()
+	for _, state := range []string{"deactivated", "active"} {
+		request("PATCH", teacherPath+"/status", map[string]any{"status": state}, admin.Token, 200)
+		var storedStatus string
+		require.NoError(t, database.QueryRow("SELECT status FROM teachers WHERE id=$1", tutor.ID).Scan(&storedStatus))
+		require.Equal(t, state, storedStatus)
+		require.JSONEq(t, beforeStatusChange, businessSnapshot())
+	}
+	for _, state := range []string{"deactivated", "active"} {
+		request("PATCH", branchPath+"/status", map[string]any{"status": state}, admin.Token, 200)
+		var storedStatus string
+		require.NoError(t, database.QueryRow("SELECT status FROM branches WHERE id=$1", branch.ID).Scan(&storedStatus))
+		require.Equal(t, state, storedStatus)
+		require.JSONEq(t, beforeStatusChange, businessSnapshot())
+	}
+
 	list := func(bearer string) []scheduling.Booking {
 		t.Helper()
 		var result []scheduling.Booking
@@ -261,4 +302,123 @@ func TestApplicationHTTPWithPostgres(t *testing.T) {
 	}
 	request("GET", "/api/bookings", nil, "", 401)
 	require.JSONEq(t, `{"status":"healthy"}`, string(request("GET", "/health", nil, "", 200)))
+
+	request("POST", parentPath, map[string]any{"student_id": bob.ID}, admin.Token, 200)
+	type unlinkResult struct {
+		code int
+		err  error
+	}
+	results := make(chan unlinkResult, 2)
+	startUnlinks := make(chan struct{})
+	for _, id := range []int{alice.ID, bob.ID} {
+		go func(id int) {
+			<-startUnlinks
+			req, err := http.NewRequest(http.MethodDelete, server.URL+fmt.Sprintf("%s/%d", parentPath, id), nil)
+			if err != nil {
+				results <- unlinkResult{err: err}
+				return
+			}
+			req.Header.Set("Authorization", "Bearer "+admin.Token)
+			response, err := client.Do(req)
+			if err != nil {
+				results <- unlinkResult{err: err}
+				return
+			}
+			_, readErr := io.Copy(io.Discard, response.Body)
+			closeErr := response.Body.Close()
+			if readErr != nil {
+				err = readErr
+			} else {
+				err = closeErr
+			}
+			results <- unlinkResult{code: response.StatusCode, err: err}
+		}(id)
+	}
+	close(startUnlinks)
+	var codes []int
+	for range 2 {
+		result := <-results
+		require.NoError(t, result.err)
+		codes = append(codes, result.code)
+	}
+	require.ElementsMatch(t, []int{200, 400}, codes)
+	require.NoError(t, json.Unmarshal(request("GET", parentPath, nil, admin.Token, 200), &linked))
+	require.Len(t, linked, 1)
+
+	host, err := container.Host(ctx)
+	require.NoError(t, err)
+	port, err := container.MappedPort(ctx, "5432/tcp")
+	require.NoError(t, err)
+	for key, value := range map[string]string{
+		"DB_HOST": host, "DB_PORT": port.Port(), "POSTGRES_USER": "test", "POSTGRES_PASSWORD": "test", "POSTGRES_DB": "converge_http_test",
+		"PGHOST": host, "PGPORT": port.Port(), "PGUSER": "test", "PGPASSWORD": "test", "PGDATABASE": "converge_http_test",
+	} {
+		t.Setenv(key, value)
+	}
+	_, err = database.Exec("UPDATE branches SET capacity=10 WHERE id=$1", branch.ID)
+	require.NoError(t, err)
+	backupContext, stopBackups := context.WithCancel(ctx)
+	defer stopBackups()
+	backupService.Start(backupContext)
+	backupStatus := func() backup.Status {
+		t.Helper()
+		var status backup.Status
+		require.NoError(t, json.Unmarshal(request("GET", "/api/recovery/backups", nil, admin.Token, 200), &status))
+		return status
+	}
+	require.Eventually(t, func() bool { status := backupStatus(); return status.LastSuccess != nil && !status.Running }, time.Minute, 50*time.Millisecond)
+	automatic := backupStatus()
+	require.NotEmpty(t, automatic.Latest)
+	require.Eventually(t, func() bool { return time.Now().After(automatic.LastSuccess.Add(time.Second)) }, 3*time.Second, 10*time.Millisecond)
+	_, err = database.Exec("UPDATE branches SET capacity=20 WHERE id=$1", branch.ID)
+	require.NoError(t, err)
+	request("POST", "/api/recovery/backups", map[string]any{}, admin.Token, 202)
+	require.Eventually(t, func() bool {
+		status := backupStatus()
+		return !status.Running && !status.Queued && status.Latest != automatic.Latest
+	}, time.Minute, 50*time.Millisecond)
+	manual := backupStatus()
+	require.True(t, manual.LastSuccess.After(*automatic.LastSuccess))
+	_, err = database.Exec("UPDATE branches SET capacity=30 WHERE id=$1", branch.ID)
+	require.NoError(t, err)
+	_, err = database.Exec("INSERT INTO branches (name, capacity) VALUES ('after-logical-backup', 30)")
+	require.NoError(t, err)
+	restoreBody := map[string]string{"backup_name": manual.Latest, "confirmation": "wrong"}
+	request("POST", "/api/recovery/restores", restoreBody, admin.Token, 400)
+	require.NoError(t, database.QueryRow("SELECT capacity FROM branches WHERE id=$1", branch.ID).Scan(&capacity))
+	require.Equal(t, 30, capacity)
+	restoreBody["confirmation"] = "RESTORE LIVE DATA from " + manual.Latest
+	func() {
+		require.True(t, backupService.EnterRequest())
+		defer backupService.LeaveRequest()
+		request("POST", "/api/recovery/restores", restoreBody, admin.Token, 202)
+		request("POST", "/api/recovery/restores", restoreBody, admin.Token, 409)
+		request("GET", "/api/branches", nil, admin.Token, 503)
+		request("POST", "/api/recovery/backups", map[string]any{}, admin.Token, 503)
+		status := backupStatus()
+		require.True(t, status.Restoring)
+		require.True(t, status.LastSuccess.Equal(*manual.LastSuccess))
+	}()
+	require.Eventually(t, func() bool { return !backupStatus().Restoring }, time.Minute, 50*time.Millisecond)
+	restored := backupStatus()
+	require.Empty(t, restored.RestoreError)
+	require.NotNil(t, restored.RestoredAt)
+	require.NotEqual(t, manual.Latest, restored.Latest)
+	safetyPath := filepath.Join(backupDir, restored.Latest)
+	safetyData, err := os.ReadFile(safetyPath)
+	require.NoError(t, err)
+	checksum, err := os.ReadFile(safetyPath + ".sha256")
+	require.NoError(t, err)
+	fields := strings.Fields(string(checksum))
+	require.Len(t, fields, 2)
+	digest := sha256.Sum256(safetyData)
+	require.Equal(t, hex.EncodeToString(digest[:]), fields[0])
+	listing, err := exec.CommandContext(ctx, "pg_restore", "--list", safetyPath).CombinedOutput()
+	require.NoError(t, err, string(listing))
+	require.NoError(t, database.QueryRow("SELECT capacity FROM branches WHERE id=$1", branch.ID).Scan(&capacity))
+	require.Equal(t, 20, capacity)
+	var laterRows int
+	require.NoError(t, database.QueryRow("SELECT count(*) FROM branches WHERE name='after-logical-backup'").Scan(&laterRows))
+	require.Zero(t, laterRows)
+
 }

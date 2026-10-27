@@ -111,3 +111,26 @@ func TestRecoveryPreviewRejectsInvalidTargetBeforeWorkerCall(t *testing.T) {
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestRecoveryTimelineRejectsInvalidCursor(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, test := range []struct{ query, message string }{
+		{"after=not-a-time", "after must be an ISO timestamp"},
+		{"before_id=abc", "before_id must be positive"},
+		{"before_id=0", "before_id must be positive"},
+		{"before_id=-1", "before_id must be positive"},
+		{"before_id=9223372036854775808", "before_id must be positive"},
+		{"before_id=2", "before_at must be an ISO timestamp"},
+		{"before_id=2&before_at=not-a-time", "before_at must be an ISO timestamp"},
+	} {
+		t.Run(test.query, func(t *testing.T) {
+			handler := &RecoveryTimelineHandler{}
+			router := gin.New()
+			router.GET("/timeline", handler.Timeline)
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/timeline?"+test.query, nil))
+			require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
+			require.JSONEq(t, `{"error":"`+test.message+`"}`, response.Body.String())
+		})
+	}
+}

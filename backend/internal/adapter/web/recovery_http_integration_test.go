@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -221,4 +222,45 @@ func TestRecoveryHTTPWithPostgres(t *testing.T) {
 	require.True(t, downloaded.Load())
 	require.NoError(t, database.QueryRow(`SELECT capacity FROM branches WHERE name = 'recoverable'`).Scan(&capacity))
 	require.Equal(t, 20, capacity)
+
+	t.Run("timeline cursor and timestamp ties", func(t *testing.T) {
+		_, err := database.Exec("TRUNCATE admin_audit_event RESTART IDENTITY")
+		require.NoError(t, err)
+		at := time.Date(2026, time.January, 1, 12, 0, 0, 0, time.UTC)
+		_, err = database.Exec(`INSERT INTO admin_audit_event (occurred_at, resource, operation, row_key)
+   SELECT $1, 'branches', 'update', n::text FROM generate_series(1,105) n`, at)
+		require.NoError(t, err)
+		page := func(query string) []auditEvent {
+			t.Helper()
+			response := request(http.MethodGet, "/api/recovery/timeline?"+query, "", adminToken)
+			require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+			var data struct {
+				Events []auditEvent `json:"events"`
+			}
+			require.NoError(t, json.Unmarshal(response.Body.Bytes(), &data))
+			return data.Events
+		}
+		first := page("")
+		require.Len(t, first, 100)
+		for i, event := range first {
+			require.EqualValues(t, 105-i, event.ID)
+			require.True(t, at.Equal(event.OccurredAt))
+		}
+		cursor := func(event auditEvent) string {
+			return "before_id=" + strconv.FormatInt(event.ID, 10) + "&before_at=" + url.QueryEscape(event.OccurredAt.Format(time.RFC3339Nano))
+		}
+		second := page(cursor(first[len(first)-1]))
+		require.Len(t, second, 5)
+		for i, event := range second {
+			require.EqualValues(t, 5-i, event.ID)
+		}
+		require.Empty(t, page(cursor(second[len(second)-1])))
+		require.Empty(t, page("after="+at.Format(time.RFC3339Nano)))
+		require.Len(t, page("after="+at.Add(-time.Second).Format(time.RFC3339Nano)), 100)
+		_, err = database.Exec(`INSERT INTO admin_audit_event (occurred_at,resource,operation,row_key) VALUES ($1,'branches','update','newer')`, at.Add(time.Second))
+		require.NoError(t, err)
+		ordered := page("")
+		require.EqualValues(t, 106, ordered[0].ID)
+		require.EqualValues(t, 105, ordered[1].ID)
+	})
 }

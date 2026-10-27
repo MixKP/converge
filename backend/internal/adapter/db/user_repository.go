@@ -187,15 +187,35 @@ func (r *UserRepo) LinkParentStudent(ctx context.Context, parentID, studentID in
 }
 
 func (r *UserRepo) UnlinkParentStudent(ctx context.Context, parentID, studentID int) error {
-	res, err := r.DB.ExecContext(ctx,
-		`DELETE FROM parent_students WHERE parent_id = $1 AND student_id = $2`, parentID, studentID)
+	tx, err := r.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
+	defer tx.Rollback()
+	var id int
+	err = tx.QueryRowContext(ctx, `SELECT id FROM users WHERE id=$1 FOR UPDATE`, parentID).Scan(&id)
+	if err == sql.ErrNoRows {
 		return &shared.NotFoundError{Msg: fmt.Sprintf("parent %d is not linked to student %d", parentID, studentID)}
 	}
-	return nil
+	if err != nil {
+		return err
+	}
+	var count int
+	var linked bool
+	err = tx.QueryRowContext(ctx, `SELECT count(*), COALESCE(bool_or(student_id=$2), false) FROM parent_students WHERE parent_id=$1`, parentID, studentID).Scan(&count, &linked)
+	if err != nil {
+		return err
+	}
+	if !linked {
+		return &shared.NotFoundError{Msg: fmt.Sprintf("parent %d is not linked to student %d", parentID, studentID)}
+	}
+	if count <= 1 {
+		return &shared.ValidationError{Msg: "a parent must stay linked to at least one student"}
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM parent_students WHERE parent_id=$1 AND student_id=$2`, parentID, studentID); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (r *UserRepo) StudentIDsForParent(ctx context.Context, parentID int) ([]int, error) {

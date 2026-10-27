@@ -7,8 +7,10 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
@@ -19,6 +21,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -39,7 +42,7 @@ func TestPhysicalBackupWALPreview(t *testing.T) {
 	if os.Getenv("CONVERGE_PHYSICAL_DRILL") != "1" {
 		t.Skip("set CONVERGE_PHYSICAL_DRILL=1 to run the isolated Silo/WAL drill")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
 	nw, err := network.New(ctx)
 	require.NoError(t, err)
@@ -191,17 +194,46 @@ log-level-file=off
 		physical = physicalStatus{}
 		return call(http.MethodGet, "/status", nil, &physical) == http.StatusOK && physical.ArchiveSegment != "" && physical.ArchiveSegment != previousSegment
 	}, 2*time.Minute, time.Second)
-	for _, check := range []struct {
-		position string
-		count    int
-	}{{"before", 1}, {"after", 2}} {
-		target := eventAt.Add(time.Second)
-		if check.position == "before" {
-			target = eventAt.Add(-time.Microsecond)
+
+	statusDir := t.TempDir()
+	oldSuccess := []byte(time.Now().Add(-25 * time.Hour).UTC().Format(time.RFC3339Nano))
+	require.NoError(t, os.WriteFile(filepath.Join(statusDir, "last-success"), oldSuccess, 0600))
+	failBackup := true
+	runBackup := func(runContext context.Context, args ...string) error {
+		command := []string{"pgbackrest", "--stanza=converge"}
+		if failBackup && args[len(args)-1] == "backup" {
+			command = append(command, "--pg1-port=1")
 		}
+		command = append(command, args...)
+		code, output, err := worker.Exec(runContext, command)
+		if err != nil {
+			return err
+		}
+		data, err := io.ReadAll(output)
+		if err != nil {
+			return err
+		}
+		if code != 0 {
+			return fmt.Errorf("pgbackrest exited %d: %s", code, data)
+		}
+		return nil
+	}
+	beforeFailure := append([]physicalBackup(nil), physical.Backups...)
+	_, backedUp, backupErr := backupCycle(ctx, true, runBackup, statusDir, time.Now)
+	require.ErrorContains(t, backupErr, "create full backup")
+	require.False(t, backedUp)
+	preservedSuccess, err := os.ReadFile(filepath.Join(statusDir, "last-success"))
+	require.NoError(t, err)
+	require.Equal(t, oldSuccess, preservedSuccess)
+	require.Error(t, healthy(statusDir, time.Now()))
+	require.Equal(t, http.StatusOK, call(http.MethodGet, "/status", nil, &physical))
+	require.Equal(t, beforeFailure, physical.Backups)
+
+	previewAt := func(target time.Time, id int64, at time.Time, position string, count int) previewStatus {
+		t.Helper()
 		var started previewStatus
 		require.Equal(t, http.StatusAccepted, call(http.MethodPost, "/previews", map[string]any{
-			"target": target, "event_id": eventID, "event_at": eventAt, "position": check.position,
+			"target": target, "event_id": id, "event_at": at, "position": position,
 		}, &started))
 		var preview previewStatus
 		require.Eventually(t, func() bool {
@@ -217,11 +249,54 @@ log-level-file=off
 			}
 		}
 		require.Equal(t, "ready", preview.State, preview.Error)
-		require.True(t, preview.SelectionMatched)
-		require.Equal(t, check.count, preview.Counts["branches"])
+		if id > 0 {
+			require.True(t, preview.SelectionMatched)
+		}
+		require.Equal(t, count, preview.Counts["branches"])
+		return preview
+	}
+
+	for _, check := range []struct {
+		position string
+		count    int
+	}{{"before", 1}, {"after", 2}} {
+		target := eventAt.Add(time.Second)
+		if check.position == "before" {
+			target = eventAt.Add(-time.Microsecond)
+		}
+		previewAt(target, eventID, eventAt, check.position, check.count)
 	}
 	var readyPreview previewStatus
 	require.Equal(t, http.StatusOK, call(http.MethodGet, "/previews", nil, &readyPreview))
+	for _, check := range []struct {
+		token, id string
+		code      int
+	}{
+		{"", readyPreview.ID, http.StatusUnauthorized},
+		{"wrong", readyPreview.ID, http.StatusUnauthorized},
+		{"recovery-test-token", "stale", http.StatusConflict},
+		{"recovery-test-token", readyPreview.ID, http.StatusOK},
+	} {
+		request, err := http.NewRequestWithContext(ctx, http.MethodGet, workerURL+"/previews/archive?id="+check.id, nil)
+		require.NoError(t, err)
+		if check.token != "" {
+			request.Header.Set("Authorization", "Bearer "+check.token)
+		}
+		response, err := client.Do(request)
+		require.NoError(t, err)
+		body, err := io.ReadAll(response.Body)
+		require.NoError(t, err)
+		require.NoError(t, response.Body.Close())
+		require.Equal(t, check.code, response.StatusCode)
+		if check.code == http.StatusOK {
+			require.NotEmpty(t, body)
+			digest := sha256.Sum256(body)
+			require.Equal(t, hex.EncodeToString(digest[:]), response.Header.Get("X-Archive-Sha256"))
+		} else {
+			require.Empty(t, response.Header.Get("X-Archive-Sha256"))
+		}
+	}
+
 	var liveCount int
 	require.NoError(t, database.QueryRow(`SELECT count(*) FROM branches`).Scan(&liveCount))
 	require.Equal(t, 2, liveCount)
@@ -288,6 +363,45 @@ log-level-file=off
 		var archived string
 		return database.QueryRow(`SELECT COALESCE(last_archived_wal, '') FROM pg_stat_archiver`).Scan(&archived) == nil && archived != "" && archived != archivedBefore
 	}, 2*time.Minute, time.Second)
+
+	failBackup = false
+	_, err = database.Exec(`INSERT INTO branches (name,capacity) VALUES ('retention-second',40)`)
+	require.NoError(t, err)
+	_, backedUp, backupErr = backupCycle(ctx, true, runBackup, statusDir, time.Now)
+	require.NoError(t, backupErr)
+	require.True(t, backedUp)
+	require.NoError(t, healthy(statusDir, time.Now()))
+	require.NoFileExists(t, filepath.Join(statusDir, "last-failure"))
+	require.Equal(t, http.StatusOK, call(http.MethodGet, "/status", nil, &physical))
+	require.Len(t, physical.Backups, 2)
+	secondLabel := physical.Backups[1].Label
+	var secondTarget time.Time
+	require.NoError(t, database.QueryRow(`SELECT clock_timestamp()`).Scan(&secondTarget))
+	require.Eventually(t, func() bool { return time.Now().After(secondTarget.Add(time.Second)) }, 3*time.Second, 10*time.Millisecond)
+	_, err = database.Exec(`INSERT INTO branches (name,capacity) VALUES ('retention-third',50)`)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(statusDir, "last-success"), oldSuccess, 0600))
+	_, backedUp, backupErr = backupCycle(ctx, true, runBackup, statusDir, time.Now)
+	require.NoError(t, backupErr)
+	require.True(t, backedUp)
+	require.Equal(t, http.StatusOK, call(http.MethodGet, "/status", nil, &physical))
+	require.Len(t, physical.Backups, 2)
+	require.Equal(t, secondLabel, physical.Backups[0].Label)
+	require.NotEqual(t, beforeFailure[0].Label, physical.Backups[0].Label)
+	require.NotEqual(t, secondLabel, physical.Backups[1].Label)
+	var thirdTarget time.Time
+	require.NoError(t, database.QueryRow(`SELECT clock_timestamp()`).Scan(&thirdTarget))
+	require.Eventually(t, func() bool { return time.Now().After(thirdTarget.Add(time.Second)) }, 3*time.Second, 10*time.Millisecond)
+	_, err = database.Exec(`INSERT INTO branches (name,capacity) VALUES ('after-third-backup',60)`)
+	require.NoError(t, err)
+	lastSegment := physical.ArchiveSegment
+	_, err = database.Exec(`SELECT pg_switch_wal()`)
+	require.NoError(t, err)
+	require.Eventually(t, func() bool {
+		return call(http.MethodGet, "/status", nil, &physical) == http.StatusOK && physical.ArchiveSegment != lastSegment
+	}, 2*time.Minute, time.Second)
+	previewAt(secondTarget, 0, time.Time{}, "", 4)
+	previewAt(thirdTarget, 0, time.Time{}, "", 5)
 }
 
 func containerExec(t *testing.T, ctx context.Context, container testcontainers.Container, command ...string) {

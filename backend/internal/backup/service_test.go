@@ -222,3 +222,33 @@ func mustReadFile(t *testing.T, path string) []byte {
 	require.NoError(t, err)
 	return data
 }
+
+func TestCleanupRetainsLatestSafetyAndRecentArchives(t *testing.T) {
+	t.Setenv("POSTGRES_DB", "cleanup_test")
+	dir := t.TempDir()
+	service := New(dir, time.Hour, 24*time.Hour, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	now := time.Now()
+	for _, file := range []struct {
+		name string
+		age  time.Duration
+	}{
+		{"cleanup_test_expired.dump", 48 * time.Hour},
+		{"cleanup_test_recent.dump", time.Hour},
+		{"cleanup_test_latest.dump", 48 * time.Hour},
+		{"cleanup_test_safety.dump", 48 * time.Hour},
+		{"unrelated.dump", 48 * time.Hour},
+	} {
+		for _, suffix := range []string{"", ".sha256"} {
+			path := filepath.Join(dir, file.name+suffix)
+			require.NoError(t, os.WriteFile(path, []byte("fixture"), 0600))
+			require.NoError(t, os.Chtimes(path, now.Add(-file.age), now.Add(-file.age)))
+		}
+	}
+	service.cleanup("cleanup_test_latest.dump", "cleanup_test_safety.dump")
+	for _, name := range []string{"cleanup_test_recent.dump", "cleanup_test_latest.dump", "cleanup_test_safety.dump", "unrelated.dump"} {
+		require.FileExists(t, filepath.Join(dir, name))
+		require.FileExists(t, filepath.Join(dir, name+".sha256"))
+	}
+	require.NoFileExists(t, filepath.Join(dir, "cleanup_test_expired.dump"))
+	require.NoFileExists(t, filepath.Join(dir, "cleanup_test_expired.dump.sha256"))
+}

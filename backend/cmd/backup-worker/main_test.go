@@ -98,3 +98,54 @@ func TestBackupDueRetriesFailureAndInvalidClock(t *testing.T) {
 	}
 	check(true)
 }
+
+func TestBackupCommandFailurePreservesSuccessAndRetries(t *testing.T) {
+	dir := t.TempDir()
+	now := time.Date(2026, time.October, 26, 12, 0, 0, 0, time.UTC)
+	previous := []byte(now.Add(-25 * time.Hour).Format(time.RFC3339Nano))
+	success := filepath.Join(dir, "last-success")
+	if err := os.WriteFile(success, previous, 0600); err != nil {
+		t.Fatal(err)
+	}
+	var calls []string
+	fail := true
+	run := func(_ context.Context, args ...string) error {
+		step := args[len(args)-1]
+		calls = append(calls, step)
+		if fail && step == "backup" {
+			return errors.New("full backup failed")
+		}
+		return nil
+	}
+	clock := func() time.Time { return now }
+	_, backedUp, err := backupCycle(context.Background(), true, run, dir, clock)
+	if err == nil || backedUp || !slices.Equal(calls, []string{"check", "backup"}) {
+		t.Fatalf("failed cycle: %v %v %v", backedUp, err, calls)
+	}
+	got, err := os.ReadFile(success)
+	if err != nil || string(got) != string(previous) {
+		t.Fatalf("success marker changed: %q %v", got, err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "last-failure")); err != nil {
+		t.Fatal(err)
+	}
+	if healthy(dir, now) == nil {
+		t.Fatal("failed backup reports healthy")
+	}
+	fail = false
+	calls = nil
+	_, backedUp, err = backupCycle(context.Background(), true, run, dir, clock)
+	if err != nil || !backedUp || !slices.Equal(calls, []string{"check", "backup"}) {
+		t.Fatalf("retry: %v %v %v", backedUp, err, calls)
+	}
+	got, err = os.ReadFile(success)
+	if err != nil || string(got) != now.Format(time.RFC3339Nano) {
+		t.Fatalf("retry marker: %q %v", got, err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "last-failure")); !os.IsNotExist(err) {
+		t.Fatalf("failure marker remains: %v", err)
+	}
+	if err := healthy(dir, now); err != nil {
+		t.Fatal(err)
+	}
+}
