@@ -1,0 +1,24 @@
+services:
+  backup-config-init:
+    environment:
+      SILO_HOST: silo
+      SILO_PORT: "9000"
+    depends_on:
+      silo-certs-init:
+        condition: service_completed_successfully
+    volumes:
+      - silocerts:/certs:ro
+
+  db:
+    depends_on:
+      silo-init:
+        condition: service_completed_successfully
+
+  backup-worker:
+    depends_on:
+      silo-init:
+        condition: service_completed_successfully
+
+  silo:
+    ports: !override
+      - "127.0.0.1:${SILO_CONSOLE_PORT:-9011}:9001"

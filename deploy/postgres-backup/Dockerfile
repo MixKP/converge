@@ -4,6 +4,6 @@ COPY cmd/backup-worker/*.go .
 RUN CGO_ENABLED=0 GO111MODULE=off go build -trimpath -o /out/converge-backup-worker main.go recovery.go
 
 FROM postgres:16-alpine3.23
-RUN apk add --no-cache pgbackrest=2.57.0-r0
+RUN apk add --no-cache pgbackrest=2.57.0-r0 openssl
 RUN install -d -o postgres -g postgres -m 0700 /var/lib/converge-backup /var/lib/converge-preview && install -d /etc/pgbackrest
 COPY --from=worker-build /out/converge-backup-worker /usr/local/bin/converge-backup-worker

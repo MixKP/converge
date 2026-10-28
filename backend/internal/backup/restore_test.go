@@ -120,3 +120,30 @@ func TestLiveRestoreRequiresExactConfirmationAndCleansInOneTransaction(t *testin
 		require.NotContains(t, cmd, "pg_tables")
 	}
 }
+
+func TestLiveRestoreSelectionPreservesAuditObjectsOnly(t *testing.T) {
+	protected := []string{
+		"1; 2615 2200 SCHEMA - public postgres",
+		"2; 0 0 COMMENT - SCHEMA public postgres",
+		"3; 0 0 ACL - SCHEMA public postgres",
+		"4; 1259 100 TABLE public admin_audit_event postgres",
+		"5; 0 100 TABLE DATA public admin_audit_event postgres",
+		"6; 1259 101 SEQUENCE public admin_audit_event_id_seq postgres",
+		"7; 0 0 SEQUENCE OWNED BY public admin_audit_event_id_seq postgres",
+		"8; 0 0 SEQUENCE SET public admin_audit_event_id_seq postgres",
+		"9; 2604 102 DEFAULT public admin_audit_event id postgres",
+		"10; 2606 103 CONSTRAINT public admin_audit_event admin_audit_event_pkey postgres",
+		"11; 1259 104 INDEX public idx_admin_audit_event_time postgres",
+	}
+	retained := []string{
+		"; PostgreSQL archive contents",
+		"12; 1259 105 TABLE public branches postgres",
+		"13; 0 105 TABLE DATA public branches postgres",
+		"14; 1255 106 FUNCTION public record_admin_data_change() postgres",
+		"15; 1259 107 TABLE public admin_audit_event_notes postgres",
+		"16; 1259 108 TABLE another_schema admin_audit_event postgres",
+	}
+	listing := strings.Join(append(append([]string{}, protected...), retained...), "\n") + "\n"
+	require.Equal(t, strings.Join(retained, "\n")+"\n", string(preserveHistorySelection([]byte(listing))))
+	require.Empty(t, preserveHistorySelection(nil))
+}

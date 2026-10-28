@@ -294,7 +294,9 @@ func (s *recoveryServer) runPreview(target time.Time, eventID int64, eventAt tim
 	s.preview.FinishedAt = &finished
 	if err != nil {
 		s.preview.State = "failed"
-		if errors.Is(err, errSelectionMismatch) {
+		if errors.Is(err, errPreviewArchiveUnavailable) {
+			s.preview.Error = "Could not archive the latest WAL to backup storage. Check storage availability and retry the preview."
+		} else if errors.Is(err, errSelectionMismatch) {
 			s.preview.Error = "Archived WAL did not reach the selected change at this time. Choose another recovery point or wait for archiving."
 		} else {
 			s.preview.Error = "Recovery preview failed. Check the backup worker logs for the cause."
@@ -311,7 +313,38 @@ func (s *recoveryServer) runPreview(target time.Time, eventID int64, eventAt tim
 
 var errSelectionMismatch = errors.New("selected audit event did not match recovered preview")
 
+var errPreviewArchiveUnavailable = errors.New("preview WAL archiving failed")
+
+func preparePreviewWAL(ctx context.Context, run func(context.Context, string, ...string) ([]byte, error)) error {
+	probeCtx, cancelProbe := context.WithTimeout(ctx, 5*time.Second)
+	output, err := run(probeCtx, "psql", "-AtX", "-v", "ON_ERROR_STOP=1", "-c", "SELECT pg_is_in_recovery()")
+	cancelProbe()
+	if err != nil {
+		log.Printf("primary unavailable; preview will use existing archived WAL: %v", err)
+		return nil
+	}
+	switch strings.TrimSpace(string(output)) {
+	case "t":
+		return nil
+	case "f":
+	default:
+		return fmt.Errorf("%w: unexpected primary recovery state", errPreviewArchiveUnavailable)
+	}
+	archiveCtx, cancelArchive := context.WithTimeout(ctx, 90*time.Second)
+	defer cancelArchive()
+	if _, err := run(archiveCtx, "psql", "-AtX", "-v", "ON_ERROR_STOP=1", "-c", "SELECT pg_logical_emit_message(true, 'converge-preview', 'recovery boundary')"); err != nil {
+		return fmt.Errorf("%w: commit recovery boundary: %v", errPreviewArchiveUnavailable, err)
+	}
+	if _, err := run(archiveCtx, "pgbackrest", "--stanza=converge", "--archive-timeout=60", "check"); err != nil {
+		return fmt.Errorf("%w: %v", errPreviewArchiveUnavailable, err)
+	}
+	return nil
+}
+
 func restorePreview(ctx context.Context, target time.Time, eventID int64, eventAt time.Time, position string) (map[string]int, []auditEvent, string, error) {
+	if err := preparePreviewWAL(ctx, runOutput); err != nil {
+		return nil, nil, "", err
+	}
 	if err := os.Remove(previewArchivePath); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, nil, "", fmt.Errorf("clear previous preview archive: %w", err)
 	}

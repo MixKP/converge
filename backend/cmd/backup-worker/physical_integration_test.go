@@ -256,6 +256,25 @@ log-level-file=off
 		return preview
 	}
 
+	_, err = database.Exec(`UPDATE branches SET capacity = 11 WHERE name = 'base'`)
+	require.NoError(t, err)
+	var recentID int64
+	var recentAt time.Time
+	require.NoError(t, database.QueryRow(`SELECT id, occurred_at FROM admin_audit_event ORDER BY id DESC LIMIT 1`).Scan(&recentID, &recentAt))
+	require.Eventually(t, func() bool { return time.Now().After(recentAt.Add(time.Second)) }, 3*time.Second, 10*time.Millisecond)
+	var historyBeforePreview string
+	require.NoError(t, database.QueryRow(`SELECT json_agg(row_to_json(events) ORDER BY id)::text FROM admin_audit_event events`).Scan(&historyBeforePreview))
+	segmentBeforePreview := physical.ArchiveSegment
+	previewAt(recentAt.Add(time.Second), recentID, recentAt, "after", 2)
+	require.Equal(t, http.StatusOK, call(http.MethodGet, "/status", nil, &physical))
+	require.NotEqual(t, segmentBeforePreview, physical.ArchiveSegment)
+	var historyAfterPreview string
+	require.NoError(t, database.QueryRow(`SELECT json_agg(row_to_json(events) ORDER BY id)::text FROM admin_audit_event events`).Scan(&historyAfterPreview))
+	require.JSONEq(t, historyBeforePreview, historyAfterPreview)
+	var liveCapacity int
+	require.NoError(t, database.QueryRow(`SELECT capacity FROM branches WHERE name = 'base'`).Scan(&liveCapacity))
+	require.Equal(t, 11, liveCapacity)
+
 	for _, check := range []struct {
 		position string
 		count    int
@@ -305,6 +324,9 @@ log-level-file=off
 	}, nil))
 	_, err = database.Exec(`INSERT INTO branches (name, capacity) VALUES ('to be removed', 30)`)
 	require.NoError(t, err)
+	const auditSnapshot = `SELECT COALESCE(json_agg(row_to_json(events) ORDER BY id), '[]'::json)::text FROM admin_audit_event events`
+	var historyBeforeApply string
+	require.NoError(t, database.QueryRow(auditSnapshot).Scan(&historyBeforeApply))
 	t.Setenv("DB_HOST", host)
 	t.Setenv("DB_PORT", port.Port())
 	t.Setenv("POSTGRES_USER", "test")
@@ -343,6 +365,9 @@ log-level-file=off
 	applyStatus, err := service.Status()
 	require.NoError(t, err)
 	require.Empty(t, applyStatus.RestoreError)
+	var historyAfterApply string
+	require.NoError(t, database.QueryRow(auditSnapshot).Scan(&historyAfterApply))
+	require.JSONEq(t, historyBeforeApply, historyAfterApply, "applying an older WAL preview must not remove the recovery history")
 	require.NoError(t, database.QueryRow(`SELECT count(*) FROM branches`).Scan(&liveCount))
 	require.Equal(t, 2, liveCount)
 
@@ -376,7 +401,10 @@ log-level-file=off
 	require.Len(t, physical.Backups, 2)
 	secondLabel := physical.Backups[1].Label
 	var secondTarget time.Time
-	require.NoError(t, database.QueryRow(`SELECT clock_timestamp()`).Scan(&secondTarget))
+	require.Eventually(t, func() bool {
+		return database.QueryRow(`SELECT clock_timestamp()`).Scan(&secondTarget) == nil &&
+			secondTarget.Truncate(time.Second).After(physical.Backups[1].CompletedAt)
+	}, 5*time.Second, 25*time.Millisecond)
 	require.Eventually(t, func() bool { return time.Now().After(secondTarget.Add(time.Second)) }, 3*time.Second, 10*time.Millisecond)
 	_, err = database.Exec(`INSERT INTO branches (name,capacity) VALUES ('retention-third',50)`)
 	require.NoError(t, err)
@@ -390,7 +418,10 @@ log-level-file=off
 	require.NotEqual(t, beforeFailure[0].Label, physical.Backups[0].Label)
 	require.NotEqual(t, secondLabel, physical.Backups[1].Label)
 	var thirdTarget time.Time
-	require.NoError(t, database.QueryRow(`SELECT clock_timestamp()`).Scan(&thirdTarget))
+	require.Eventually(t, func() bool {
+		return database.QueryRow(`SELECT clock_timestamp()`).Scan(&thirdTarget) == nil &&
+			thirdTarget.Truncate(time.Second).After(physical.Backups[1].CompletedAt)
+	}, 5*time.Second, 25*time.Millisecond)
 	require.Eventually(t, func() bool { return time.Now().After(thirdTarget.Add(time.Second)) }, 3*time.Second, 10*time.Millisecond)
 	_, err = database.Exec(`INSERT INTO branches (name,capacity) VALUES ('after-third-backup',60)`)
 	require.NoError(t, err)

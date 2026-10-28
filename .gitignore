@@ -12,3 +12,17 @@ scripts/
 *.tex
 
 .DS_Store
+
+deploy/postgres-backup/.backup-setup.*/
+
+.env.docker
+.env.docker.*
+
+.env.app
+.env.app.*
+!.env.app.example
+.env.silo
+.env.silo.*
+!.env.silo.example
+silo-public.crt
+silo-public.crt.*

@@ -1,0 +1,170 @@
+x-database-env: &database-env
+  DB_HOST: db
+  DB_PORT: "5432"
+  POSTGRES_USER: postgres
+  POSTGRES_DB: converge_db
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run make setup}
+
+services:
+  backup-config-init:
+    image: converge-postgres-backup:local
+    build:
+      context: ./backend
+      dockerfile: ../deploy/postgres-backup/Dockerfile
+    environment:
+      SILO_ROOT_USER: ${SILO_ROOT_USER:?Run make setup}
+      SILO_ROOT_PASSWORD: ${SILO_ROOT_PASSWORD:?Run make setup}
+      PITR_CIPHER_PASS: ${PITR_CIPHER_PASS:?Run make setup}
+      SILO_HOST: ${SILO_HOST:-silo}
+      SILO_PORT: ${SILO_PORT:-9000}
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        umask 077
+        if [ -s /certs/public.crt ]; then
+          cp /certs/public.crt /config/silo-ca.crt.new
+        elif [ -s /config/silo-ca.crt ]; then
+          cp /config/silo-ca.crt /config/silo-ca.crt.new
+        else
+          echo 'Silo certificate missing. Copy silo-public.crt here and run make trust-silo.' >&2
+          exit 1
+        fi
+        openssl x509 -in /config/silo-ca.crt.new -checkend 0 -noout
+        printf '%s\n' '[converge]' 'pg1-path=/var/lib/postgresql/data' \
+          'pg1-socket-path=/var/run/postgresql' '[global]' 'repo1-type=s3' \
+          'repo1-path=/converge' 'repo1-s3-bucket=converge-pitr' "repo1-s3-endpoint=$$SILO_HOST" \
+          'repo1-s3-region=us-east-1' 'repo1-s3-uri-style=path' \
+          "repo1-s3-key=$$SILO_ROOT_USER" "repo1-s3-key-secret=$$SILO_ROOT_PASSWORD" \
+          'repo1-cipher-type=aes-256-cbc' "repo1-cipher-pass=$$PITR_CIPHER_PASS" \
+          'repo1-retention-full=7' 'compress-type=zst' 'start-fast=y' \
+          'log-level-file=off' 'log-level-console=info' "repo1-storage-port=$$SILO_PORT" \
+          'repo1-storage-ca-file=/etc/pgbackrest/silo-ca.crt' \
+          'repo1-storage-verify-tls=y' > /config/pgbackrest.conf.new
+        chown -R postgres:postgres /config
+        chmod 750 /config
+        chmod 640 /config/pgbackrest.conf.new /config/silo-ca.crt.new
+        mv /config/silo-ca.crt.new /config/silo-ca.crt
+        mv /config/pgbackrest.conf.new /config/pgbackrest.conf
+    volumes:
+      - backupconfig:/config
+
+  db:
+    image: converge-postgres-backup:local
+    restart: unless-stopped
+    stop_grace_period: 1m
+    command:
+      - postgres
+      - -c
+      - wal_level=replica
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_command=pgbackrest --stanza=converge archive-push %p
+      - -c
+      - archive_timeout=15min
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, SETGID, SETUID]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    tmpfs: [/tmp]
+    environment:
+      <<: *database-env
+      PGUSER: postgres
+    depends_on:
+      backup-config-init:
+        condition: service_completed_successfully
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - pgsocket:/var/run/postgresql
+      - backupconfig:/etc/pgbackrest:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d converge_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  backup-worker:
+    image: converge-postgres-backup:local
+    restart: unless-stopped
+    user: postgres
+    entrypoint: ["/usr/local/bin/converge-backup-worker"]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    tmpfs: [/tmp]
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/converge-backup-worker", "health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45m
+    environment:
+      PGUSER: postgres
+      PGDATABASE: converge_db
+      PITR_WORKER_TOKEN: ${PITR_WORKER_TOKEN:?Run make setup}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - pgdata:/var/lib/postgresql/data:ro
+      - pgsocket:/var/run/postgresql
+      - backupstatus:/var/lib/converge-backup
+      - pitrpreview:/var/lib/converge-preview
+      - backupconfig:/etc/pgbackrest:ro
+
+  admin-init:
+    image: converge-api:local
+    build: ./backend
+    entrypoint: ["/usr/local/bin/bootstrap"]
+    environment:
+      <<: *database-env
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set your own ADMIN_PASSWORD in .env.app}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  backend:
+    image: converge-api:local
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      <<: *database-env
+      JWT_SECRET: ${JWT_SECRET:?Run make setup}
+      PITR_WORKER_TOKEN: ${PITR_WORKER_TOKEN:?Run make setup}
+      PITR_WORKER_URL: http://backup-worker:8099
+      BACKUP_DIR: /var/lib/converge/backups
+    volumes:
+      - logicalbackups:/var/lib/converge/backups
+    depends_on:
+      admin-init:
+        condition: service_completed_successfully
+      backup-worker:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "${APP_BIND_ADDRESS:-127.0.0.1}:${APP_PORT:-8088}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/nginx-health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  pgdata:
+  pgsocket:
+  backupstatus:
+  pitrpreview:
+  backupconfig:
+  logicalbackups:

@@ -1,113 +1,63 @@
 # Converge
 
-Converge is a Vue frontend and Go API backed by PostgreSQL 16. The API and frontend run on your computer during development; Docker runs the database. Physical backups and WAL recovery are optional for ordinary app development.
+Requires Docker Compose, Make and OpenSSL. Run commands from the repository root.
 
-## Requirements
+## One computer
 
-- Docker with Docker Compose
-- Go 1.26.6 (the toolchain specified in `backend/go.mod`)
-- Node.js and npm compatible with `frontend/package-lock.json`
-- PostgreSQL 16 client tools (`pg_dump` and `pg_restore`) if you enable Management > Backups
+```sh
+make setup
+```
 
-Run the commands below from the repository root unless a step says otherwise.
+Edit `.env.app`: choose `ADMIN_USERNAME` and **your own `ADMIN_PASSWORD`**. Single-quote passwords containing `$` or `#`. Then:
 
-## Start a fresh local app
+```sh
+make up
+```
 
-1. Create private environment files:
+Open **http://localhost:8088**. Silo's dashboard is **https://localhost:9011**; its login is `SILO_ROOT_USER` / `SILO_ROOT_PASSWORD` in `.env.app`. The local certificate is self-signed.
 
-   ```sh
-   cp .env.example .env
-   cp backend/.env.example backend/.env
-   ```
+## Optional mock data
 
-   Set `POSTGRES_PASSWORD` to the same value in both files. In `backend/.env`, set a long random `JWT_SECRET` and an `ADMIN_PASSWORD`. Keep `DB_HOST=localhost` and `DB_PORT=5432` when the API runs on your computer. The example files are templates; `.env` files are ignored by Git.
+After `make up`, run `make demo-data CONFIRM=RESET_DEMO_DATA` on a disposable database. **This replaces application data.** It creates sample teachers, branches, subjects and bookings, plus `student1`–`student4` and `parent1` with password `password`. Your admin password stays unchanged. Normal startup never adds mock data.
 
-2. Start PostgreSQL:
+## Separate app and backup servers
 
-   ```sh
-   docker compose -f docker-compose.yml up -d --wait db
-   ```
+On the **backup server**:
 
-3. On a **new, disposable database only**, create the admin account and sample application data:
+```sh
+make setup-silo
+```
 
-   ```sh
-   cd backend
-   go run ./cmd/seed
-   go run ./cmd/api
-   ```
+Edit `.env.silo`: set `SILO_HOST` to its reachable DNS name or IP, and `SILO_BIND_ADDRESS` to its private network IP. Then:
 
-   Keep the API terminal open. `go run ./cmd/seed` **truncates and recreates** several application tables. Do not run it against a database containing records you need to keep. The API runs its schema migrations when it starts, but does not create the first admin account. Changing `ADMIN_PASSWORD` later does not change an existing admin's password.
+```sh
+make silo-up
+make silo-export
+```
 
-4. In another terminal, start the frontend:
+Transfer the exported **`silo-public.crt`** to the app server's repository root using a trusted channel.
 
-   ```sh
-   cd frontend
-   npm ci
-   npm run dev
-   ```
+On the **app server**:
 
-Open [http://localhost:5173](http://localhost:5173) and sign in with `ADMIN_USERNAME` (default `admin`) and the password set before seeding. Use `localhost`: the API's default CORS origin and the frontend's default API URL both use that hostname. The API is at [http://localhost:8080](http://localhost:8080); check [http://localhost:8080/health](http://localhost:8080/health) if the frontend cannot connect.
+```sh
+make setup
+```
 
-For subsequent starts, run the database, API, and frontend commands again, **without** rerunning the seed command. `SEED_DEMO_USERS=true` in `backend/.env` adds local demo accounts when seeding; leave it false for shared databases.
+Edit `.env.app`: choose the admin login, copy `SILO_ROOT_USER` and `SILO_ROOT_PASSWORD` from the backup server, and set its `SILO_HOST` / `SILO_PORT`. Then:
 
-### Enable logical backups in the Management page
+```sh
+make trust-silo MODE=remote
+make up MODE=remote
+```
 
-Create a writable directory and set its absolute path as `BACKUP_DIR` in `backend/.env`. The API schedules backups while it runs; `BACKUP_INTERVAL_HOURS` and `BACKUP_RETENTION_DAYS` are optional. PostgreSQL 16 `pg_dump` and `pg_restore` must be on the API process's `PATH`. This gives you scheduled and manual logical backups. A directory on the same computer does not protect against loss of that computer; use a mounted off-host directory for durable deployment backups.
+Allow the app server to reach Silo's storage port (default 9000). Restrict dashboard access (9001) to operators. Set `APP_BIND_ADDRESS` to the app server's private IP when exposing the frontend through your HTTPS reverse proxy. Compose does not create DNS or firewall rules.
 
-## Run tests
+## Daily commands
 
-Run these commands from `backend/`:
+`make status`, `make logs`, `make stop`, `make down`. Add `MODE=remote` on the separate app server. Use `make silo-status`, `make silo-logs`, `make silo-stop`, `make silo-down` on the backup server. Stop/down preserve volumes.
 
-- `make test` runs the unit tests.
-- `make test-integration` runs the application HTTP, recovery HTTP, repository, and physical Silo/WAL integration tests, together with the unit tests. Docker must be running. It requires PostgreSQL 16 client tools and the `converge-postgres-backup:local` image.
+Setup generates service secrets once and leaves the admin password blank for you. Repeating setup preserves existing files; changing the environment password does not reset an existing admin. Keep your environment files safe, especially `PITR_CIPHER_PASS`, which is needed to read backups.
 
-The application HTTP test uses the production router, real services and SQL repositories. Mocked handler tests remain for validation and injected failures.
+Docker manages database/storage volumes, certificates, backup configuration and the API's safety-backup directory. No `BACKUP_DIR` or certificate/config paths need entering. Physical backups and archived WAL live in Silo; Apply still makes a logical safety backup internally.
 
-## Run the physical backup and WAL recovery stack
-
-This is an additional setup for testing recovery from a physical base backup plus archived WAL. It runs Silo in a separate Compose project. The local example still keeps both Docker projects on one computer; deployment storage should be on another host.
-
-1. Configure the basic `.env` and `backend/.env` files above. Set `BACKUP_DIR` too if you want the Management page's **Apply recovery** button, which makes a safety backup before replacing live data.
-2. Create private configuration files:
-
-   ```sh
-   mkdir -p deploy/postgres-backup/live-private/silo-certs
-   cp deploy/postgres-backup/live.env.example deploy/postgres-backup/live-private/live.env
-   cp deploy/postgres-backup/pgbackrest.conf.example deploy/postgres-backup/live-private/pgbackrest-live.conf
-   ```
-
-   Replace every placeholder. The Silo root user/password must match the pgBackRest S3 key/secret; use an independent long `repo1-cipher-pass` and keep it safe. For the local Compose setup, set the pgBackRest S3 bucket to `converge-live-pitr`, endpoint to `silo-live`, and these additional options in `pgbackrest-live.conf`:
-
-   ```ini
-   repo1-storage-port=9000
-   repo1-storage-ca-file=/etc/pgbackrest/silo-ca.crt
-   repo1-storage-verify-tls=y
-   ```
-3. Give Silo a certificate valid for `silo-live`. Put `public.crt` and `private.key` in the directory named by `SILO_CERT_DIR`; set `SILO_CA_FILE` to the absolute path of `public.crt`. For a disposable local test certificate, run this in that directory:
-
-   ```sh
-   openssl req -x509 -newkey rsa:4096 -sha256 -days 365 -nodes \
-     -keyout private.key -out public.crt -subj '/CN=silo-live' \
-     -addext 'subjectAltName=DNS:silo-live'
-   ```
-
-4. Set absolute `SILO_CERT_DIR`, `SILO_CA_FILE`, and `PGBACKREST_CONFIG_FILE` paths in the private `live.env`. Generate a long `PITR_WORKER_TOKEN` there. Put the **same** token and `PITR_WORKER_URL=http://127.0.0.1:8099` in `backend/.env`.
-5. Start Silo first, then the WAL-enabled database and worker, from the repository root. Replace the private environment path if you chose another one:
-
-   ```sh
-   docker compose -p converge-silo --env-file deploy/postgres-backup/live-private/live.env \
-     -f docker-compose.silo-live.yml up -d silo-live
-   docker compose -p converge-silo --env-file deploy/postgres-backup/live-private/live.env \
-     -f docker-compose.silo-live.yml run --rm silo-live-init
-
-   docker compose -p converge --env-file .env \
-     --env-file deploy/postgres-backup/live-private/live.env \
-     -f docker-compose.pitr.yml -f docker-compose.pitr-live.yml \
-     up -d --build db backup-worker
-   ```
-
-   Then run the API and frontend as above. Seed only if this is a new disposable database. Check the worker with `docker compose -p converge --env-file .env --env-file deploy/postgres-backup/live-private/live.env -f docker-compose.pitr.yml -f docker-compose.pitr-live.yml ps` and open Management > Backups after signing in. The first physical backup may take time to finish.
-
-The local `.env` on one developer's machine may define `COMPOSE_FILE`; the explicit `-f` options above make the selected services unambiguous. Never start `docker-compose.yml`'s plain database against a volume being used by the WAL-enabled database. Private environment files, certificates, repository keys, and the encryption passphrase are not included in Git. Each developer needs their own test credentials or a securely provided team environment.
-
-For recovery procedures, validation, and cutover, read [the WAL deployment runbook](deploy/postgres-backup/README.md). Do not test **Apply recovery** on data you need to keep: it replaces the live database after confirmation.
+This uses separate volumes from the older host-run stack; existing business data is not automatically transferred. See [deployment notes](deploy/app/README.md) for migration, certificate renewal and optional [host-run development](deploy/app/host-development.md). Root `.env` and `backend/.env` are only for that older development workflow, not these Docker commands.

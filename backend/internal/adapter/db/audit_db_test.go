@@ -31,7 +31,7 @@ func TestAuditRecordsCommittedChangesOnly(t *testing.T) {
 	require.Equal(t, "capacity", field)
 }
 
-func TestRecoverAfterLiveRestoreKeepsOnlyMatchingAuditHistory(t *testing.T) {
+func TestRecoverAfterLiveRestorePreservesHistoryAndRepairsTriggers(t *testing.T) {
 	database := setupTestDB(t)
 	_, err := database.Exec(`INSERT INTO branches (name, capacity) VALUES ('restored', 10)`)
 	require.NoError(t, err)
@@ -44,10 +44,10 @@ func TestRecoverAfterLiveRestoreKeepsOnlyMatchingAuditHistory(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, RecoverAfterLiveRestore(database))
 	require.NoError(t, database.QueryRow(`SELECT count(*) FROM admin_audit_event`).Scan(&count))
-	require.Zero(t, count)
+	require.Equal(t, 1, count)
 
 	_, err = database.Exec(`UPDATE branches SET capacity = 20 WHERE name = 'restored'`)
 	require.NoError(t, err)
 	require.NoError(t, database.QueryRow(`SELECT count(*) FROM admin_audit_event`).Scan(&count))
-	require.Equal(t, 1, count)
+	require.Equal(t, 2, count)
 }

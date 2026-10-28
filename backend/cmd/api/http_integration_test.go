@@ -383,6 +383,11 @@ func TestApplicationHTTPWithPostgres(t *testing.T) {
 	require.NoError(t, err)
 	_, err = database.Exec("INSERT INTO branches (name, capacity) VALUES ('after-logical-backup', 30)")
 	require.NoError(t, err)
+	const auditSnapshot = `SELECT COALESCE(json_agg(row_to_json(events) ORDER BY id), '[]'::json)::text FROM admin_audit_event events`
+	var historyBefore string
+	var lastEventID int64
+	require.NoError(t, database.QueryRow(auditSnapshot).Scan(&historyBefore))
+	require.NoError(t, database.QueryRow("SELECT max(id) FROM admin_audit_event").Scan(&lastEventID))
 	restoreBody := map[string]string{"backup_name": manual.Latest, "confirmation": "wrong"}
 	request("POST", "/api/recovery/restores", restoreBody, admin.Token, 400)
 	require.NoError(t, database.QueryRow("SELECT capacity FROM branches WHERE id=$1", branch.ID).Scan(&capacity))
@@ -420,5 +425,69 @@ func TestApplicationHTTPWithPostgres(t *testing.T) {
 	var laterRows int
 	require.NoError(t, database.QueryRow("SELECT count(*) FROM branches WHERE name='after-logical-backup'").Scan(&laterRows))
 	require.Zero(t, laterRows)
+	var historyAfter string
+	require.NoError(t, database.QueryRow(auditSnapshot).Scan(&historyAfter))
+	require.JSONEq(t, historyBefore, historyAfter, "restore must preserve every recorded change, including changes after the selected backup")
+	var timeline struct {
+		Events []struct {
+			ID int64 `json:"id"`
+		} `json:"events"`
+	}
+	require.NoError(t, json.Unmarshal(request("GET", "/api/recovery/timeline", nil, admin.Token, 200), &timeline))
+	require.NotEmpty(t, timeline.Events)
+	require.Equal(t, lastEventID, timeline.Events[0].ID)
+	_, err = database.Exec("UPDATE branches SET capacity=25 WHERE id=$1", branch.ID)
+	require.NoError(t, err)
+	var nextEventID int64
+	require.NoError(t, database.QueryRow("SELECT max(id) FROM admin_audit_event").Scan(&nextEventID))
+	require.Greater(t, nextEventID, lastEventID)
+
+	options := backup.RestoreOptions{
+		BackupDir: backupDir, BackupName: manual.Latest,
+		SourceHost: host, SourcePort: port.Port(), TargetHost: host, TargetPort: port.Port(),
+		TargetDB: "converge_http_test", TargetUser: "test", TargetPassword: "test",
+		Confirmation: "RESTORE LIVE DATA from " + manual.Latest,
+	}
+	require.NoError(t, database.QueryRow(auditSnapshot).Scan(&historyBefore))
+	_, err = database.Exec("CREATE VIEW restore_failure_guard AS SELECT id FROM branches")
+	require.NoError(t, err)
+	require.ErrorContains(t, backup.RestoreLive(ctx, options), "restore archive")
+	require.NoError(t, database.QueryRow("SELECT capacity FROM branches WHERE id=$1", branch.ID).Scan(&capacity))
+	require.Equal(t, 25, capacity)
+	require.NoError(t, database.QueryRow(auditSnapshot).Scan(&historyAfter))
+	require.JSONEq(t, historyBefore, historyAfter)
+	_, err = database.Exec("DROP VIEW restore_failure_guard")
+	require.NoError(t, err)
+
+	_, err = database.Exec("DROP TRIGGER admin_data_change ON branches")
+	require.NoError(t, err)
+	legacyName := "legacy-without-audit.dump"
+	legacyPath := filepath.Join(backupDir, legacyName)
+	output, err := exec.CommandContext(ctx, "pg_dump", "--format=custom", "--exclude-table=public.admin_audit_event", "--file="+legacyPath).CombinedOutput()
+	require.NoError(t, err, string(output))
+	legacyData, err := os.ReadFile(legacyPath)
+	require.NoError(t, err)
+	legacyDigest := sha256.Sum256(legacyData)
+	require.NoError(t, os.WriteFile(legacyPath+".sha256", []byte(hex.EncodeToString(legacyDigest[:])+"  "+legacyName+"\n"), 0600))
+	require.NoError(t, db.RecoverAfterLiveRestore(database))
+	_, err = database.Exec("UPDATE branches SET capacity=35 WHERE id=$1", branch.ID)
+	require.NoError(t, err)
+	require.NoError(t, database.QueryRow(auditSnapshot).Scan(&historyBefore))
+	options.BackupName = legacyName
+	options.Confirmation = "RESTORE LIVE DATA from " + legacyName
+	require.NoError(t, backup.RestoreLive(ctx, options))
+	require.NoError(t, db.RecoverAfterLiveRestore(database))
+	require.NoError(t, database.QueryRow("SELECT capacity FROM branches WHERE id=$1", branch.ID).Scan(&capacity))
+	require.Equal(t, 25, capacity)
+	require.NoError(t, database.QueryRow(auditSnapshot).Scan(&historyAfter))
+	require.JSONEq(t, historyBefore, historyAfter)
+	require.NoError(t, database.QueryRow("SELECT max(id) FROM admin_audit_event").Scan(&lastEventID))
+	_, err = database.Exec("UPDATE branches SET capacity=45 WHERE id=$1", branch.ID)
+	require.NoError(t, err)
+	require.NoError(t, database.QueryRow("SELECT max(id) FROM admin_audit_event").Scan(&nextEventID))
+	require.Greater(t, nextEventID, lastEventID)
+	selections, err := filepath.Glob(filepath.Join(backupDir, ".restore-history-*.list"))
+	require.NoError(t, err)
+	require.Empty(t, selections)
 
 }

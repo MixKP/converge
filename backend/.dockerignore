@@ -1,0 +1,5 @@
+.env*
+bin
+.memory
+memory
+docs

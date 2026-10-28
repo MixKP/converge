@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -54,5 +56,58 @@ func TestRecoveryPreviewRejectsInvalidEventSelection(t *testing.T) {
 		if s.preview.State != "idle" {
 			t.Fatal("invalid selection started a preview")
 		}
+	}
+}
+
+func TestPreparePreviewWAL(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		role      string
+		failAt    int
+		calls     int
+		wantError bool
+	}{
+		{"writable primary archives boundary", "f", 0, 3, false},
+		{"offline primary uses existing archive", "", 1, 1, false},
+		{"standby uses existing archive", "t", 0, 1, false},
+		{"boundary failure stops preparation", "f", 2, 2, true},
+		{"archive failure stops preparation", "f", 3, 3, true},
+		{"invalid role fails safely", "unknown", 0, 1, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			calls := 0
+			run := func(_ context.Context, name string, args ...string) ([]byte, error) {
+				calls++
+				if calls == tc.failAt {
+					return nil, errors.New("unavailable")
+				}
+				command := name + " " + strings.Join(args, " ")
+				switch calls {
+				case 1:
+					if !strings.Contains(command, "SELECT pg_is_in_recovery()") {
+						t.Fatalf("unexpected probe: %s", command)
+					}
+					return []byte(tc.role + "\n"), nil
+				case 2:
+					if !strings.Contains(command, "pg_logical_emit_message(true,") {
+						t.Fatalf("missing transactional boundary: %s", command)
+					}
+				case 3:
+					if command != "pgbackrest --stanza=converge --archive-timeout=60 check" {
+						t.Fatalf("unexpected archive check: %s", command)
+					}
+				default:
+					t.Fatalf("unexpected command: %s", command)
+				}
+				return nil, nil
+			}
+			err := preparePreviewWAL(context.Background(), run)
+			if errors.Is(err, errPreviewArchiveUnavailable) != tc.wantError {
+				t.Fatalf("unexpected archive result: %v", err)
+			}
+			if calls != tc.calls {
+				t.Fatalf("got %d calls, expected %d", calls, tc.calls)
+			}
+		})
 	}
 }

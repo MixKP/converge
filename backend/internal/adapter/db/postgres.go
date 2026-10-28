@@ -231,22 +231,8 @@ func AutoMigrate(database *sql.DB) error {
 }
 
 func RecoverAfterLiveRestore(database *sql.DB) error {
-	var hasAuditTrigger bool
-	err := database.QueryRow(`SELECT EXISTS (
-		SELECT 1 FROM pg_trigger
-		WHERE tgrelid = to_regclass('public.branches')
-		  AND tgname = 'admin_data_change' AND NOT tgisinternal
-	)`).Scan(&hasAuditTrigger)
-	if err != nil {
-		return fmt.Errorf("inspect restored audit schema: %w", err)
-	}
 	if err := AutoMigrate(database); err != nil {
 		return fmt.Errorf("prepare restored schema: %w", err)
-	}
-	if !hasAuditTrigger {
-		if _, err := database.Exec(`TRUNCATE admin_audit_event RESTART IDENTITY`); err != nil {
-			return fmt.Errorf("clear audit history from the replaced database: %w", err)
-		}
 	}
 	return nil
 }

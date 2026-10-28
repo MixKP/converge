@@ -1,0 +1,79 @@
+services:
+  silo-certs-init:
+    image: converge-postgres-backup:local
+    build:
+      context: ./backend
+      dockerfile: ../deploy/postgres-backup/Dockerfile
+    environment:
+      SILO_HOST: ${SILO_HOST:-silo}
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        umask 077
+        host="$$SILO_HOST"
+        case "$$host" in
+          *:*) san="IP:$$host" ;;
+          *)
+            if printf '%s' "$$host" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$$'; then
+              san="IP:$$host"
+            else
+              san="DNS:$$host"
+            fi ;;
+        esac
+        if [ ! -f /certs/public.crt ] && [ ! -f /certs/private.key ]; then
+          stage=$$(mktemp -d /certs/.new.XXXXXX)
+          trap 'rm -rf "$$stage"' EXIT HUP INT TERM
+          openssl req -x509 -newkey rsa:4096 -sha256 -days 365 -nodes \
+            -keyout "$$stage/private.key" -out "$$stage/public.crt" \
+            -subj '/CN=converge-silo' -addext "subjectAltName=$$san,DNS:silo,DNS:localhost,IP:127.0.0.1"
+          mv "$$stage/private.key" /certs/private.key
+          mv "$$stage/public.crt" /certs/public.crt
+        fi
+        test -s /certs/public.crt && test -s /certs/private.key
+        openssl x509 -in /certs/public.crt -checkend 0 -noout
+        case "$$san" in
+          IP:*) openssl x509 -in /certs/public.crt -checkip "$$host" -noout ;;
+          *) openssl x509 -in /certs/public.crt -checkhost "$$host" -noout ;;
+        esac
+    volumes:
+      - silocerts:/certs
+
+  silo:
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    restart: unless-stopped
+    command: server /data --certs-dir /certs --console-address :9001
+    environment:
+      MINIO_ROOT_USER: ${SILO_ROOT_USER:?Run make setup-silo}
+      MINIO_ROOT_PASSWORD: ${SILO_ROOT_PASSWORD:?Run make setup-silo}
+    depends_on:
+      silo-certs-init:
+        condition: service_completed_successfully
+    ports:
+      - "${SILO_BIND_ADDRESS:-127.0.0.1}:${SILO_PORT:-9000}:9000"
+      - "${SILO_BIND_ADDRESS:-127.0.0.1}:${SILO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - silodata:/data
+      - silocerts:/certs:ro
+
+  silo-init:
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    depends_on:
+      silo:
+        condition: service_started
+    environment:
+      MINIO_ROOT_USER: ${SILO_ROOT_USER:?Run make setup-silo}
+      MINIO_ROOT_PASSWORD: ${SILO_ROOT_PASSWORD:?Run make setup-silo}
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        attempt=0
+        until mc --insecure alias set local https://silo:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"; do
+          attempt=$$((attempt + 1))
+          if [ "$$attempt" -ge 30 ]; then exit 1; fi
+          sleep 2
+        done
+        mc --insecure mb --ignore-existing local/converge-pitr
+
+volumes:
+  silodata:
+  silocerts:

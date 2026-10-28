@@ -74,6 +74,20 @@ func truncateSeedTables(database *sql.DB) error {
 	return nil
 }
 
+func BootstrapAdmin(database *sql.DB) error {
+	if err := seedAdminUser(database); err != nil {
+		return err
+	}
+	var role string
+	if err := database.QueryRow(`SELECT role FROM users WHERE name = $1`, getEnv("ADMIN_USERNAME", "admin")).Scan(&role); err != nil {
+		return fmt.Errorf("check bootstrap admin: %w", err)
+	}
+	if role != "admin" {
+		return fmt.Errorf("ADMIN_USERNAME is already used by a non-admin account; choose another name")
+	}
+	return nil
+}
+
 // seedAdminUser bootstraps the first admin. Idempotent: users is not truncated
 // and ON CONFLICT keeps an existing admin unchanged across re-seeds.
 // ADMIN_PASSWORD is required — there is no default, so a real deployment can

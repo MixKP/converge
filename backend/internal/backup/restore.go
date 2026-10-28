@@ -85,8 +85,9 @@ func restore(ctx context.Context, options RestoreOptions, live bool, run command
 	if clientVersion != serverNumber/10000 {
 		return fmt.Errorf("pg_restore major version %d must match replacement PostgreSQL major version %d", clientVersion, serverNumber/10000)
 	}
-	if err := runChecked(ctx, run, "pg_restore", []string{"--list", archive}, env); err != nil {
-		return fmt.Errorf("check archive: %w", err)
+	listing, err := run(ctx, "pg_restore", []string{"--list", archive}, env)
+	if err != nil {
+		return fmt.Errorf("check archive: %w: %s", err, strings.TrimSpace(string(listing)))
 	}
 	if !live {
 		output, err := run(ctx, "psql", []string{"-AtX", "-v", "ON_ERROR_STOP=1", "-c", "SELECT count(*) FROM pg_tables WHERE schemaname NOT IN ('pg_catalog', 'information_schema')"}, env)
@@ -99,7 +100,20 @@ func restore(ctx context.Context, options RestoreOptions, live bool, run command
 	}
 	args := []string{"--exit-on-error", "--single-transaction", "--no-owner", "--no-acl"}
 	if live {
-		args = append(args, "--clean", "--if-exists")
+		list, err := os.CreateTemp(options.BackupDir, ".restore-history-*.list")
+		if err != nil {
+			return fmt.Errorf("create restore selection: %w", err)
+		}
+		defer os.Remove(list.Name())
+		_, writeErr := list.Write(preserveHistorySelection(listing))
+		closeErr := list.Close()
+		if writeErr != nil {
+			return fmt.Errorf("write restore selection: %w", writeErr)
+		}
+		if closeErr != nil {
+			return fmt.Errorf("close restore selection: %w", closeErr)
+		}
+		args = append(args, "--clean", "--if-exists", "--use-list="+list.Name())
 	}
 	args = append(args, "--dbname="+options.TargetDB, archive)
 	if err := runChecked(ctx, run, "pg_restore", args, env); err != nil {
@@ -114,6 +128,32 @@ func restore(ctx context.Context, options RestoreOptions, live bool, run command
 		}
 	}
 	return nil
+}
+
+func preserveHistorySelection(listing []byte) []byte {
+	lines := strings.Split(string(listing), "\n")
+	kept := make([]string, 0, len(lines))
+	for _, line := range lines {
+		fields := strings.Fields(line)
+		preserve := false
+		if len(fields) > 0 && !strings.HasPrefix(fields[0], ";") {
+			for i := 0; i+1 < len(fields); i++ {
+				if fields[i] == "public" {
+					switch fields[i+1] {
+					case "admin_audit_event", "admin_audit_event_id_seq", "idx_admin_audit_event_time":
+						preserve = true
+					}
+				}
+				if fields[i] == "SCHEMA" && (fields[i+1] == "public" || i+2 < len(fields) && fields[i+1] == "-" && fields[i+2] == "public") {
+					preserve = true
+				}
+			}
+		}
+		if !preserve {
+			kept = append(kept, line)
+		}
+	}
+	return []byte(strings.Join(kept, "\n"))
 }
 
 func runChecked(ctx context.Context, run commandRunner, name string, args, env []string) error {
