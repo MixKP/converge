@@ -1,6 +1,8 @@
 package web
 
 import (
+	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -53,4 +55,43 @@ func TestRecoveryHandlerUnavailable(t *testing.T) {
 		router.ServeHTTP(response, httptest.NewRequest(method, "/recovery/backups", nil))
 		require.Equal(t, http.StatusServiceUnavailable, response.Code)
 	}
+}
+
+func TestRecoveryHandlerMaintenance(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	service := backup.New(t.TempDir(), time.Hour, 7*24*time.Hour, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	handler := NewRecoveryHandler(service, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	router := gin.New()
+	router.Use(handler.Maintenance)
+	ok := func(c *gin.Context) { c.Status(http.StatusOK) }
+	router.GET("/api/branches", ok)
+	router.GET("/api/recovery/backups", ok)
+	router.POST("/api/recovery/restores", ok)
+	send := func(method, path string) *httptest.ResponseRecorder {
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, httptest.NewRequest(method, path, nil))
+		return response
+	}
+
+	require.Equal(t, http.StatusOK, send(http.MethodGet, "/api/branches").Code)
+
+	started := make(chan struct{})
+	release := make(chan struct{})
+	fetch := func(_ context.Context, _ io.Writer) (string, error) {
+		close(started)
+		<-release
+		return "", errors.New("download stopped")
+	}
+	require.NoError(t, service.RequestPreviewRestore("123", "APPLY WAL PREVIEW 123", fetch))
+	<-started
+	blocked := send(http.MethodGet, "/api/branches")
+	require.Equal(t, http.StatusServiceUnavailable, blocked.Code)
+	require.JSONEq(t, `{"error":"database restore is in progress"}`, blocked.Body.String())
+	require.Equal(t, http.StatusOK, send(http.MethodGet, "/api/recovery/backups").Code)
+	require.Equal(t, http.StatusOK, send(http.MethodPost, "/api/recovery/restores").Code)
+
+	close(release)
+	require.Eventually(t, func() bool {
+		return send(http.MethodGet, "/api/branches").Code == http.StatusOK
+	}, time.Second, 5*time.Millisecond)
 }

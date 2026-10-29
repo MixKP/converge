@@ -5,8 +5,12 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestRecoveryPreviewRequiresTokenAndPastTarget(t *testing.T) {
@@ -109,5 +113,57 @@ func TestPreparePreviewWAL(t *testing.T) {
 				t.Fatalf("got %d calls, expected %d", calls, tc.calls)
 			}
 		})
+	}
+}
+
+func fakeCommands(t *testing.T, scripts map[string]string) {
+	t.Helper()
+	bin := t.TempDir()
+	for name, body := range scripts {
+		if err := os.WriteFile(filepath.Join(bin, name), []byte("#!/bin/sh\n"+body+"\n"), 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+}
+
+func TestReadPhysicalStatus(t *testing.T) {
+	const info = `[{"archive":[{"max":"000000010000000000000005"}],"backup":[{"label":"20261029-010000F","error":false,"timestamp":{"stop":1790000000}},{"label":"20261029-020000F","error":true,"timestamp":{"stop":1790003600}}],"status":{"code":0,"message":"ok"}}]`
+	wantBackups := []physicalBackup{{Label: "20261029-010000F", CompletedAt: time.Unix(1790000000, 0).UTC()}}
+
+	fakeCommands(t, map[string]string{"pgbackrest": "echo '" + info + "'", "psql": "echo '1790000200|0'"})
+	status, err := readPhysicalStatus(context.Background())
+	if err != nil {
+		t.Fatalf("read status: %v", err)
+	}
+	if !reflect.DeepEqual(status.Backups, wantBackups) || status.ArchiveSegment != "000000010000000000000005" || status.LastFailedAt != nil || status.ArchiveStatusError != "" {
+		t.Fatalf("unexpected status: %+v", status)
+	}
+	if status.LastArchivedAt == nil || !status.LastArchivedAt.Equal(time.Date(2026, 9, 21, 14, 16, 40, 0, time.UTC)) {
+		t.Fatalf("unexpected last archived time: %v", status.LastArchivedAt)
+	}
+
+	fakeCommands(t, map[string]string{"pgbackrest": "echo '" + info + "'", "psql": "exit 1"})
+	status, err = readPhysicalStatus(context.Background())
+	if err != nil || !reflect.DeepEqual(status.Backups, wantBackups) || status.ArchiveSegment != "000000010000000000000005" || status.ArchiveStatusError != "PostgreSQL archiver status is unavailable" {
+		t.Fatalf("archiver unavailable: status=%+v err=%v", status, err)
+	}
+
+	fakeCommands(t, map[string]string{"pgbackrest": "echo '[]'"})
+	if _, err := readPhysicalStatus(context.Background()); err == nil || err.Error() != "pgBackRest stanza was not found" {
+		t.Fatalf("missing stanza: %v", err)
+	}
+}
+
+func TestWaitForPreviewRecovery(t *testing.T) {
+	fakeCommands(t, map[string]string{"psql": "echo f"})
+	if err := waitForPreviewRecovery(context.Background()); err != nil {
+		t.Fatalf("finished recovery: %v", err)
+	}
+
+	fakeCommands(t, map[string]string{"psql": "echo 'psql: connection refused'; exit 2", "pg_ctl": "exit 3"})
+	err := waitForPreviewRecovery(context.Background())
+	if err == nil || !strings.HasPrefix(err.Error(), "preview database stopped before recovery completed: psql:") {
+		t.Fatalf("stopped preview: %v", err)
 	}
 }
