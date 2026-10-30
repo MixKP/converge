@@ -167,3 +167,59 @@ func TestWaitForPreviewRecovery(t *testing.T) {
 		t.Fatalf("stopped preview: %v", err)
 	}
 }
+
+func TestAuthorizeRequiresBearerToken(t *testing.T) {
+	s := &recoveryServer{token: "test-token"}
+	handler := s.authorize(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+	for _, tc := range []struct {
+		name   string
+		header string
+		want   int
+	}{
+		{"CorrectToken", "Bearer test-token", http.StatusNoContent},
+		{"WrongToken", "Bearer wrong", http.StatusUnauthorized},
+		{"MissingHeader", "", http.StatusUnauthorized},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodGet, "/status", nil)
+			if tc.header != "" {
+				request.Header.Set("Authorization", tc.header)
+			}
+			response := httptest.NewRecorder()
+			handler(response, request)
+			if response.Code != tc.want {
+				t.Fatalf("got %d, want %d", response.Code, tc.want)
+			}
+		})
+	}
+}
+
+func TestRestorePreviewStopsWhenWALCannotBePrepared(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		psql       string
+		pgbackrest string
+	}{
+		{"UnexpectedRecoveryState", "echo x", "exit 0"},
+		{"ArchiveCheckFails", "echo f", "echo archive check failed; exit 1"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			calls := filepath.Join(t.TempDir(), "calls")
+			fakeCommands(t, map[string]string{
+				"psql":       tc.psql,
+				"pgbackrest": `echo "pgbackrest $*" >> ` + calls + "\n" + tc.pgbackrest,
+				"pg_ctl":     `echo "pg_ctl $*" >> ` + calls,
+			})
+			counts, events, comparison, err := restorePreview(context.Background(), time.Date(2026, time.October, 18, 12, 0, 0, 0, time.UTC), 0, time.Time{}, "")
+			if !errors.Is(err, errPreviewArchiveUnavailable) || counts != nil || events != nil || comparison != "" {
+				t.Fatalf("unexpected result: %v %v %q %v", counts, events, comparison, err)
+			}
+			ran, _ := os.ReadFile(calls)
+			if strings.Contains(string(ran), "restore") || strings.Contains(string(ran), "pg_ctl") {
+				t.Fatalf("preview restore ran: %s", ran)
+			}
+		})
+	}
+}

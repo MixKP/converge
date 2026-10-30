@@ -26,3 +26,5 @@ deploy/postgres-backup/.backup-setup.*/
 !.env.silo.example
 silo-public.crt
 silo-public.crt.*
+private.key
+public.crt

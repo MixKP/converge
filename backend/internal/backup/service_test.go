@@ -301,3 +301,49 @@ func TestRestoreLiveArchiveRunsSetupAfterRestore(t *testing.T) {
 	require.EqualError(t, err, "read backup checksum: open "+filepath.Join(dir, "missing.dump.sha256")+": no such file or directory")
 	require.Equal(t, int32(2), hookCalls.Load())
 }
+
+func TestEnterRequest(t *testing.T) {
+	newService := func() *Service {
+		return New(t.TempDir(), time.Hour, 7*24*time.Hour, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	}
+	t.Run("Idle", func(t *testing.T) {
+		s := newService()
+		require.True(t, s.EnterRequest())
+		s.LeaveRequest()
+	})
+	t.Run("Restoring", func(t *testing.T) {
+		s := newService()
+		s.restoring.Store(true)
+		require.False(t, s.EnterRequest())
+	})
+	t.Run("GateHeldByRestore", func(t *testing.T) {
+		s := newService()
+		s.gate.Lock()
+		defer s.gate.Unlock()
+		require.False(t, s.EnterRequest())
+	})
+}
+
+func TestLeaveRequest(t *testing.T) {
+	newService := func() *Service {
+		return New(t.TempDir(), time.Hour, 7*24*time.Hour, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	}
+	t.Run("ReleasesGate", func(t *testing.T) {
+		s := newService()
+		require.True(t, s.EnterRequest())
+		require.False(t, s.gate.TryLock())
+		s.LeaveRequest()
+		require.True(t, s.gate.TryLock())
+		s.gate.Unlock()
+	})
+	t.Run("KeepsOtherRequests", func(t *testing.T) {
+		s := newService()
+		require.True(t, s.EnterRequest())
+		require.True(t, s.EnterRequest())
+		s.LeaveRequest()
+		require.False(t, s.gate.TryLock())
+		s.LeaveRequest()
+		require.True(t, s.gate.TryLock())
+		s.gate.Unlock()
+	})
+}
