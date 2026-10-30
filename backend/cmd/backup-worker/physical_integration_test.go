@@ -324,9 +324,11 @@ log-level-file=off
 	}, nil))
 	_, err = database.Exec(`INSERT INTO branches (name, capacity) VALUES ('to be removed', 30)`)
 	require.NoError(t, err)
-	const auditSnapshot = `SELECT COALESCE(json_agg(row_to_json(events) ORDER BY id), '[]'::json)::text FROM admin_audit_event events`
+	const auditSnapshot = `SELECT COALESCE(json_agg(row_to_json(events) ORDER BY id), '[]'::json)::text FROM (SELECT * FROM admin_audit_event WHERE id <= $1) events`
 	var historyBeforeApply string
-	require.NoError(t, database.QueryRow(auditSnapshot).Scan(&historyBeforeApply))
+	var lastApplyEventID int64
+	require.NoError(t, database.QueryRow(`SELECT max(id) FROM admin_audit_event`).Scan(&lastApplyEventID))
+	require.NoError(t, database.QueryRow(auditSnapshot, lastApplyEventID).Scan(&historyBeforeApply))
 	t.Setenv("DB_HOST", host)
 	t.Setenv("DB_PORT", port.Port())
 	t.Setenv("POSTGRES_USER", "test")
@@ -366,8 +368,13 @@ log-level-file=off
 	require.NoError(t, err)
 	require.Empty(t, applyStatus.RestoreError)
 	var historyAfterApply string
-	require.NoError(t, database.QueryRow(auditSnapshot).Scan(&historyAfterApply))
+	require.NoError(t, database.QueryRow(auditSnapshot, lastApplyEventID).Scan(&historyAfterApply))
 	require.JSONEq(t, historyBeforeApply, historyAfterApply, "applying an older WAL preview must not remove the recovery history")
+	var appliedRestores int
+	require.NoError(t, database.QueryRow(
+		`SELECT count(*) FROM admin_audit_event WHERE id > $1 AND resource = 'database' AND operation = 'restore'`, lastApplyEventID,
+	).Scan(&appliedRestores))
+	require.Equal(t, 1, appliedRestores, "applying a WAL preview must be recorded as a change so later previews can detect it")
 	require.NoError(t, database.QueryRow(`SELECT count(*) FROM branches`).Scan(&liveCount))
 	require.Equal(t, 2, liveCount)
 

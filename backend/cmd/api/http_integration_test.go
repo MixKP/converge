@@ -384,6 +384,7 @@ func TestApplicationHTTPWithPostgres(t *testing.T) {
 	_, err = database.Exec("INSERT INTO branches (name, capacity) VALUES ('after-logical-backup', 30)")
 	require.NoError(t, err)
 	const auditSnapshot = `SELECT COALESCE(json_agg(row_to_json(events) ORDER BY id), '[]'::json)::text FROM admin_audit_event events`
+	const auditSnapshotUpTo = `SELECT COALESCE(json_agg(row_to_json(events) ORDER BY id), '[]'::json)::text FROM (SELECT * FROM admin_audit_event WHERE id <= $1) events`
 	var historyBefore string
 	var lastEventID int64
 	require.NoError(t, database.QueryRow(auditSnapshot).Scan(&historyBefore))
@@ -426,16 +427,20 @@ func TestApplicationHTTPWithPostgres(t *testing.T) {
 	require.NoError(t, database.QueryRow("SELECT count(*) FROM branches WHERE name='after-logical-backup'").Scan(&laterRows))
 	require.Zero(t, laterRows)
 	var historyAfter string
-	require.NoError(t, database.QueryRow(auditSnapshot).Scan(&historyAfter))
+	require.NoError(t, database.QueryRow(auditSnapshotUpTo, lastEventID).Scan(&historyAfter))
 	require.JSONEq(t, historyBefore, historyAfter, "restore must preserve every recorded change, including changes after the selected backup")
 	var timeline struct {
 		Events []struct {
-			ID int64 `json:"id"`
+			ID        int64  `json:"id"`
+			Resource  string `json:"resource"`
+			Operation string `json:"operation"`
 		} `json:"events"`
 	}
 	require.NoError(t, json.Unmarshal(request("GET", "/api/recovery/timeline", nil, admin.Token, 200), &timeline))
-	require.NotEmpty(t, timeline.Events)
-	require.Equal(t, lastEventID, timeline.Events[0].ID)
+	require.GreaterOrEqual(t, len(timeline.Events), 2)
+	require.Equal(t, "database", timeline.Events[0].Resource, "restoring live data must be recorded as a change")
+	require.Equal(t, "restore", timeline.Events[0].Operation)
+	require.Equal(t, lastEventID, timeline.Events[1].ID)
 	_, err = database.Exec("UPDATE branches SET capacity=25 WHERE id=$1", branch.ID)
 	require.NoError(t, err)
 	var nextEventID int64
@@ -473,13 +478,14 @@ func TestApplicationHTTPWithPostgres(t *testing.T) {
 	_, err = database.Exec("UPDATE branches SET capacity=35 WHERE id=$1", branch.ID)
 	require.NoError(t, err)
 	require.NoError(t, database.QueryRow(auditSnapshot).Scan(&historyBefore))
+	require.NoError(t, database.QueryRow("SELECT max(id) FROM admin_audit_event").Scan(&lastEventID))
 	options.BackupName = legacyName
 	options.Confirmation = "RESTORE LIVE DATA from " + legacyName
 	require.NoError(t, backup.RestoreLive(ctx, options))
 	require.NoError(t, db.RecoverAfterLiveRestore(database))
 	require.NoError(t, database.QueryRow("SELECT capacity FROM branches WHERE id=$1", branch.ID).Scan(&capacity))
 	require.Equal(t, 25, capacity)
-	require.NoError(t, database.QueryRow(auditSnapshot).Scan(&historyAfter))
+	require.NoError(t, database.QueryRow(auditSnapshotUpTo, lastEventID).Scan(&historyAfter))
 	require.JSONEq(t, historyBefore, historyAfter)
 	require.NoError(t, database.QueryRow("SELECT max(id) FROM admin_audit_event").Scan(&lastEventID))
 	_, err = database.Exec("UPDATE branches SET capacity=45 WHERE id=$1", branch.ID)

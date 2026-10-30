@@ -21,7 +21,7 @@ test-integration:
 	  GOOS=linux GOARCH=$$(docker image inspect converge-postgres-backup:local --format '{{.Architecture}}') CGO_ENABLED=0 go build -o "$$workdir/worker" ./cmd/backup-worker; \
 	  printf 'FROM converge-postgres-backup:local\nCOPY worker /usr/local/bin/converge-backup-worker\n' > "$$workdir/Dockerfile"; \
 	  docker build -t converge-postgres-backup:integration "$$workdir"; \
-	  PATH="$(if $(PG_BIN),$(PG_BIN):)$$PATH" CONVERGE_PHYSICAL_DRILL=1 go test -tags=integration ./... -v -count=1
+	  PATH="$(if $(PG_BIN),$(PG_BIN):)$$PATH" CONVERGE_PHYSICAL_DRILL=1 go test -tags=integration ./... -v -count=1 -p 1
 
 lint:
 	golangci-lint run ./...

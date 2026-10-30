@@ -234,6 +234,11 @@ func RecoverAfterLiveRestore(database *sql.DB) error {
 	if err := AutoMigrate(database); err != nil {
 		return fmt.Errorf("prepare restored schema: %w", err)
 	}
+	if _, err := database.Exec(
+		`INSERT INTO admin_audit_event (resource, operation, row_key) VALUES ('database', 'restore', '')`,
+	); err != nil {
+		return fmt.Errorf("record restore in change history: %w", err)
+	}
 	return nil
 }
 

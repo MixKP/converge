@@ -119,6 +119,9 @@
     dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Bangkok',
   }).format(new Date(value)) + ' ICT'
 
+  const describeEvent = (event: AuditEvent) =>
+    `${event.operation} ${event.resource.replaceAll('_', ' ')}${event.row_key ? ` #${event.row_key}` : ''}`
+
   const beforeFirstBackup = (event: AuditEvent) => {
     const first = timeline.value?.physical?.backups[0]?.completed_at
     return !first || new Date(event.occurred_at).getTime() < new Date(first).getTime()
@@ -315,7 +318,7 @@
                 <ul v-else class="mt-3 max-h-96 space-y-2 overflow-y-auto">
                   <li v-for="event in timeline.events" :key="event.id">
                     <button type="button" class="border-border hover:bg-muted/50 w-full rounded-md border p-3 text-left text-sm disabled:cursor-not-allowed disabled:opacity-60" :class="selectedEvent?.id === event.id ? 'border-primary bg-muted/50' : ''" :disabled="!!timeline.physical_error || isRequestingPreview || preview?.state === 'running'" @click="previewEvent(event, 'after')">
-                      <span class="block capitalize">{{ event.operation }} {{ event.resource.replaceAll('_', ' ') }} #{{ event.row_key }}</span>
+                      <span class="block capitalize">{{ describeEvent(event) }}</span>
                       <span class="text-muted-foreground block text-xs">{{ localTime(event.occurred_at) }}<span v-if="event.changed_fields.length"> · {{ event.changed_fields.join(', ') }}</span></span>
                       <span v-if="beforeFirstBackup(event)" class="text-destructive block text-xs">Before first physical backup</span>
                     </button>
@@ -324,7 +327,7 @@
                 <Button v-if="hasMoreEvents && timeline.events.length >= 100" class="mt-3" variant="outline" :disabled="isLoadingMore" @click="loadMoreEvents">Load older changes</Button>
               </div>
               <div v-if="selectedEvent" class="border-border rounded-md border p-3 text-sm">
-                <p class="font-medium capitalize">{{ selectedEvent.operation }} {{ selectedEvent.resource.replaceAll('_', ' ') }} #{{ selectedEvent.row_key }}</p>
+                <p class="font-medium capitalize">{{ describeEvent(selectedEvent) }}</p>
                 <p class="text-muted-foreground text-xs">{{ localTime(selectedEvent.occurred_at) }}</p>
                 <div class="mt-3 flex gap-2">
                   <Button size="sm" :variant="selectedPosition === 'after' ? 'default' : 'outline'" :disabled="isRequestingPreview || preview?.state === 'running'" @click="previewEvent(selectedEvent, 'after')">After this change</Button>
@@ -356,7 +359,7 @@
                 <p v-if="preview.comparison_error" class="text-destructive mt-2">{{ preview.comparison_error }}</p>
                 <p v-else-if="preview.absent_events?.length" class="mt-2 font-medium">Changes absent from this preview, among the latest 100 live changes at preview time:</p>
                 <ul v-if="preview.absent_events?.length" class="list-inside list-disc">
-                  <li v-for="event in preview.absent_events" :key="event.id" class="capitalize">{{ event.operation }} {{ event.resource.replaceAll('_', ' ') }} #{{ event.row_key }} · {{ localTime(event.occurred_at) }}</li>
+                  <li v-for="event in preview.absent_events" :key="event.id" class="capitalize">{{ describeEvent(event) }} · {{ localTime(event.occurred_at) }}</li>
                 </ul>
                 <p v-if="!preview.comparison_error && !preview.absent_events?.length" class="mt-2">No differences found among the latest 100 live changes at preview time.</p>
                 <p class="text-muted-foreground text-xs">Older changes may also differ. The comparison is a snapshot taken when the preview finished.</p>

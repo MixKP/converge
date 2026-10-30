@@ -31,23 +31,30 @@ func TestAuditRecordsCommittedChangesOnly(t *testing.T) {
 	require.Equal(t, "capacity", field)
 }
 
-func TestRecoverAfterLiveRestorePreservesHistoryAndRepairsTriggers(t *testing.T) {
+func TestRecoverAfterLiveRestoreRecordsRestorePreservesHistoryAndRepairsTriggers(t *testing.T) {
 	database := setupTestDB(t)
 	_, err := database.Exec(`INSERT INTO branches (name, capacity) VALUES ('restored', 10)`)
 	require.NoError(t, err)
 	require.NoError(t, RecoverAfterLiveRestore(database))
 	var count int
 	require.NoError(t, database.QueryRow(`SELECT count(*) FROM admin_audit_event`).Scan(&count))
+	require.Equal(t, 2, count)
+	var resource, operation, rowKey string
+	require.NoError(t, database.QueryRow(`SELECT resource, operation, row_key FROM admin_audit_event ORDER BY id DESC LIMIT 1`).Scan(&resource, &operation, &rowKey))
+	require.Equal(t, "database", resource)
+	require.Equal(t, "restore", operation)
+	require.Empty(t, rowKey)
+	require.NoError(t, database.QueryRow(`SELECT count(*) FROM admin_audit_event WHERE resource = 'branches'`).Scan(&count))
 	require.Equal(t, 1, count)
 
 	_, err = database.Exec(`DROP TRIGGER admin_data_change ON branches`)
 	require.NoError(t, err)
 	require.NoError(t, RecoverAfterLiveRestore(database))
 	require.NoError(t, database.QueryRow(`SELECT count(*) FROM admin_audit_event`).Scan(&count))
-	require.Equal(t, 1, count)
+	require.Equal(t, 3, count)
 
 	_, err = database.Exec(`UPDATE branches SET capacity = 20 WHERE name = 'restored'`)
 	require.NoError(t, err)
 	require.NoError(t, database.QueryRow(`SELECT count(*) FROM admin_audit_event`).Scan(&count))
-	require.Equal(t, 2, count)
+	require.Equal(t, 4, count)
 }
